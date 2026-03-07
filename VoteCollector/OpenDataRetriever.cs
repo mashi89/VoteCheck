@@ -56,7 +56,14 @@ namespace MaSHi {
         private static int counter = 0;
         private static int saveCounter = 0;
         private static JObject o;
+        private static readonly HttpClient _httpClient = CreateHttpClient();
         #endregion Variables
+
+        private static HttpClient CreateHttpClient() {
+            var client = new HttpClient();
+            client.DefaultRequestHeaders.Add( "User-Agent", "VoteCheck/1.0" );
+            return client;
+        }
 
         public static void Main() {
 
@@ -70,7 +77,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestys";
 
             // Create url structure
-            baseUrl = "http://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName="+ type + "&columnValue=" + year;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName="+ type + "&columnValue=" + year;
 
             // Read data and form finalTable
             try
@@ -204,7 +211,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysJakauma";
 
             // Create url structure
-            baseUrl = "http://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=AanestysId&columnValue=" + votingId;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=AanestysId&columnValue=" + votingId;
 
             // Read data and form finalTable
             try
@@ -231,7 +238,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysEdustaja";
 
             // Create url structure
-            baseUrl = "http://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + type + "&columnValue=" + inputName;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + type + "&columnValue=" + inputName;
    
             // Read data and form finalTable
             try {
@@ -255,7 +262,7 @@ namespace MaSHi {
             DataTable votingTable = null;
 
             // Create url structure
-            baseUrl = "http://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=AanestysId&columnValue=" + votingNbr;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=AanestysId&columnValue=" + votingNbr;
 
             // Read data and form finalTable
             try
@@ -282,13 +289,14 @@ namespace MaSHi {
 
             // Get async data
             try {
-                json = GetDataAsync( dataUrl ).Result;
+                json = GetDataAsync( dataUrl ).GetAwaiter().GetResult();
             } catch ( Exception ex ) {
                 System.Console.WriteLine(ex.Message);
+                throw;
             }
 
-            // Check for null
-            if ( json != "" ) {
+            // Check for null or empty
+            if ( !string.IsNullOrEmpty( json ) ) {
 
                 o = JObject.Parse( json );
                 var check = o.SelectToken("hasMore");
@@ -408,14 +416,8 @@ namespace MaSHi {
         // Http get string from url
         private static async Task<string> GetDataAsync(string url) {
 
-            var result = "";
+            return await _httpClient.GetStringAsync( url ).ConfigureAwait( false );
 
-            using ( var httpClient = new HttpClient() ) {
-
-                result = await httpClient.GetStringAsync( url );   
-
-            }
-            return result;
         }
         #endregion Private methods
 
