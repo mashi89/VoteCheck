@@ -45,10 +45,11 @@ namespace WPFGUI {
             inputName = char.ToUpper( inputName[0] ) + inputName.Substring( 1 );
 
             int queryCount = GetQueryCount();
+            bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
             DataTable? result = null;
             try {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCombinedData(
-                    inputName, !cbSwedish.IsChecked.GetValueOrDefault(), queryCount * 2, "EdustajaSukunimi" ) );
+                    inputName, !isSwedish, queryCount * 2, "EdustajaSukunimi" ) );
             } catch ( Exception ex ) {
                 MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                 return;
@@ -79,11 +80,12 @@ namespace WPFGUI {
 
             int queryCount = GetQueryCount();
             string inputYear = tbYear.Text.Trim();
+            bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
 
             DataTable? result = null;
             try {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetVotingData(
-                    inputYear, !cbSwedish.IsChecked.GetValueOrDefault(), queryCount * 2, "IstuntoVPVuosi" ) );
+                    inputYear, !isSwedish, queryCount * 2, "IstuntoVPVuosi" ) );
             } catch ( Exception ex ) {
                 MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                 return;
@@ -133,10 +135,11 @@ namespace WPFGUI {
             string? votingId = row["AanestysId"]?.ToString();
             if ( string.IsNullOrEmpty( votingId ) ) return;
 
+            bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
             DataTable? result = null;
             try {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetPartyDistData(
-                    votingId, !cbSwedish.IsChecked.GetValueOrDefault(), "AanestysId" ) );
+                    votingId, !isSwedish, "AanestysId" ) );
             } catch ( Exception ex ) {
                 MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                 return;
@@ -175,6 +178,7 @@ namespace WPFGUI {
             view.Sort = "";
 
             dataGrid.ItemsSource = null;
+            dataGrid.Columns.Clear();
             dataGrid.ItemsSource = view;
 
             // Apply sort if column index is valid
