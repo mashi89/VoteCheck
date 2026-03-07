@@ -285,6 +285,8 @@ namespace MaSHi {
         private static DataTable ReadData(string dataUrl, bool skipEven, bool voting) {
 
             // Initialize
+            counter = 0;
+            saveCounter = 0;
             DataTable tempTable = null;
 
             // Get async data
