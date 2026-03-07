@@ -282,13 +282,13 @@ namespace MaSHi {
 
             // Get async data
             try {
-                json = GetDataAsync( dataUrl ).Result;
+                json = GetDataAsync( dataUrl ).GetAwaiter().GetResult();
             } catch ( Exception ex ) {
                 System.Console.WriteLine(ex.Message);
             }
 
-            // Check for null
-            if ( json != "" ) {
+            // Check for null or empty
+            if ( !string.IsNullOrEmpty( json ) ) {
 
                 o = JObject.Parse( json );
                 var check = o.SelectToken("hasMore");
@@ -412,7 +412,8 @@ namespace MaSHi {
 
             using ( var httpClient = new HttpClient() ) {
 
-                result = await httpClient.GetStringAsync( url );   
+                httpClient.DefaultRequestHeaders.Add( "User-Agent", "Mozilla/5.0 (compatible)" );
+                result = await httpClient.GetStringAsync( url ).ConfigureAwait( false );   
 
             }
             return result;
