@@ -166,7 +166,7 @@ namespace MaSHi {
             DataTable edustajaTable = null;
             string dbName = "SaliDBAanestysEdustaja";
 
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=200&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=100&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
 
             try
             {
@@ -324,8 +324,18 @@ namespace MaSHi {
             if ( !string.IsNullOrEmpty( json ) ) {
 
                 o = JObject.Parse( json );
+
+                // Check for API-level error response
+                var errorToken = o.SelectToken("message");
+                if (errorToken != null) {
+                    throw new Exception("API error: " + errorToken.ToString());
+                }
+
                 var check = o.SelectToken("hasMore");
                 // Check if there is more available
+                if (check == null) {
+                    throw new Exception("Unexpected response format: 'hasMore' field missing.");
+                }
                 if (check.ToString() == "True")
                 {
                     hasMore = true;
