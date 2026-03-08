@@ -56,7 +56,8 @@ namespace MaSHi {
         private static int counter = 0;
         private static int saveCounter = 0;
         private static JObject o;
-        private static readonly HttpClient _httpClient = CreateHttpClient();
+        // Not readonly so that unit tests can substitute a mock HttpClient via reflection.
+        private static HttpClient _httpClient = CreateHttpClient();
         #endregion Variables
 
         private static HttpClient CreateHttpClient() {
