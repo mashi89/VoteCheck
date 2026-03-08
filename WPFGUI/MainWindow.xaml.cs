@@ -214,18 +214,20 @@ namespace WPFGUI {
                 return;
             }
 
-            // Bold winning-vote columns
+            // Bold winning-vote columns only when the helper columns exist in the table
             if ( e.PropertyName == "Jaa" || e.PropertyName == "Ei" ) {
                 string helperCol = ( e.PropertyName == "Jaa" ) ? ColJaaBold : ColEiBold;
 
-                var style = new Style( typeof( DataGridCell ) );
-                var trigger = new DataTrigger {
-                    Binding = new Binding( "[" + helperCol + "]" ),
-                    Value   = true
-                };
-                trigger.Setters.Add( new Setter( FontWeightProperty, FontWeights.Bold ) );
-                style.Triggers.Add( trigger );
-                e.Column.CellStyle = style;
+                if ( newDataTable != null && newDataTable.Columns.Contains( helperCol ) ) {
+                    var style = new Style( typeof( DataGridCell ) );
+                    var trigger = new DataTrigger {
+                        Binding = new Binding( "[" + helperCol + "]" ),
+                        Value   = true
+                    };
+                    trigger.Setters.Add( new Setter( FontWeightProperty, FontWeights.Bold ) );
+                    style.Triggers.Add( trigger );
+                    e.Column.CellStyle = style;
+                }
             }
         }
 

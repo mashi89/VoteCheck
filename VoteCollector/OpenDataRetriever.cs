@@ -78,7 +78,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestys";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName="+ type + "&columnValue=" + year;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(year);
 
             // Read data and form finalTable
             try
@@ -166,7 +166,7 @@ namespace MaSHi {
             DataTable edustajaTable = null;
             string dbName = "SaliDBAanestysEdustaja";
 
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=200&page=0&columnName=AanestysId&columnValue=" + votingId;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=200&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
 
             try
             {
@@ -234,7 +234,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysJakauma";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=AanestysId&columnValue=" + votingId;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
 
             // Read data and form finalTable
             try
@@ -261,7 +261,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysEdustaja";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + type + "&columnValue=" + inputName;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
    
             // Read data and form finalTable
             try {
@@ -285,7 +285,7 @@ namespace MaSHi {
             DataTable votingTable = null;
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=AanestysId&columnValue=" + votingNbr;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingNbr);
 
             // Read data and form finalTable
             try
@@ -441,7 +441,23 @@ namespace MaSHi {
         // Http get string from url
         private static async Task<string> GetDataAsync(string url) {
 
-            return await _httpClient.GetStringAsync( url ).ConfigureAwait( false );
+            System.Console.WriteLine($"[HTTP Request] URL: {url}");
+            System.Console.WriteLine($"[HTTP Request] URL Length: {url.Length}");
+            
+            try {
+                var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+                System.Console.WriteLine($"[HTTP Response] Status Code: {response.StatusCode}");
+                
+                if (!response.IsSuccessStatusCode) {
+                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    System.Console.WriteLine($"[HTTP Response] Error Content: {content}");
+                }
+                
+                return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            } catch (Exception ex) {
+                System.Console.WriteLine($"[HTTP Exception] {ex.GetType().Name}: {ex.Message}");
+                throw;
+            }
 
         }
         #endregion Private methods
