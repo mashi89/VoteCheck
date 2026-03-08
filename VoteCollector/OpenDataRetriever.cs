@@ -78,7 +78,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestys";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName="+ type + "&columnValue=" + year;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(year);
 
             // Read data and form finalTable
             try
@@ -160,6 +160,28 @@ namespace MaSHi {
             return finalTable;
         }
 
+        // GetEdustajaData fetches individual MP votes from SaliDBAanestysEdustaja for a given AanestysId
+        public static DataTable GetEdustajaData(string votingId, bool skipEven)
+        {
+            DataTable edustajaTable = null;
+            string dbName = "SaliDBAanestysEdustaja";
+
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=100&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
+
+            try
+            {
+                edustajaTable = ReadData(baseUrl, skipEven, false);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            edustajaTable.Columns.Remove("Imported");
+
+            return edustajaTable;
+        }
+
         // GetCombined data should seek for MP votes with vote subjects visible
         // This method makes two different queries and combines them in one table
         public static DataTable GetCombinedData(string inputName, bool skipEven, int count, string type)
@@ -212,7 +234,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysJakauma";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=AanestysId&columnValue=" + votingId;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
 
             // Read data and form finalTable
             try
@@ -239,7 +261,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysEdustaja";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + type + "&columnValue=" + inputName;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
    
             // Read data and form finalTable
             try {
@@ -263,7 +285,7 @@ namespace MaSHi {
             DataTable votingTable = null;
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=AanestysId&columnValue=" + votingNbr;
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingNbr);
 
             // Read data and form finalTable
             try
@@ -302,8 +324,18 @@ namespace MaSHi {
             if ( !string.IsNullOrEmpty( json ) ) {
 
                 o = JObject.Parse( json );
+
+                // Check for API-level error response
+                var errorToken = o.SelectToken("message");
+                if (errorToken != null) {
+                    throw new Exception("API error: " + errorToken.ToString());
+                }
+
                 var check = o.SelectToken("hasMore");
                 // Check if there is more available
+                if (check == null) {
+                    throw new Exception("Unexpected response format: 'hasMore' field missing.");
+                }
                 if (check.ToString() == "True")
                 {
                     hasMore = true;
@@ -419,7 +451,23 @@ namespace MaSHi {
         // Http get string from url
         private static async Task<string> GetDataAsync(string url) {
 
-            return await _httpClient.GetStringAsync( url ).ConfigureAwait( false );
+            System.Console.WriteLine($"[HTTP Request] URL: {url}");
+            System.Console.WriteLine($"[HTTP Request] URL Length: {url.Length}");
+            
+            try {
+                var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+                System.Console.WriteLine($"[HTTP Response] Status Code: {response.StatusCode}");
+                
+                if (!response.IsSuccessStatusCode) {
+                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    System.Console.WriteLine($"[HTTP Response] Error Content: {content}");
+                }
+                
+                return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            } catch (Exception ex) {
+                System.Console.WriteLine($"[HTTP Exception] {ex.GetType().Name}: {ex.Message}");
+                throw;
+            }
 
         }
         #endregion Private methods

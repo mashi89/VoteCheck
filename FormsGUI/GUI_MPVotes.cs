@@ -114,8 +114,43 @@ namespace FormsGUI {
             }
         }
 
-        private void btnBack_MouseClick(object sender, MouseEventArgs e)
+        private void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
+            if (dgStatus != "Puoluejakaumahaku") return;
+            if (dataGridView1.SelectedCells.Count == 0) return;
+
+            bool searchFailure = false;
+            var selectedCell = dataGridView1.SelectedCells[0];
+
+            int columnNbr = newDataTable.Columns.IndexOf("AanestysId");
+            var votingId = dataGridView1[columnNbr, selectedCell.RowIndex].FormattedValue;
+            string inputName = votingId.ToString();
+
+            var t = Task.Run(() => MaSHi.OpenDataRetriever.GetEdustajaData(inputName, !cbSwedish.Checked));
+
+            try
+            {
+                t.Wait();
+            }
+            catch (Exception ex)
+            {
+                searchFailure = true;
+                MessageBox.Show(ex.Message, "Error during search", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            if (!searchFailure)
+            {
+                oldDataTable = newDataTable;
+                newDataTable = t.Result;
+
+                dgStatus = "Edustajahaku";
+                dataGridView1.DataSource = newDataTable;
+                dataGridView1.AutoResizeColumns();
+                dataGridView1.Sort(dataGridView1.Columns[3], ListSortDirection.Ascending);
+            }
+        }
+
+        private void btnBack_MouseClick(object sender, MouseEventArgs e)        {
             if ( oldDataTable != null )
             {
                 var tempTable = oldDataTable;
