@@ -1,0 +1,123 @@
+{
+    "page": 0,
+    "perPage": 10,
+    "hasMore": true,
+    "tableName": "SaliDBAanestysEdustaja",
+    "columnNames": [
+        "EdustajaId",
+        "AanestysId",
+        "EdustajaEtunimi",
+        "EdustajaSukunimi",
+        "EdustajaHenkiloNumero",
+        "EdustajaRyhmaLyhenne",
+        "EdustajaAanestys",
+        "Imported"
+    ],
+    "rowData": [
+        [
+            "2745050",
+            "13301",
+            "Markus",
+            "Aaltonen",
+            "102",
+            "sd        ",
+            "Poissa              ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745051",
+            "13301",
+            "Esko",
+            "Aho",
+            "104",
+            "kesk      ",
+            "Ei                  ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745052",
+            "13301",
+            "Sulo",
+            "Aittoniemi",
+            "107",
+            "kesk      ",
+            "Ei                  ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745053",
+            "13301",
+            "Kirsti",
+            "Ala-Harja",
+            "113",
+            "kok       ",
+            "Jaa                 ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745054",
+            "13301",
+            "Olavi",
+            "Ala-Nissilä",
+            "392",
+            "kesk      ",
+            "Ei                  ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745055",
+            "13301",
+            "Juhani",
+            "Alaranta",
+            "117",
+            "kesk      ",
+            "Ei                  ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745056",
+            "13301",
+            "Arja",
+            "Alho",
+            "111",
+            "sd        ",
+            "Jaa                 ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745057",
+            "13301",
+            "Claes",
+            "Andersson",
+            "121",
+            "vas       ",
+            "Jaa                 ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745058",
+            "13301",
+            "Janina",
+            "Andersson",
+            "446",
+            "vihr      ",
+            "Jaa                 ",
+            "2018-02-05 11:49:36.328432"
+        ],
+        [
+            "2745059",
+            "13301",
+            "Sirkka-Liisa",
+            "Anttila",
+            "127",
+            "kesk      ",
+            "Poissa              ",
+            "2018-02-05 11:49:36.328432"
+        ]
+    ],
+    "columnCount": 8,
+    "rowCount": 10,
+    "pkName": "EdustajaId",
+    "pkStartValue": null,
+    "pkLastValue": null
+}
