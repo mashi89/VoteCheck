@@ -193,11 +193,11 @@ namespace VoteCollectorTests
         public const string SaliDBAanestysJakauma_TwoRows = @"{
   ""page"": 0, ""perPage"": 10, ""hasMore"": false,
   ""tableName"": ""SaliDBAanestysJakauma"",
-  ""columnNames"": [""JakaumaId"",""AanestysId"",""Tyyppi"",""Ryhmalyhenne"",
+  ""columnNames"": [""JakaumaId"",""AanestysId"",""Tyyppi"",""Ryhma"",
                     ""Jaa"",""Ei"",""Tyhja"",""Poissa"",""YhteensaAanestaneet"",""Imported""],
   ""rowData"": [
-    [""1"",""13260"",""A"",""kesk"",""50"",""10"",""2"",""5"",""67"",""2018-06-02 10:14:00""],
-    [""2"",""13260"",""A"",""kok"", ""40"",""20"",""3"",""4"",""67"",""2018-06-02 10:14:00""]
+    [""1"",""13260"",""A"",""Keskustan eduskuntaryhmä"",""50"",""10"",""2"",""5"",""67"",""2018-06-02 10:14:00""],
+    [""2"",""13260"",""A"",""Kansallisen kokoomuksen eduskuntaryhmä"", ""40"",""20"",""3"",""4"",""67"",""2018-06-02 10:14:00""]
   ],
   ""columnCount"": 10, ""rowCount"": 2,
   ""pkName"": ""JakaumaId"", ""pkStartValue"": null, ""pkLastValue"": null
@@ -632,7 +632,7 @@ namespace VoteCollectorTests
                 "13260", skipEven: false, type: "AanestysId");
 
             Assert.IsNotNull(result);
-            Assert.IsTrue(result!.Columns.Contains("Ryhmalyhenne"),       "Ryhmalyhenne");
+            Assert.IsTrue(result!.Columns.Contains("Ryhma"),              "Ryhma");
             Assert.IsTrue(result.Columns.Contains("Jaa"),                 "Jaa");
             Assert.IsTrue(result.Columns.Contains("Ei"),                  "Ei");
             Assert.IsTrue(result.Columns.Contains("Tyhja"),               "Tyhja");
@@ -792,7 +792,7 @@ namespace VoteCollectorTests
         public void GetEdustajaData_PartyFilter_TrimsWhitespaceBeforeComparing()
         {
             // EdustajaRyhmaLyhenne in real API data comes with trailing spaces (e.g. "sd        ").
-            // The filter value from Ryhmalyhenne is typically already trimmed, but we handle both.
+            // The filter value from Ryhma is typically already trimmed, but we handle both.
             TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
 
             var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "  kesk  ");
