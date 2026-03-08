@@ -169,6 +169,23 @@ namespace VoteCollectorTests
   ""columnNames"": [], ""rowData"": []
 }";
 
+        // ── SaliDBAanestysEdustaja (MP votes per voting) ──────────────────────
+        //
+        // AanestysId is at index 1 (value "13301", odd).
+        // skipEven=true keeps odd AanestysId rows → both rows included.
+        public const string SaliDBAanestysEdustaja_TwoRows = @"{
+  ""page"": 0, ""perPage"": 200, ""hasMore"": false,
+  ""tableName"": ""SaliDBAanestysEdustaja"",
+  ""columnNames"": [""EdustajaId"",""AanestysId"",""EdustajaEtunimi"",""EdustajaSukunimi"",
+                    ""EdustajaHenkiloNumero"",""EdustajaRyhmaLyhenne"",""EdustajaAanestys"",""Imported""],
+  ""rowData"": [
+    [""2745050"",""13301"",""Markus"",""Aaltonen"",""102"",""sd"",""Poissa"",""2018-02-05 11:49:36""],
+    [""2745051"",""13301"",""Esko"",""Aho"",""104"",""kesk"",""Ei"",""2018-02-05 11:49:36""]
+  ],
+  ""columnCount"": 8, ""rowCount"": 2,
+  ""pkName"": ""EdustajaId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
         // ── SaliDBAanestysJakauma (party vote distribution) ───────────────────
         //
         // AanestysId is at index 1 (value "13260", even).
@@ -653,6 +670,95 @@ namespace VoteCollectorTests
             TestHelpers.SetMockHttpClient(SampleJson.AnyTable_ZeroRows);
 
             OpenDataRetriever.GetPartyDistData("13260", skipEven: false, type: "AanestysId");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GetEdustajaData tests  (public API)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class GetEdustajaDataTests
+    {
+        [TestMethod]
+        public void GetEdustajaData_RemovesImportedColumn()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
+
+            Assert.IsNotNull(result);
+            Assert.IsFalse(result!.Columns.Contains("Imported"), "Imported column must be removed");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_RetainsMPAndVoteColumns()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
+
+            Assert.IsNotNull(result);
+            Assert.IsTrue(result!.Columns.Contains("EdustajaId"),          "EdustajaId");
+            Assert.IsTrue(result.Columns.Contains("AanestysId"),           "AanestysId");
+            Assert.IsTrue(result.Columns.Contains("EdustajaEtunimi"),      "EdustajaEtunimi");
+            Assert.IsTrue(result.Columns.Contains("EdustajaSukunimi"),     "EdustajaSukunimi");
+            Assert.IsTrue(result.Columns.Contains("EdustajaHenkiloNumero"),"EdustajaHenkiloNumero");
+            Assert.IsTrue(result.Columns.Contains("EdustajaRyhmaLyhenne"), "EdustajaRyhmaLyhenne");
+            Assert.IsTrue(result.Columns.Contains("EdustajaAanestys"),     "EdustajaAanestys");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_ReturnsBothRows_WhenSkipEvenTrue_AndOddAanestysId()
+        {
+            // AanestysId=13301 is odd; skipEven=true keeps odd token[1] values → both rows kept.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count);
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_ReturnsNoRows_WhenSkipEvenFalse_AndOddAanestysId()
+        {
+            // AanestysId=13301 is odd; skipEven=false keeps even token[1] values → no rows added.
+            // ReadData only throws when the API rowCount is 0, not when the filter removes all rows.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: false);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(0, result!.Rows.Count, "All rows should be filtered out for skipEven=false with odd AanestysId");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_SetsHasMoreFalse_WhenApiIndicatesLastPage()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
+
+            Assert.IsFalse(OpenDataRetriever.hasMore);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(Newtonsoft.Json.JsonReaderException))]
+        public void GetEdustajaData_RethrowsException_OnInvalidJson()
+        {
+            TestHelpers.SetMockHttpClient("not valid json");
+
+            OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(Exception))]
+        public void GetEdustajaData_RethrowsException_OnZeroRows()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.AnyTable_ZeroRows);
+
+            OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
         }
     }
 }

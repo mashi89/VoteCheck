@@ -160,6 +160,28 @@ namespace MaSHi {
             return finalTable;
         }
 
+        // GetEdustajaData fetches individual MP votes from SaliDBAanestysEdustaja for a given AanestysId
+        public static DataTable GetEdustajaData(string votingId, bool skipEven)
+        {
+            DataTable edustajaTable = null;
+            string dbName = "SaliDBAanestysEdustaja";
+
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=200&page=0&columnName=AanestysId&columnValue=" + votingId;
+
+            try
+            {
+                edustajaTable = ReadData(baseUrl, skipEven, false);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            edustajaTable.Columns.Remove("Imported");
+
+            return edustajaTable;
+        }
+
         // GetCombined data should seek for MP votes with vote subjects visible
         // This method makes two different queries and combines them in one table
         public static DataTable GetCombinedData(string inputName, bool skipEven, int count, string type)

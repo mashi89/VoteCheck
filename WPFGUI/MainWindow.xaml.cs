@@ -137,15 +137,28 @@ namespace WPFGUI {
 
             bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
             DataTable? result = null;
-            try {
-                result = await Task.Run( () => MaSHi.OpenDataRetriever.GetPartyDistData(
-                    votingId, !isSwedish, "AanestysId" ) );
-            } catch ( Exception ex ) {
-                MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
-                return;
-            }
 
-            ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            if ( dgStatus == "Puoluejakaumahaku" ) {
+                try {
+                    result = await Task.Run( () => MaSHi.OpenDataRetriever.GetEdustajaData(
+                        votingId, !isSwedish ) );
+                } catch ( Exception ex ) {
+                    MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                    return;
+                }
+
+                ShowData( result, "Edustajahaku", sortColumnIndex: 3, sortDirection: ListSortDirection.Ascending );
+            } else {
+                try {
+                    result = await Task.Run( () => MaSHi.OpenDataRetriever.GetPartyDistData(
+                        votingId, !isSwedish, "AanestysId" ) );
+                } catch ( Exception ex ) {
+                    MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                    return;
+                }
+
+                ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            }
         }
 
         // ── Back button ─────────────────────────────────────────────────────
