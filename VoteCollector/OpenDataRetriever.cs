@@ -160,8 +160,10 @@ namespace MaSHi {
             return finalTable;
         }
 
-        // GetEdustajaData fetches individual MP votes from SaliDBAanestysEdustaja for a given AanestysId
-        public static DataTable GetEdustajaData(string votingId, bool skipEven)
+        // GetEdustajaData fetches individual MP votes from SaliDBAanestysEdustaja for a given AanestysId.
+        // When partyFilter is provided, only rows whose EdustajaRyhmaLyhenne matches (case-insensitive,
+        // whitespace-trimmed) are returned.  Matches the abbreviations used in Parties.txt.
+        public static DataTable GetEdustajaData(string votingId, bool skipEven, string partyFilter = null)
         {
             DataTable edustajaTable = null;
             string dbName = "SaliDBAanestysEdustaja";
@@ -178,6 +180,20 @@ namespace MaSHi {
             }
 
             edustajaTable.Columns.Remove("Imported");
+
+            if (!string.IsNullOrWhiteSpace(partyFilter) && edustajaTable.Columns.Contains("EdustajaRyhmaLyhenne"))
+            {
+                string trimmed = partyFilter.Trim();
+                var matching = edustajaTable.AsEnumerable()
+                    .Where(r => string.Equals(
+                        r["EdustajaRyhmaLyhenne"]?.ToString()?.Trim(),
+                        trimmed,
+                        StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                edustajaTable = matching.Count > 0
+                    ? matching.CopyToDataTable()
+                    : edustajaTable.Clone();
+            }
 
             return edustajaTable;
         }

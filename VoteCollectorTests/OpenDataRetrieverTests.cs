@@ -760,5 +760,81 @@ namespace VoteCollectorTests
 
             OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
         }
+
+        // ── Party-filter tests ─────────────────────────────────────────────────
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_ReturnsOnlyMatchingPartyRows()
+        {
+            // Sample has two rows: "sd" (Aaltonen) and "kesk" (Aho).
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "sd");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count, "Only the sd row should be returned");
+            Assert.AreEqual("Aaltonen", result.Rows[0]["EdustajaSukunimi"].ToString());
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_IsCaseInsensitive()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "SD");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.AreEqual("Aaltonen", result.Rows[0]["EdustajaSukunimi"].ToString());
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_TrimsWhitespaceBeforeComparing()
+        {
+            // EdustajaRyhmaLyhenne in real API data comes with trailing spaces (e.g. "sd        ").
+            // The filter value from Ryhmalyhenne is typically already trimmed, but we handle both.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "  kesk  ");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.AreEqual("Aho", result.Rows[0]["EdustajaSukunimi"].ToString());
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_NoMatch_ReturnsEmptyTableWithCorrectSchema()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "vihr");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(0, result!.Rows.Count, "No rows should match party 'vihr'");
+            // Schema must still be present
+            Assert.IsTrue(result.Columns.Contains("EdustajaRyhmaLyhenne"), "Schema column must be present");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_NullFilter_ReturnsAllRows()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: null);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "All rows returned when partyFilter is null");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_EmptyStringFilter_ReturnsAllRows()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "All rows returned when partyFilter is empty");
+        }
     }
 }

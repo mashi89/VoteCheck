@@ -139,9 +139,13 @@ namespace WPFGUI {
             DataTable? result = null;
 
             if ( dgStatus == "Puoluejakaumahaku" ) {
+                string? partyAbbrev = null;
+                if ( newDataTable.Columns.Contains( "Ryhmalyhenne" ) )
+                    partyAbbrev = row["Ryhmalyhenne"]?.ToString()?.Trim();
+
                 try {
                     result = await Task.Run( () => MaSHi.OpenDataRetriever.GetEdustajaData(
-                        votingId, !isSwedish ) );
+                        votingId, !isSwedish, partyAbbrev ) );
                 } catch ( Exception ex ) {
                     MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                     return;
