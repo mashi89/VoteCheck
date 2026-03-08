@@ -1,0 +1,8 @@
+Keskustan eduskuntaryhmä = kesk
+Kansallisen kokoomuksen eduskuntaryhmä = kok
+Perussuomalaisten eduskuntaryhmä = ps
+Sosialidemokraattinen eduskuntaryhmä = sd
+Vihreä eduskuntaryhmä = vihr
+Vasemmistoliiton eduskuntaryhmä = vas
+Ruotsalainen eduskuntaryhmä = r
+Kristillisdemokraattinen eduskuntaryhmä = kd
