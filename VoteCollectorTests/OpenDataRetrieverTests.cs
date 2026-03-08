@@ -193,11 +193,11 @@ namespace VoteCollectorTests
         public const string SaliDBAanestysJakauma_TwoRows = @"{
   ""page"": 0, ""perPage"": 10, ""hasMore"": false,
   ""tableName"": ""SaliDBAanestysJakauma"",
-  ""columnNames"": [""JakaumaId"",""AanestysId"",""Tyyppi"",""Ryhmalyhenne"",
+  ""columnNames"": [""JakaumaId"",""AanestysId"",""Tyyppi"",""Ryhma"",
                     ""Jaa"",""Ei"",""Tyhja"",""Poissa"",""YhteensaAanestaneet"",""Imported""],
   ""rowData"": [
-    [""1"",""13260"",""A"",""kesk"",""50"",""10"",""2"",""5"",""67"",""2018-06-02 10:14:00""],
-    [""2"",""13260"",""A"",""kok"", ""40"",""20"",""3"",""4"",""67"",""2018-06-02 10:14:00""]
+    [""1"",""13260"",""A"",""Keskustan eduskuntaryhmä"",""50"",""10"",""2"",""5"",""67"",""2018-06-02 10:14:00""],
+    [""2"",""13260"",""A"",""Kansallisen kokoomuksen eduskuntaryhmä"", ""40"",""20"",""3"",""4"",""67"",""2018-06-02 10:14:00""]
   ],
   ""columnCount"": 10, ""rowCount"": 2,
   ""pkName"": ""JakaumaId"", ""pkStartValue"": null, ""pkLastValue"": null
@@ -632,7 +632,7 @@ namespace VoteCollectorTests
                 "13260", skipEven: false, type: "AanestysId");
 
             Assert.IsNotNull(result);
-            Assert.IsTrue(result!.Columns.Contains("Ryhmalyhenne"),       "Ryhmalyhenne");
+            Assert.IsTrue(result!.Columns.Contains("Ryhma"),              "Ryhma");
             Assert.IsTrue(result.Columns.Contains("Jaa"),                 "Jaa");
             Assert.IsTrue(result.Columns.Contains("Ei"),                  "Ei");
             Assert.IsTrue(result.Columns.Contains("Tyhja"),               "Tyhja");
@@ -759,6 +759,130 @@ namespace VoteCollectorTests
             TestHelpers.SetMockHttpClient(SampleJson.AnyTable_ZeroRows);
 
             OpenDataRetriever.GetEdustajaData("13301", skipEven: true);
+        }
+
+        // ── Party-filter tests ─────────────────────────────────────────────────
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_ReturnsOnlyMatchingPartyRows()
+        {
+            // Sample has two rows: "sd" (Aaltonen) and "kesk" (Aho).
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "sd");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count, "Only the sd row should be returned");
+            Assert.AreEqual("Aaltonen", result.Rows[0]["EdustajaSukunimi"].ToString());
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_IsCaseInsensitive()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "SD");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.AreEqual("Aaltonen", result.Rows[0]["EdustajaSukunimi"].ToString());
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_TrimsWhitespaceBeforeComparing()
+        {
+            // EdustajaRyhmaLyhenne in real API data comes with trailing spaces (e.g. "sd        ").
+            // The filter value from Ryhma is typically already trimmed, but we handle both.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "  kesk  ");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.AreEqual("Aho", result.Rows[0]["EdustajaSukunimi"].ToString());
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_NoMatch_ReturnsEmptyTableWithCorrectSchema()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "vihr");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(0, result!.Rows.Count, "No rows should match party 'vihr'");
+            // Schema must still be present
+            Assert.IsTrue(result.Columns.Contains("EdustajaRyhmaLyhenne"), "Schema column must be present");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_NullFilter_ReturnsAllRows()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: null);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "All rows returned when partyFilter is null");
+        }
+
+        [TestMethod]
+        public void GetEdustajaData_PartyFilter_EmptyStringFilter_ReturnsAllRows()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: true, partyFilter: "");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "All rows returned when partyFilter is empty");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PartyNameToAbbreviation tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class PartyNameToAbbreviationTests
+    {
+        [TestMethod]
+        public void PartyNameToAbbreviation_ContainsAllEightParties()
+        {
+            Assert.AreEqual(8, OpenDataRetriever.PartyNameToAbbreviation.Count);
+        }
+
+        [DataTestMethod]
+        [DataRow("Kristillisdemokraattinen eduskuntaryhmä", "kd")]
+        [DataRow("Keskustan eduskuntaryhmä",                "kesk")]
+        [DataRow("Kansallisen kokoomuksen eduskuntaryhmä",  "kok")]
+        [DataRow("Perussuomalaisten eduskuntaryhmä",        "ps")]
+        [DataRow("Sosialidemokraattinen eduskuntaryhmä",    "sd")]
+        [DataRow("Vihreä eduskuntaryhmä",                   "vihr")]
+        [DataRow("Vasemmistoliiton eduskuntaryhmä",         "vas")]
+        [DataRow("Ruotsalainen eduskuntaryhmä",             "r")]
+        public void PartyNameToAbbreviation_MapsFullNameToCorrectAbbreviation(
+            string fullName, string expectedAbbr)
+        {
+            Assert.IsTrue(
+                OpenDataRetriever.PartyNameToAbbreviation.TryGetValue(fullName, out string? abbr),
+                $"Key '{fullName}' not found");
+            Assert.AreEqual(expectedAbbr, abbr);
+        }
+
+        [TestMethod]
+        public void PartyNameToAbbreviation_LookupIsCaseInsensitive()
+        {
+            Assert.IsTrue(
+                OpenDataRetriever.PartyNameToAbbreviation.TryGetValue(
+                    "kristillisdemokraattinen eduskuntaryhmä", out string? abbr));
+            Assert.AreEqual("kd", abbr);
+        }
+
+        [TestMethod]
+        public void PartyNameToAbbreviation_UnknownKey_ReturnsFalse()
+        {
+            Assert.IsFalse(
+                OpenDataRetriever.PartyNameToAbbreviation.TryGetValue("Tuntematon puolue", out _));
         }
     }
 }
