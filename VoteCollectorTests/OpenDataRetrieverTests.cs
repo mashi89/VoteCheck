@@ -837,4 +837,52 @@ namespace VoteCollectorTests
             Assert.AreEqual(2, result!.Rows.Count, "All rows returned when partyFilter is empty");
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PartyNameToAbbreviation tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class PartyNameToAbbreviationTests
+    {
+        [TestMethod]
+        public void PartyNameToAbbreviation_ContainsAllEightParties()
+        {
+            Assert.AreEqual(8, OpenDataRetriever.PartyNameToAbbreviation.Count);
+        }
+
+        [DataTestMethod]
+        [DataRow("Kristillisdemokraattinen eduskuntaryhmä", "kd")]
+        [DataRow("Keskustan eduskuntaryhmä",                "kesk")]
+        [DataRow("Kansallisen kokoomuksen eduskuntaryhmä",  "kok")]
+        [DataRow("Perussuomalaisten eduskuntaryhmä",        "ps")]
+        [DataRow("Sosialidemokraattinen eduskuntaryhmä",    "sd")]
+        [DataRow("Vihreä eduskuntaryhmä",                   "vihr")]
+        [DataRow("Vasemmistoliiton eduskuntaryhmä",         "vas")]
+        [DataRow("Ruotsalainen eduskuntaryhmä",             "r")]
+        public void PartyNameToAbbreviation_MapsFullNameToCorrectAbbreviation(
+            string fullName, string expectedAbbr)
+        {
+            Assert.IsTrue(
+                OpenDataRetriever.PartyNameToAbbreviation.TryGetValue(fullName, out string? abbr),
+                $"Key '{fullName}' not found");
+            Assert.AreEqual(expectedAbbr, abbr);
+        }
+
+        [TestMethod]
+        public void PartyNameToAbbreviation_LookupIsCaseInsensitive()
+        {
+            Assert.IsTrue(
+                OpenDataRetriever.PartyNameToAbbreviation.TryGetValue(
+                    "kristillisdemokraattinen eduskuntaryhmä", out string? abbr));
+            Assert.AreEqual("kd", abbr);
+        }
+
+        [TestMethod]
+        public void PartyNameToAbbreviation_UnknownKey_ReturnsFalse()
+        {
+            Assert.IsFalse(
+                OpenDataRetriever.PartyNameToAbbreviation.TryGetValue("Tuntematon puolue", out _));
+        }
+    }
 }

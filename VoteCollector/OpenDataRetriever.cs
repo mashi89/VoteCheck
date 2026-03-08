@@ -45,6 +45,22 @@ namespace MaSHi {
     // Retrieve open data
     public static class OpenDataRetriever {
 
+        // Maps the full party group name (as stored in Ryhmalyhenne in the SaliDBAanestysJakauma API
+        // response) to the abbreviated party code used in EdustajaRyhmaLyhenne.
+        // Based on Parties.txt in the repository root.
+        public static readonly Dictionary<string, string> PartyNameToAbbreviation =
+            new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase )
+            {
+                { "Keskustan eduskuntaryhmä",                   "kesk" },
+                { "Kansallisen kokoomuksen eduskuntaryhmä",     "kok"  },
+                { "Perussuomalaisten eduskuntaryhmä",           "ps"   },
+                { "Sosialidemokraattinen eduskuntaryhmä",       "sd"   },
+                { "Vihreä eduskuntaryhmä",                      "vihr" },
+                { "Vasemmistoliiton eduskuntaryhmä",            "vas"  },
+                { "Ruotsalainen eduskuntaryhmä",                "r"    },
+                { "Kristillisdemokraattinen eduskuntaryhmä",    "kd"   },
+            };
+
         #region Variables
         // Initialize variables
         public static bool hasMore = false;

@@ -140,8 +140,13 @@ namespace WPFGUI {
 
             if ( dgStatus == "Puoluejakaumahaku" ) {
                 string? partyAbbrev = null;
-                if ( newDataTable.Columns.Contains( "Ryhmalyhenne" ) )
-                    partyAbbrev = row["Ryhmalyhenne"]?.ToString()?.Trim();
+                if ( newDataTable.Columns.Contains( "Ryhmalyhenne" ) ) {
+                    string ryhma = row["Ryhmalyhenne"]?.ToString()?.Trim() ?? "";
+                    if ( !MaSHi.OpenDataRetriever.PartyNameToAbbreviation.TryGetValue( ryhma, out string? mapped ) )
+                        partyAbbrev = ryhma; // fallback: value is already an abbreviation
+                    else
+                        partyAbbrev = mapped;
+                }
 
                 try {
                     result = await Task.Run( () => MaSHi.OpenDataRetriever.GetEdustajaData(
