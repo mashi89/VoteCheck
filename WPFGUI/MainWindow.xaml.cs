@@ -16,6 +16,7 @@ namespace WPFGUI {
         private DataTable? oldDataTable = null;
         private DataTable? newDataTable = null;
         private string? dgStatus = null;
+        private string? oldDgStatus = null;
 
         // Column names that contain bold-winner info (hidden helper columns)
         private const string ColJaaBold = "_JaaBold";
@@ -179,6 +180,12 @@ namespace WPFGUI {
             oldDataTable = newDataTable;
             newDataTable = temp;
 
+            var tempStatus = oldDgStatus;
+            oldDgStatus = dgStatus;
+            dgStatus = tempStatus;
+
+            Title = "VoteCheck (with WPF) - " + dgStatus;
+
             ApplyDataSource( newDataTable, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
@@ -187,6 +194,7 @@ namespace WPFGUI {
         private void ShowData( DataTable table, string status, int sortColumnIndex, ListSortDirection sortDirection ) {
             oldDataTable = newDataTable;
             newDataTable = table;
+            oldDgStatus = dgStatus;
             dgStatus = status;
 
             Title = "VoteCheck (with WPF) - " + dgStatus;
