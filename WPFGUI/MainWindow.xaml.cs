@@ -113,17 +113,18 @@ namespace WPFGUI {
 
             if ( result == null ) return;
 
-            RenameColumn( result, "AanestysTulosJaa",    "Jaa" );
-            RenameColumn( result, "AanestysTulosEi",     "Ei" );
-            RenameColumn( result, "AanestysTulosTyhjiä", "Tyhjiä" );
-            RenameColumn( result, "AanestysTulosPoissa", "Poissa" );
+            RenameColumn( result, "AanestysTulosJaa",     "Jaa" );
+            RenameColumn( result, "AanestysTulosEi",      "Ei" );
+            RenameColumn( result, "AanestysTulosTyhjiä",  "Tyhjä" );
+            RenameColumn( result, "AanestysTulosTyhjia",  "Tyhjä" );
+            RenameColumn( result, "AanestysTulosPoissa",  "Poissa" );
             RenameColumn( result, "KohtaOtsikko",        "Kohta" );
             RenameColumn( result, "AanestysOtsikko",     "Äänestysaihe" );
 
             MarkWinningVotes( result );
 
             ShowData( result, "Päivähaku",
-                // After column cleanup in GetVotingData, index 1 = AanestysAlkuaika (voting start time).
+                // After column cleanup in GetVotingData, index 1 = AanestysAlkuaika (used as query and sort column).
                 sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
@@ -162,8 +163,8 @@ namespace WPFGUI {
 
             if ( dgStatus == "Puoluejakaumahaku" ) {
                 string? partyAbbrev = null;
-                if ( newDataTable.Columns.Contains( "Ryhma" ) ) {
-                    string ryhma = row["Ryhma"]?.ToString()?.Trim() ?? "";
+                if ( newDataTable.Columns.Contains( "Ryhmä" ) ) {
+                    string ryhma = row["Ryhmä"]?.ToString()?.Trim() ?? "";
                     if ( !MaSHi.OpenDataRetriever.PartyNameToAbbreviation.TryGetValue( ryhma, out string? mapped ) )
                         partyAbbrev = ryhma; // fallback: value is already an abbreviation
                     else
@@ -178,6 +179,11 @@ namespace WPFGUI {
                     return;
                 }
 
+                RenameColumn( result, "EdustajaEtunimi",      "Etunimi" );
+                RenameColumn( result, "EdustajaSukunimi",     "Sukunimi" );
+                RenameColumn( result, "EdustajaRyhmaLyhenne", "Puolue" );
+                RenameColumn( result, "EdustajaAanestys",     "Ääni" );
+
                 ShowData( result, "Edustajahaku", sortColumnIndex: 3, sortDirection: ListSortDirection.Ascending );
             } else {
                 try {
@@ -187,6 +193,8 @@ namespace WPFGUI {
                     MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                     return;
                 }
+
+                RenameColumn( result, "Ryhma", "Ryhmä" );
 
                 ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
             }
@@ -250,6 +258,85 @@ namespace WPFGUI {
             if ( e.PropertyName == ColJaaBold || e.PropertyName == ColEiBold ) {
                 e.Cancel = true;
                 return;
+            }
+
+            // Hide IstuntoPvm when AanestysAlkuaika is present (redundant date column)
+            if ( e.PropertyName == "IstuntoPvm" &&
+                 newDataTable != null && newDataTable.Columns.Contains( "AanestysAlkuaika" ) ) {
+                e.Cancel = true;
+                return;
+            }
+
+            // Hide PJOtsikko (parliamentary journal reference, not useful in the grid)
+            if ( e.PropertyName == "PJOtsikko" ) {
+                e.Cancel = true;
+                return;
+            }
+
+            // Per-column widths sized to fit all columns inside the window without horizontal scrolling.
+            // Grid area ≈ 1185 px (window 1450 − left panel 265).
+            switch ( e.PropertyName ) {
+                // ── long text columns (all views) ──
+                case "Kohta":
+                    e.Column.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells );
+                    e.Column.MaxWidth = 500;
+                    e.Column.CellStyle = new Style( typeof( DataGridCell ) ) {
+                        Setters = {
+                            new Setter( TextBlock.TextWrappingProperty, TextWrapping.Wrap )
+                        }
+                    };
+                    break;
+
+                case "Äänestysaihe":
+                    e.Column.Width = new DataGridLength( 120 ); break;
+
+                case "Ryhmä":           // party dist view full party name
+                    e.Column.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells ); break;
+
+                case "Käsittely":
+                case "Pääkohta":
+                    e.Column.Width = new DataGridLength( 110 ); break;
+
+                // ── date / time columns ──
+                case "IstuntoPvm":
+                case "AanestysAlkuaika":
+                    e.Column.Width = new DataGridLength( 135 ); break;
+
+                // ── vote-count columns (date view & party dist view) ──
+                case "Jaa":
+                case "Ei":
+                case "Tyhjä":
+                case "Poissa":
+                case "JaaLkm":
+                case "EiLkm":
+                case "TyhjaLkm":
+                case "PoissaLkm":
+                    e.Column.Width = new DataGridLength( 50 ); break;
+
+                // ── short identifier / code columns ──
+                case "AanestysId":
+                case "EdustajaId":
+                    e.Column.Width = new DataGridLength( 65 ); break;
+
+                case "EdustajaHenkiloNumero":
+                    e.Column.Width = new DataGridLength( 60 ); break;
+
+                case "AanestysMitatoity":
+                    e.Column.Width = new DataGridLength( 80 ); break;
+
+                case "Puolue":
+                case "Ryhmalyhenne":
+                    e.Column.Width = new DataGridLength( 55 ); break;
+
+                case "Ääni":
+                    e.Column.Width = new DataGridLength( 55 ); break;
+
+                // ── name columns (surname view & MP view) ──
+                case "Etunimi":
+                    e.Column.Width = new DataGridLength( 90 ); break;
+
+                case "Sukunimi":
+                    e.Column.Width = new DataGridLength( 100 ); break;
             }
 
             // Bold winning-vote columns only when the helper columns exist in the table
