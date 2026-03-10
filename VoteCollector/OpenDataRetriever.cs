@@ -310,26 +310,33 @@ namespace MaSHi {
             return distTable;
         }
 
-        // GetNameData forms the url and makes the call to ReadData
+        // GetNameData forms the url and makes paginated calls to ReadData until hasMore = false
         private static DataTable GetNameData( string inputName, bool skipEven, string count, string type) {
 
             DataTable nameTable = null;
             string dbName = "SaliDBAanestysEdustaja";
+            int page = 0;
 
-            // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
-   
-            // Read data and form finalTable
-            try {
+            do {
+                // Create url structure for the current page
+                string url = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=" + page + "&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
 
-                nameTable = ReadData( baseUrl, skipEven, false );
+                try {
+                    DataTable pageTable = ReadData( url, skipEven, false );
+                    if ( nameTable == null ) {
+                        nameTable = pageTable;
+                    } else {
+                        foreach ( DataRow row in pageTable.Rows ) {
+                            nameTable.ImportRow( row );
+                        }
+                    }
+                } catch ( Exception ex ) {
+                    System.Console.WriteLine( ex.Message );
+                    throw;
+                }
 
-            } catch ( Exception ex ) {
-
-                System.Console.WriteLine( ex.Message );
-                throw ex;
-
-            }
+                page++;
+            } while ( hasMore );
 
             return nameTable;
         }
