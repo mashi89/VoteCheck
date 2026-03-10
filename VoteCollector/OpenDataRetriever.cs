@@ -115,7 +115,6 @@ namespace MaSHi {
                 votingTable.Columns.Remove("KieliId");
                 votingTable.Columns.Remove("KohtaTunniste");
                 votingTable.Columns.Remove("KohtaJarjestys");
-                votingTable.Columns.Remove("IstuntoPvm");
                 votingTable.Columns.Remove("IstuntoVPVuosi");
                 votingTable.Columns.Remove("IstuntoIlmoitettuAlkuaika");
                 votingTable.Columns.Remove("IstuntoAlkuaika");
@@ -143,6 +142,31 @@ namespace MaSHi {
             }          
 
             return votingTable;
+        }
+
+        // GetVotingDataByDate retrieves voting records matching a date prefix.
+        // The date parameter may be a year ("yyyy"), year+month ("yyyy-MM"), or
+        // full date ("yyyy-MM-dd").
+        // IstuntoPvm is a date/datetime column whose SQL type is reported as 'OTHER' by the API,
+        // so it cannot be used as a filter column directly.  Instead we query by the integer
+        // IstuntoVPVuosi (parliamentary year) which the API supports, then filter client-side
+        // to rows whose IstuntoPvm value starts with the requested date prefix.
+        public static DataTable GetVotingDataByDate(string date, bool skipEven, int count)
+        {
+            string year = date.Length >= 4 ? date.Substring(0, 4) : date;
+
+            DataTable yearTable = GetVotingData(year, skipEven, count, "IstuntoVPVuosi");
+
+            if (yearTable == null) return null;
+
+            if (!yearTable.Columns.Contains("IstuntoPvm"))
+                return yearTable;
+
+            var matching = yearTable.AsEnumerable()
+                .Where(r => r["IstuntoPvm"]?.ToString()?.StartsWith(date) == true)
+                .ToList();
+
+            return matching.Count > 0 ? matching.CopyToDataTable() : yearTable.Clone();
         }
 
         // GetSubjectData method should seek for certain phrases
