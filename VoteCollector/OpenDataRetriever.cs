@@ -200,6 +200,65 @@ namespace MaSHi {
             return finalTable;
         }
 
+        // GetCurrentMPs fetches all current MPs from the SeatingOfParliament table,
+        // paginating through all pages until hasMore = false.
+        public static DataTable GetCurrentMPs()
+        {
+            const int perPage = 100;
+            string dbName = "SeatingOfParliament";
+            DataTable result = null;
+            int page = 0;
+            bool more = true;
+
+            while (more)
+            {
+                string url = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName +
+                             "/rows?perPage=" + perPage + "&page=" + page;
+
+                string pageJson;
+                try
+                {
+                    pageJson = GetDataAsync(url).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception("Failed to fetch MP data: " + ex.Message, ex);
+                }
+
+                if (string.IsNullOrEmpty(pageJson))
+                    throw new Exception("JSON data is empty.");
+
+                var pageObj = JObject.Parse(pageJson);
+
+                var errorToken = pageObj.SelectToken("message");
+                if (errorToken != null)
+                    throw new Exception("API error: " + errorToken.ToString());
+
+                var check = pageObj.SelectToken("hasMore");
+                if (check == null)
+                    throw new Exception("Unexpected response format: 'hasMore' field missing.");
+
+                more = check.Value<bool>();
+
+                if (pageObj.SelectToken("rowCount")?.ToString() == "0")
+                {
+                    if (page == 0)
+                        throw new Exception("No rows found.");
+                    break;
+                }
+
+                if (result == null)
+                    result = InitTable(pageObj);
+
+                // skipEven: false, voting: true — AppendTable adds all rows regardless of token[1] value
+                result = AppendTable(pageObj, result, skipEven: false, voting: true);
+                page++;
+            }
+
+            hasMore = false; // All pages have been fetched
+            return result;
+        }
+
         // GetEdustajaData fetches individual MP votes from SaliDBAanestysEdustaja for a given AanestysId.
         // When partyFilter is provided, only rows whose EdustajaRyhmaLyhenne matches (case-insensitive,
         // whitespace-trimmed) are returned.  Matches the abbreviations used in Parties.txt.

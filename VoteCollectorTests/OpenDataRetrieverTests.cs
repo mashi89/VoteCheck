@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net;
@@ -46,6 +47,14 @@ namespace VoteCollectorTests
             var field = typeof(OpenDataRetriever).GetField(
                 "_httpClient", BindingFlags.NonPublic | BindingFlags.Static)!;
             field.SetValue(null, new HttpClient(new MockHttpMessageHandler(responseBody, statusCode)));
+        }
+
+        // Replaces the static HttpClient with a mock that returns each response in sequence.
+        public static void SetSequentialMockHttpClient(params string[] responses)
+        {
+            var field = typeof(OpenDataRetriever).GetField(
+                "_httpClient", BindingFlags.NonPublic | BindingFlags.Static)!;
+            field.SetValue(null, new HttpClient(new SequentialMockHttpMessageHandler(responses)));
         }
 
         // Calls the private static InitTable method.
@@ -242,6 +251,47 @@ namespace VoteCollectorTests
   ],
   ""columnCount"": 10, ""rowCount"": 2,
   ""pkName"": ""JakaumaId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+        // ── SeatingOfParliament ───────────────────────────────────────────────
+
+        // Three MPs, hasMore=false (single page).
+        public const string SeatingOfParliament_ThreeRows_HasMoreFalse = @"{
+  ""page"": 0, ""perPage"": 100, ""hasMore"": false,
+  ""tableName"": ""SeatingOfParliament"",
+  ""columnNames"": [""hetekaId"",""seatNumber"",""lastname"",""firstname"",""party"",""minister""],
+  ""rowData"": [
+    [""1109"",""0"",""Halla-aho"",""Jussi"",""ps"",""f""],
+    [""1155"",""1"",""Kontula"",""Anna"",""vas"",""f""],
+    [""511"",""2"",""Viitanen"",""Pia"",""sd"",""f""]
+  ],
+  ""columnCount"": 6, ""rowCount"": 3,
+  ""pkName"": ""seatNumber"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+        // Two MPs on page 0, hasMore=true (pagination: first page).
+        public const string SeatingOfParliament_TwoRows_HasMoreTrue = @"{
+  ""page"": 0, ""perPage"": 2, ""hasMore"": true,
+  ""tableName"": ""SeatingOfParliament"",
+  ""columnNames"": [""hetekaId"",""seatNumber"",""lastname"",""firstname"",""party"",""minister""],
+  ""rowData"": [
+    [""1109"",""0"",""Halla-aho"",""Jussi"",""ps"",""f""],
+    [""1155"",""1"",""Kontula"",""Anna"",""vas"",""f""]
+  ],
+  ""columnCount"": 6, ""rowCount"": 2,
+  ""pkName"": ""seatNumber"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+        // One MP on page 1, hasMore=false (pagination: last page).
+        public const string SeatingOfParliament_OneRow_HasMoreFalse = @"{
+  ""page"": 1, ""perPage"": 2, ""hasMore"": false,
+  ""tableName"": ""SeatingOfParliament"",
+  ""columnNames"": [""hetekaId"",""seatNumber"",""lastname"",""firstname"",""party"",""minister""],
+  ""rowData"": [
+    [""511"",""2"",""Viitanen"",""Pia"",""sd"",""f""]
+  ],
+  ""columnCount"": 6, ""rowCount"": 1,
+  ""pkName"": ""seatNumber"", ""pkStartValue"": null, ""pkLastValue"": null
 }";
     }
 
@@ -1022,6 +1072,135 @@ namespace VoteCollectorTests
         {
             Assert.IsFalse(
                 OpenDataRetriever.PartyNameToAbbreviation.TryGetValue("Tuntematon puolue", out _));
+        }
+    }
+
+    // ── Sequential mock HTTP handler for multi-page tests ────────────────────
+
+    internal sealed class SequentialMockHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Queue<string> _responses;
+
+        public SequentialMockHttpMessageHandler(params string[] responses)
+        {
+            _responses = new Queue<string>(responses);
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            string body = _responses.Count > 0 ? _responses.Dequeue() : "{}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body)
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GetCurrentMPs tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class GetCurrentMPsTests
+    {
+        [TestMethod]
+        public void GetCurrentMPs_SinglePage_ReturnsAllRows()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SeatingOfParliament_ThreeRows_HasMoreFalse);
+
+            var result = OpenDataRetriever.GetCurrentMPs();
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(3, result!.Rows.Count);
+            Assert.AreEqual("Halla-aho", result.Rows[0]["lastname"].ToString());
+            Assert.AreEqual("Kontula",   result.Rows[1]["lastname"].ToString());
+            Assert.AreEqual("Viitanen",  result.Rows[2]["lastname"].ToString());
+        }
+
+        [TestMethod]
+        public void GetCurrentMPs_SinglePage_HasExpectedColumns()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SeatingOfParliament_ThreeRows_HasMoreFalse);
+
+            var result = OpenDataRetriever.GetCurrentMPs();
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(6, result!.Columns.Count);
+            Assert.IsTrue(result.Columns.Contains("hetekaId"));
+            Assert.IsTrue(result.Columns.Contains("seatNumber"));
+            Assert.IsTrue(result.Columns.Contains("lastname"));
+            Assert.IsTrue(result.Columns.Contains("firstname"));
+            Assert.IsTrue(result.Columns.Contains("party"));
+            Assert.IsTrue(result.Columns.Contains("minister"));
+        }
+
+        [TestMethod]
+        public void GetCurrentMPs_SinglePage_SetsHasMoreFalse()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SeatingOfParliament_ThreeRows_HasMoreFalse);
+
+            OpenDataRetriever.GetCurrentMPs();
+
+            Assert.IsFalse(OpenDataRetriever.hasMore,
+                "hasMore must be false after fetching all pages");
+        }
+
+        [TestMethod]
+        public void GetCurrentMPs_MultiPage_AccumulatesAllRows()
+        {
+            // Page 0 returns 2 rows with hasMore=true; page 1 returns 1 row with hasMore=false.
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SeatingOfParliament_TwoRows_HasMoreTrue,
+                SampleJson.SeatingOfParliament_OneRow_HasMoreFalse);
+
+            var result = OpenDataRetriever.GetCurrentMPs();
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(3, result!.Rows.Count, "All rows from both pages must be combined");
+            Assert.AreEqual("Halla-aho", result.Rows[0]["lastname"].ToString());
+            Assert.AreEqual("Kontula",   result.Rows[1]["lastname"].ToString());
+            Assert.AreEqual("Viitanen",  result.Rows[2]["lastname"].ToString());
+        }
+
+        [TestMethod]
+        public void GetCurrentMPs_MultiPage_SetsHasMoreFalse()
+        {
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SeatingOfParliament_TwoRows_HasMoreTrue,
+                SampleJson.SeatingOfParliament_OneRow_HasMoreFalse);
+
+            OpenDataRetriever.GetCurrentMPs();
+
+            Assert.IsFalse(OpenDataRetriever.hasMore);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(Exception))]
+        public void GetCurrentMPs_ZeroRows_ThrowsException()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.AnyTable_ZeroRows);
+
+            OpenDataRetriever.GetCurrentMPs();
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(Exception))]
+        public void GetCurrentMPs_ApiError_ThrowsException()
+        {
+            const string errorJson = @"{ ""message"": ""Table not found"" }";
+            TestHelpers.SetMockHttpClient(errorJson);
+
+            OpenDataRetriever.GetCurrentMPs();
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(Exception))]
+        public void GetCurrentMPs_EmptyJson_ThrowsException()
+        {
+            TestHelpers.SetMockHttpClient("");
+
+            OpenDataRetriever.GetCurrentMPs();
         }
     }
 }

@@ -145,6 +145,33 @@ namespace WPFGUI {
             }
         }
 
+        // ── Current MPs ─────────────────────────────────────────────────────
+
+        private async void btnCurrentMPs_Click( object sender, RoutedEventArgs e ) {
+            await FindCurrentMPsAsync();
+        }
+
+        private async Task FindCurrentMPsAsync() {
+            dataGrid.ItemsSource = null;
+
+            DataTable? result = null;
+            try {
+                result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCurrentMPs() );
+            } catch ( Exception ex ) {
+                MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                return;
+            }
+
+            RenameColumn( result, "hetekaId",    "HetekaId" );
+            RenameColumn( result, "seatNumber",  "Paikka" );
+            RenameColumn( result, "lastname",    "Sukunimi" );
+            RenameColumn( result, "firstname",   "Etunimi" );
+            RenameColumn( result, "party",       "Puolue" );
+            RenameColumn( result, "minister",    "Ministeri" );
+
+            ShowData( result, "Kansanedustajat", sortColumnIndex: 2, sortDirection: ListSortDirection.Ascending );
+        }
+
         // ── Party distribution (drill-down on row double-click) ─────────────
 
         private async void dataGrid_MouseDoubleClick( object sender, MouseButtonEventArgs e ) {
@@ -326,6 +353,12 @@ namespace WPFGUI {
 
                 case "Puolue":
                 case "Ryhmalyhenne":
+                    e.Column.Width = new DataGridLength( 55 ); break;
+
+                case "Ministeri":
+                    e.Column.Width = new DataGridLength( 65 ); break;
+
+                case "Paikka":
                     e.Column.Width = new DataGridLength( 55 ); break;
 
                 case "Ääni":
