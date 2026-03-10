@@ -87,11 +87,12 @@ namespace WPFGUI {
 
             string inputDate = tbDate.Text.Trim();
 
-            // Validate that the input is a parseable date in yyyy-MM-dd format.
-            if ( !DateTime.TryParseExact( inputDate, "yyyy-MM-dd",
+            // Validate that the input is a parseable date prefix: yyyy, yyyy-MM, or yyyy-MM-dd.
+            if ( !DateTime.TryParseExact( inputDate,
+                     new[] { "yyyy-MM-dd", "yyyy-MM", "yyyy" },
                      System.Globalization.CultureInfo.InvariantCulture,
                      System.Globalization.DateTimeStyles.None, out _ ) ) {
-                MessageBox.Show( "Enter a date in yyyy-MM-dd format (e.g. 2024-03-10).",
+                MessageBox.Show( "Enter a year (e.g. 2024), year and month (e.g. 2024-03), or full date (e.g. 2024-03-10).",
                     "Invalid date", MessageBoxButton.OK, MessageBoxImage.Warning );
                 return;
             }
@@ -121,7 +122,9 @@ namespace WPFGUI {
 
             MarkWinningVotes( result );
 
-            ShowData( result, "Päivähaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            ShowData( result, "Päivähaku",
+                // After column cleanup in GetVotingData, index 1 = AanestysAlkuaika (voting start time).
+                sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
         // Add hidden boolean helper columns so CellStyle DataTriggers can make

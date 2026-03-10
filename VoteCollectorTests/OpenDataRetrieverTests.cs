@@ -688,6 +688,44 @@ namespace VoteCollectorTests
             Assert.IsNotNull(result);
             Assert.IsTrue(result!.Columns.Contains("IstuntoPvm"), "IstuntoPvm must be present");
         }
+
+        [TestMethod]
+        public void GetVotingDataByDate_YearOnly_ReturnsBothRows()
+        {
+            // Year-only input "1996" should match all rows from 1996 (Oct and Nov).
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "Year-only search must return all rows from that year");
+        }
+
+        [TestMethod]
+        public void GetVotingDataByDate_YearMonth_ReturnsOnlyMatchingMonthRow()
+        {
+            // "1996-10" should match only the October row, not the November row.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-10", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count, "Year+month search must return only rows from that month");
+            Assert.IsTrue(result.Rows[0]["IstuntoPvm"].ToString()!.StartsWith("1996-10"),
+                "Returned row must be from October 1996");
+        }
+
+        [TestMethod]
+        public void GetVotingDataByDate_YearMonth_NoMatch_ReturnsEmptyTable()
+        {
+            // "1996-12" matches no rows in the sample data.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-12", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(0, result!.Rows.Count, "No rows should match a month not in the data");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
