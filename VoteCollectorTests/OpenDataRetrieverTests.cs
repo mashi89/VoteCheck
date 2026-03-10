@@ -35,6 +35,29 @@ namespace VoteCollectorTests
         }
     }
 
+    // Returns a different response body for each successive HTTP call (round-robin on the last).
+    internal sealed class SequentialMockHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly string[] _responses;
+        private int _callIndex = 0;
+
+        public SequentialMockHttpMessageHandler(params string[] responses)
+        {
+            _responses = responses;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            int idx = Math.Min(_callIndex, _responses.Length - 1);
+            _callIndex++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_responses[idx])
+            });
+        }
+    }
+
     // ── Shared reflection helpers ─────────────────────────────────────────────
 
     internal static class TestHelpers
@@ -46,6 +69,15 @@ namespace VoteCollectorTests
             var field = typeof(OpenDataRetriever).GetField(
                 "_httpClient", BindingFlags.NonPublic | BindingFlags.Static)!;
             field.SetValue(null, new HttpClient(new MockHttpMessageHandler(responseBody, statusCode)));
+        }
+
+        // Replaces the static HttpClient with a sequential mock returning a different
+        // response on each successive call (useful for pagination tests).
+        public static void SetSequentialMockHttpClient(params string[] responses)
+        {
+            var field = typeof(OpenDataRetriever).GetField(
+                "_httpClient", BindingFlags.NonPublic | BindingFlags.Static)!;
+            field.SetValue(null, new HttpClient(new SequentialMockHttpMessageHandler(responses)));
         }
 
         // Calls the private static InitTable method.
@@ -77,6 +109,24 @@ namespace VoteCollectorTests
             catch (TargetInvocationException tie) when (tie.InnerException != null)
             {
                 // Re-throw the original exception, preserving its type and stack trace.
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                    .Capture(tie.InnerException).Throw();
+                throw; // unreachable – satisfies compiler
+            }
+        }
+
+        // Calls the private static GetNameData method, unwrapping TargetInvocationException.
+        public static DataTable InvokeGetNameData(
+            string inputName, bool skipEven, string count, string type)
+        {
+            var method = typeof(OpenDataRetriever).GetMethod(
+                "GetNameData", BindingFlags.NonPublic | BindingFlags.Static)!;
+            try
+            {
+                return (DataTable)method.Invoke(null, new object[] { inputName, skipEven, count, type })!;
+            }
+            catch (TargetInvocationException tie) when (tie.InnerException != null)
+            {
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo
                     .Capture(tie.InnerException).Throw();
                 throw; // unreachable – satisfies compiler
@@ -224,6 +274,32 @@ namespace VoteCollectorTests
     [""2745051"",""13301"",""Esko"",""Aho"",""104"",""kesk"",""Ei"",""2018-02-05 11:49:36""]
   ],
   ""columnCount"": 8, ""rowCount"": 2,
+  ""pkName"": ""EdustajaId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+        // Page 0: one row (AanestysId=13299, odd), hasMore=true – pagination not complete.
+        public const string SaliDBAanestysEdustaja_Page0_HasMoreTrue = @"{
+  ""page"": 0, ""perPage"": 200, ""hasMore"": true,
+  ""tableName"": ""SaliDBAanestysEdustaja"",
+  ""columnNames"": [""EdustajaId"",""AanestysId"",""EdustajaEtunimi"",""EdustajaSukunimi"",
+                    ""EdustajaHenkiloNumero"",""EdustajaRyhmaLyhenne"",""EdustajaAanestys"",""Imported""],
+  ""rowData"": [
+    [""2745050"",""13299"",""Markus"",""Aaltonen"",""102"",""sd"",""Poissa"",""2018-02-05 11:49:36""]
+  ],
+  ""columnCount"": 8, ""rowCount"": 1,
+  ""pkName"": ""EdustajaId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+        // Page 1: one row (AanestysId=13301, odd), hasMore=false – last page.
+        public const string SaliDBAanestysEdustaja_Page1_HasMoreFalse = @"{
+  ""page"": 1, ""perPage"": 200, ""hasMore"": false,
+  ""tableName"": ""SaliDBAanestysEdustaja"",
+  ""columnNames"": [""EdustajaId"",""AanestysId"",""EdustajaEtunimi"",""EdustajaSukunimi"",
+                    ""EdustajaHenkiloNumero"",""EdustajaRyhmaLyhenne"",""EdustajaAanestys"",""Imported""],
+  ""rowData"": [
+    [""2745051"",""13301"",""Markus"",""Aaltonen"",""102"",""sd"",""Jaa"",""2018-02-05 11:49:36""]
+  ],
+  ""columnCount"": 8, ""rowCount"": 1,
   ""pkName"": ""EdustajaId"", ""pkStartValue"": null, ""pkLastValue"": null
 }";
 
@@ -1022,6 +1098,76 @@ namespace VoteCollectorTests
         {
             Assert.IsFalse(
                 OpenDataRetriever.PartyNameToAbbreviation.TryGetValue("Tuntematon puolue", out _));
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GetNameData pagination tests  (private API via reflection)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class GetNameDataPaginationTests
+    {
+        [TestMethod]
+        public void GetNameData_SinglePage_ReturnsAllRowsFromThatPage()
+        {
+            // Only one page (hasMore=false): the two-row sample should be returned as-is.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
+
+            var result = TestHelpers.InvokeGetNameData(
+                "Aaltonen", skipEven: true, count: "200", type: "EdustajaSukunimi");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "Both rows from the single page should be returned");
+        }
+
+        [TestMethod]
+        public void GetNameData_TwoPages_CombinesRowsFromBothPages()
+        {
+            // Page 0: hasMore=true (1 row with AanestysId=13300)
+            // Page 1: hasMore=false (1 row with AanestysId=13301)
+            // Expect both rows to be present in the result.
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestysEdustaja_Page0_HasMoreTrue,
+                SampleJson.SaliDBAanestysEdustaja_Page1_HasMoreFalse);
+
+            var result = TestHelpers.InvokeGetNameData(
+                "Aaltonen", skipEven: true, count: "200", type: "EdustajaSukunimi");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(2, result!.Rows.Count, "Rows from both pages should be combined");
+        }
+
+        [TestMethod]
+        public void GetNameData_TwoPages_SetsHasMoreFalseAfterLastPage()
+        {
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestysEdustaja_Page0_HasMoreTrue,
+                SampleJson.SaliDBAanestysEdustaja_Page1_HasMoreFalse);
+
+            TestHelpers.InvokeGetNameData(
+                "Aaltonen", skipEven: true, count: "200", type: "EdustajaSukunimi");
+
+            Assert.IsFalse(OpenDataRetriever.hasMore,
+                "hasMore must be false after all pages have been fetched");
+        }
+
+        [TestMethod]
+        public void GetNameData_TwoPages_ContainsRowsFromBothAanestysIds()
+        {
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestysEdustaja_Page0_HasMoreTrue,
+                SampleJson.SaliDBAanestysEdustaja_Page1_HasMoreFalse);
+
+            var result = TestHelpers.InvokeGetNameData(
+                "Aaltonen", skipEven: true, count: "200", type: "EdustajaSukunimi");
+
+            Assert.IsNotNull(result);
+            var ids = result!.AsEnumerable()
+                .Select(r => r["AanestysId"]?.ToString())
+                .ToHashSet();
+            Assert.IsTrue(ids.Contains("13299"), "Row from page 0 (AanestysId=13299) must be present");
+            Assert.IsTrue(ids.Contains("13301"), "Row from page 1 (AanestysId=13301) must be present");
         }
     }
 }

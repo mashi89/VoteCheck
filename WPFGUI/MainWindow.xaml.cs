@@ -65,7 +65,7 @@ namespace WPFGUI {
             RenameColumn( result, "KohtaOtsikko",           "Kohta" );
             RenameColumn( result, "AanestysOtsikko",        "Äänestysaihe" );
 
-            ShowData( result, "Sukunimihaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            ShowData( result, "Sukunimihaku", sortColumnIndex: 9, sortDirection: ListSortDirection.Descending );
         }
 
         // ── Date search ─────────────────────────────────────────────────────
