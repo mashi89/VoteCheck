@@ -481,7 +481,6 @@ namespace VoteCollectorTests
             Assert.IsNotNull(result);
             Assert.IsFalse(result!.Columns.Contains("KieliId"),                   "KieliId");
             Assert.IsFalse(result.Columns.Contains("IstuntoVPVuosi"),             "IstuntoVPVuosi");
-            Assert.IsFalse(result.Columns.Contains("IstuntoPvm"),                 "IstuntoPvm");
             Assert.IsFalse(result.Columns.Contains("IstuntoNumero"),              "IstuntoNumero");
             Assert.IsFalse(result.Columns.Contains("IstuntoAlkuaika"),            "IstuntoAlkuaika");
             Assert.IsFalse(result.Columns.Contains("IstuntoIlmoitettuAlkuaika"),  "IstuntoIlmoitettuAlkuaika");
@@ -515,6 +514,7 @@ namespace VoteCollectorTests
 
             Assert.IsNotNull(result);
             Assert.IsTrue(result!.Columns.Contains("AanestysId"),          "AanestysId");
+            Assert.IsTrue(result.Columns.Contains("IstuntoPvm"),           "IstuntoPvm");
             Assert.IsTrue(result.Columns.Contains("AanestysOtsikko"),      "AanestysOtsikko");
             Assert.IsTrue(result.Columns.Contains("AanestysAlkuaika"),     "AanestysAlkuaika");
             Assert.IsTrue(result.Columns.Contains("AanestysMitatoity"),    "AanestysMitatoity");

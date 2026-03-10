@@ -18,12 +18,18 @@
                     Padding="4,2" Margin="0,0,0,16" DockPanel.Dock="Top"
                     Click="btnBack_Click"/>
 
-            <!-- Find by year section -->
-            <Label Content="Find by year" Padding="0,0,0,2" DockPanel.Dock="Top"/>
-            <TextBox x:Name="tbYear" Margin="0,0,0,4" DockPanel.Dock="Top"/>
-            <Button x:Name="btnFindYear" Content="Find" Width="60" HorizontalAlignment="Left"
-                    Padding="4,2" Margin="0,0,0,20" DockPanel.Dock="Top"
-                    Click="btnFindYear_Click"/>
+            <!-- Find by date section -->
+            <Label Content="Find by date" Padding="0,0,0,2" DockPanel.Dock="Top"/>
+            <TextBox x:Name="tbDate" Margin="0,0,0,4" DockPanel.Dock="Top"
+                     KeyDown="tbDate_KeyDown"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20" DockPanel.Dock="Top">
+                <Button x:Name="btnFindDate" Content="Find" Width="60" HorizontalAlignment="Left"
+                        Padding="4,2" Margin="0,0,4,0"
+                        Click="btnFindDate_Click"/>
+                <Button x:Name="btnToday" Content="Today" Width="60" HorizontalAlignment="Left"
+                        Padding="4,2"
+                        Click="btnToday_Click"/>
+            </StackPanel>
 
             <!-- Find by surname section -->
             <Label Content="Find by surname" Padding="0,0,0,2" DockPanel.Dock="Top"/>

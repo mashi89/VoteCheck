@@ -68,25 +68,45 @@ namespace WPFGUI {
             ShowData( result, "Sukunimihaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
-        // ── Year search ─────────────────────────────────────────────────────
+        // ── Date search ─────────────────────────────────────────────────────
 
-        private async void btnFindYear_Click( object sender, RoutedEventArgs e ) {
-            await FindByYearAsync();
+        private async void btnFindDate_Click( object sender, RoutedEventArgs e ) {
+            await FindByDateAsync();
         }
 
-        private async Task FindByYearAsync() {
-            if ( string.IsNullOrWhiteSpace( tbYear.Text ) ) return;
+        private async void tbDate_KeyDown( object sender, KeyEventArgs e ) {
+            if ( e.Key == Key.Return ) await FindByDateAsync();
+        }
+
+        private void btnToday_Click( object sender, RoutedEventArgs e ) {
+            // IstuntoPvm values in the API are in "yyyy-MM-dd HH:mm:ss" format;
+            // the API accepts a "yyyy-MM-dd" prefix for date filtering.
+            tbDate.Text = DateTime.Today.ToString( "yyyy-MM-dd" );
+        }
+
+        private async Task FindByDateAsync() {
+            if ( string.IsNullOrWhiteSpace( tbDate.Text ) ) return;
+
+            string inputDate = tbDate.Text.Trim();
+
+            // Validate that the input is a parseable date in yyyy-MM-dd format.
+            if ( !DateTime.TryParseExact( inputDate, "yyyy-MM-dd",
+                     System.Globalization.CultureInfo.InvariantCulture,
+                     System.Globalization.DateTimeStyles.None, out _ ) ) {
+                MessageBox.Show( "Enter a date in yyyy-MM-dd format (e.g. 2024-03-10).",
+                    "Invalid date", MessageBoxButton.OK, MessageBoxImage.Warning );
+                return;
+            }
 
             dataGrid.ItemsSource = null;
 
             int queryCount = GetQueryCount();
-            string inputYear = tbYear.Text.Trim();
             bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
 
             DataTable? result = null;
             try {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetVotingData(
-                    inputYear, !isSwedish, queryCount * 2, "IstuntoVPVuosi" ) );
+                    inputDate, !isSwedish, queryCount * 2, "IstuntoPvm" ) );
             } catch ( Exception ex ) {
                 MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                 return;
@@ -103,7 +123,7 @@ namespace WPFGUI {
 
             MarkWinningVotes( result );
 
-            ShowData( result, "Vuosihaku", sortColumnIndex: 0, sortDirection: ListSortDirection.Descending );
+            ShowData( result, "Päivähaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
         // Add hidden boolean helper columns so CellStyle DataTriggers can make

@@ -115,7 +115,6 @@ namespace MaSHi {
                 votingTable.Columns.Remove("KieliId");
                 votingTable.Columns.Remove("KohtaTunniste");
                 votingTable.Columns.Remove("KohtaJarjestys");
-                votingTable.Columns.Remove("IstuntoPvm");
                 votingTable.Columns.Remove("IstuntoVPVuosi");
                 votingTable.Columns.Remove("IstuntoIlmoitettuAlkuaika");
                 votingTable.Columns.Remove("IstuntoAlkuaika");
