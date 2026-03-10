@@ -79,8 +79,6 @@ namespace WPFGUI {
         }
 
         private void btnToday_Click( object sender, RoutedEventArgs e ) {
-            // IstuntoPvm values in the API are in "yyyy-MM-dd HH:mm:ss" format;
-            // the API accepts a "yyyy-MM-dd" prefix for date filtering.
             tbDate.Text = DateTime.Today.ToString( "yyyy-MM-dd" );
         }
 
@@ -105,8 +103,8 @@ namespace WPFGUI {
 
             DataTable? result = null;
             try {
-                result = await Task.Run( () => MaSHi.OpenDataRetriever.GetVotingData(
-                    inputDate, !isSwedish, queryCount * 2, "IstuntoPvm" ) );
+                result = await Task.Run( () => MaSHi.OpenDataRetriever.GetVotingDataByDate(
+                    inputDate, !isSwedish, queryCount * 2 ) );
             } catch ( Exception ex ) {
                 MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
                 return;

@@ -169,7 +169,48 @@ namespace VoteCollectorTests
   ""columnNames"": [], ""rowData"": []
 }";
 
-        // ── SaliDBAanestysEdustaja (MP votes per voting) ──────────────────────
+        // ── SaliDBAanestys (two Finnish rows, different dates within 1996) ──────
+        //
+        // Both rows have KieliId=1 (Finnish/odd) so skipEven=true keeps both.
+        // Row 1: IstuntoPvm = "1996-10-01 00:00:00"
+        // Row 2: IstuntoPvm = "1996-11-01 00:00:00"
+        public const string SaliDBAanestys_TwoFinnishRows_DifferentDates = @"{
+  ""page"": 0, ""perPage"": 10, ""hasMore"": false,
+  ""tableName"": ""SaliDBAanestys"",
+  ""columnNames"": [""AanestysId"",""KieliId"",""IstuntoVPVuosi"",""IstuntoNumero"",""IstuntoPvm"",
+    ""IstuntoIlmoitettuAlkuaika"",""IstuntoAlkuaika"",""PJOtsikko"",""AanestysNumero"",
+    ""AanestysAlkuaika"",""AanestysLoppuaika"",""AanestysMitatoity"",""AanestysOtsikko"",
+    ""AanestysLisaOtsikko"",""PaaKohtaTunniste"",""PaaKohtaOtsikko"",""PaaKohtaHuomautus"",
+    ""KohtaKasittelyOtsikko"",""KohtaKasittelyVaihe"",""KohtaJarjestys"",""KohtaTunniste"",
+    ""KohtaOtsikko"",""KohtaHuomautus"",""AanestysTulosJaa"",""AanestysTulosEi"",
+    ""AanestysTulosTyhjia"",""AanestysTulosPoissa"",""AanestysTulosYhteensa"",""Url"",
+    ""AanestysPoytakirja"",""AanestysPoytakirjaUrl"",""AanestysValtiopaivaasia"",
+    ""AanestysValtiopaivaasiaUrl"",""AliKohtaTunniste"",""Imported""],
+  ""rowData"": [
+    [""13259"",""1"",""1996"",""112"",""1996-10-01 00:00:00"",""1996-10-01 13:30:00"",
+     ""1996-10-01 13:33:21"",null,""1"",""1996-10-01 13:38:30"",""1996-10-01 13:38:30"",
+     ""0"",""P\u00e4ät\u00f6s 1"",null,null,null,null,
+     ""Ensimm\u00e4inen k\u00e4sittely"",""Ensimm\u00e4inen k\u00e4sittely"",
+     ""1"",""1"",""Lakialoite laiksi X"",null,
+     ""134"",""33"",""4"",""28"",""199"",
+     ""/aanestystulos/1/112/1996"",""PTK 112/1996 vp"",
+     ""/valtiopaivaasiakirjat/PTK+112/1996"","" / vp"",""/valtiopaivaasiat/+/"",
+     null,""2018-06-02 10:14:00""],
+    [""13261"",""1"",""1996"",""115"",""1996-11-01 00:00:00"",""1996-11-01 13:00:00"",
+     ""1996-11-01 13:05:00"",null,""2"",""1996-11-01 13:10:00"",""1996-11-01 13:10:00"",
+     ""0"",""P\u00e4ät\u00f6s 2"",null,null,null,null,
+     ""Ensimm\u00e4inen k\u00e4sittely"",""Ensimm\u00e4inen k\u00e4sittely"",
+     ""1"",""1"",""Lakialoite laiksi Y"",null,
+     ""80"",""70"",""2"",""47"",""199"",
+     ""/aanestystulos/2/115/1996"",""PTK 115/1996 vp"",
+     ""/valtiopaivaasiakirjat/PTK+115/1996"","" / vp"",""/valtiopaivaasiat/+/"",
+     null,""2018-06-02 10:14:00""]
+  ],
+  ""columnCount"": 35, ""rowCount"": 2,
+  ""pkName"": ""AanestysId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+
         //
         // AanestysId is at index 1 (value "13301", odd).
         // skipEven=true keeps odd AanestysId rows → both rows included.
@@ -586,6 +627,66 @@ namespace VoteCollectorTests
 
             Assert.IsNotNull(result);
             Assert.AreEqual(1, result!.Rows.Count);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GetVotingDataByDate tests  (public API)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class GetVotingDataByDateTests
+    {
+        [TestMethod]
+        public void GetVotingDataByDate_ReturnsOnlyRowsMatchingDate()
+        {
+            // Two Finnish rows on different dates; only the Oct-01 row should survive
+            // when searching for "1996-10-01".
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-10-01", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.IsTrue(result.Rows[0]["IstuntoPvm"].ToString()!.StartsWith("1996-10-01"),
+                "Returned row must have IstuntoPvm matching the requested date");
+        }
+
+        [TestMethod]
+        public void GetVotingDataByDate_ReturnsOtherDateRow()
+        {
+            // Same two rows; searching for Nov-01 should return only that row.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-11-01", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.IsTrue(result.Rows[0]["IstuntoPvm"].ToString()!.StartsWith("1996-11-01"),
+                "Returned row must have IstuntoPvm matching the requested date");
+        }
+
+        [TestMethod]
+        public void GetVotingDataByDate_ReturnsEmptyTable_WhenNoRowsMatchDate()
+        {
+            // Both rows are on 1996-10-01 / 1996-11-01; searching a non-existent date yields empty.
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-12-01", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(0, result!.Rows.Count, "No rows should match a date not in the data");
+        }
+
+        [TestMethod]
+        public void GetVotingDataByDate_RetainsIstuntoPvmColumn()
+        {
+            TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestys_TwoFinnishRows_DifferentDates);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-10-01", skipEven: true, count: 10);
+
+            Assert.IsNotNull(result);
+            Assert.IsTrue(result!.Columns.Contains("IstuntoPvm"), "IstuntoPvm must be present");
         }
     }
 
