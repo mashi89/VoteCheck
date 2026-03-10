@@ -35,7 +35,8 @@ namespace VoteCollectorTests
         }
     }
 
-    // Returns a different response body for each successive HTTP call (round-robin on the last).
+    // Returns a different response body for each successive HTTP call.
+    // Throws if more calls are made than responses were provided.
     internal sealed class SequentialMockHttpMessageHandler : HttpMessageHandler
     {
         private readonly string[] _responses;
@@ -49,11 +50,13 @@ namespace VoteCollectorTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            int idx = Math.Min(_callIndex, _responses.Length - 1);
-            _callIndex++;
+            if (_callIndex >= _responses.Length)
+                throw new InvalidOperationException(
+                    $"SequentialMockHttpMessageHandler received call #{_callIndex + 1} " +
+                    $"but only {_responses.Length} response(s) were configured.");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(_responses[idx])
+                Content = new StringContent(_responses[_callIndex++])
             });
         }
     }
@@ -300,6 +303,23 @@ namespace VoteCollectorTests
     [""2745051"",""13301"",""Markus"",""Aaltonen"",""102"",""sd"",""Jaa"",""2018-02-05 11:49:36""]
   ],
   ""columnCount"": 8, ""rowCount"": 1,
+  ""pkName"": ""EdustajaId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
+        // Three rows (all odd AanestysIds so skipEven=true keeps all three), hasMore=false.
+        // AanestysIds in ascending order: 24195 < 24197 < 24199.
+        // Used to verify GetCombinedData sorts descending and limits to count rows.
+        public const string SaliDBAanestysEdustaja_ThreeRows_HasMoreFalse = @"{
+  ""page"": 0, ""perPage"": 200, ""hasMore"": false,
+  ""tableName"": ""SaliDBAanestysEdustaja"",
+  ""columnNames"": [""EdustajaId"",""AanestysId"",""EdustajaEtunimi"",""EdustajaSukunimi"",
+                    ""EdustajaHenkiloNumero"",""EdustajaRyhmaLyhenne"",""EdustajaAanestys"",""Imported""],
+  ""rowData"": [
+    [""1"",""24195"",""Antti"",""Kaikkonen"",""772"",""kesk"",""Poissa"",""2024-01-01 10:00:00""],
+    [""2"",""24197"",""Antti"",""Kaikkonen"",""772"",""kesk"",""Jaa"",""2024-01-02 10:00:00""],
+    [""3"",""24199"",""Antti"",""Kaikkonen"",""772"",""kesk"",""Ei"",""2024-01-03 10:00:00""]
+  ],
+  ""columnCount"": 8, ""rowCount"": 3,
   ""pkName"": ""EdustajaId"", ""pkStartValue"": null, ""pkLastValue"": null
 }";
 
@@ -1168,6 +1188,75 @@ namespace VoteCollectorTests
                 .ToHashSet();
             Assert.IsTrue(ids.Contains("13299"), "Row from page 0 (AanestysId=13299) must be present");
             Assert.IsTrue(ids.Contains("13301"), "Row from page 1 (AanestysId=13301) must be present");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GetCombinedData sort-and-limit tests  (public API)
+    //
+    // These tests guard against the regression where paginating ALL rows and then
+    // calling GetVotingDataOfOne for every row caused the surname search to
+    // appear frozen.  The fix sorts by AanestysId descending and takes the top
+    // `count` rows BEFORE the GetVotingDataOfOne loop.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [TestClass]
+    public class GetCombinedDataTests
+    {
+        [TestMethod]
+        public void GetCombinedData_LimitsRowCount_ToCountParameter()
+        {
+            // 3 rows available (all Finnish/odd AanestysIds), count=1 → only 1 row returned.
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestysEdustaja_ThreeRows_HasMoreFalse,
+                SampleJson.SaliDBAanestys_OneRow_HasMoreTrue);
+
+            var result = OpenDataRetriever.GetCombinedData(
+                "Kaikkonen", skipEven: true, count: 1, type: "EdustajaSukunimi");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count,
+                "GetCombinedData must limit the result to count=1 row");
+        }
+
+        [TestMethod]
+        public void GetCombinedData_ReturnsMostRecentRow_SortedByAanestysIdDescending()
+        {
+            // Rows arrive in ascending order: 24195, 24197, 24199.
+            // count=1 must return only the most recent row (highest AanestysId = 24199).
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestysEdustaja_ThreeRows_HasMoreFalse,
+                SampleJson.SaliDBAanestys_OneRow_HasMoreTrue);
+
+            var result = OpenDataRetriever.GetCombinedData(
+                "Kaikkonen", skipEven: true, count: 1, type: "EdustajaSukunimi");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual("24199", result!.Rows[0]["AanestysId"]?.ToString()?.Trim(),
+                "The most recent vote (AanestysId=24199) must be selected when count=1");
+            // Verify that voting detail columns were populated from the SaliDBAanestys response
+            // (votingDataRow[12] = "Päätös 1", votingDataRow[21] = "Lakialoite laiksi X")
+            Assert.AreEqual("Päätös 1",        result.Rows[0]["AanestysOtsikko"]?.ToString()?.Trim());
+            Assert.AreEqual("Lakialoite laiksi X", result.Rows[0]["KohtaOtsikko"]?.ToString()?.Trim());
+        }
+
+        [TestMethod]
+        public void GetCombinedData_TwoPages_ReturnsMostRecentAcrossAllPages()
+        {
+            // Page 0: AanestysId=13299 (hasMore=true); Page 1: AanestysId=13301 (hasMore=false).
+            // count=1 → result must contain the row from page 1 (AanestysId=13301), not page 0.
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestysEdustaja_Page0_HasMoreTrue,
+                SampleJson.SaliDBAanestysEdustaja_Page1_HasMoreFalse,
+                SampleJson.SaliDBAanestys_OneRow_HasMoreTrue);
+
+            var result = OpenDataRetriever.GetCombinedData(
+                "Aaltonen", skipEven: true, count: 1, type: "EdustajaSukunimi");
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count);
+            Assert.AreEqual("13301", result.Rows[0]["AanestysId"]?.ToString()?.Trim(),
+                "Most recent row (AanestysId=13301) across both pages must be selected");
         }
     }
 }

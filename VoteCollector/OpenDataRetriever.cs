@@ -254,6 +254,19 @@ namespace MaSHi {
                 throw ex;
             }            
 
+            // Sort by AanestysId descending (most recent first) and limit to count rows
+            // so that GetVotingDataOfOne is only called for the top-N results,
+            // not for every row returned across all paginated pages.
+            var sortedRows = finalTable.AsEnumerable()
+                .OrderByDescending( r => {
+                    int.TryParse( r["AanestysId"]?.ToString()?.Trim(), out int id );
+                    return id;
+                } )
+                .Take( count )
+                .ToList();
+            if ( sortedRows.Count > 0 )
+                finalTable = sortedRows.CopyToDataTable();
+
             // Add new columns for voting data
             finalTable.Columns.Add("AanestysOtsikko").SetOrdinal(7);
             finalTable.Columns.Add("KohtaOtsikko").SetOrdinal(8);
