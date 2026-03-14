@@ -1,12 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>WPFGUI</AssemblyName>
     <RootNamespace>WPFGUI</RootNamespace>
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Tell Avalonia's compiler to process these XAML files -->
+    <AvaloniaXaml Include="App.xaml" />
+    <AvaloniaXaml Include="MainWindow.xaml" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VoteCollector\VoteCollector.csproj" />
   </ItemGroup>
