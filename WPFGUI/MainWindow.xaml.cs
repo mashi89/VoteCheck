@@ -1,12 +1,17 @@
 using System;
+using System.Collections;
 using System.ComponentModel;
 using System.Data;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Data;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 
 #nullable enable
 
@@ -20,19 +25,25 @@ namespace WPFGUI {
 
         // Column names that contain bold-winner info (hidden helper columns)
         private const string ColJaaBold = "_JaaBold";
-        private const string ColEiBold = "_EiBold";
+        private const string ColEiBold  = "_EiBold";
 
         public MainWindow() {
             InitializeComponent();
+
+            // Restrict tbQueryCount to digits only
+            tbQueryCount.AddHandler(
+                InputElement.TextInputEvent,
+                new EventHandler<TextInputEventArgs>( tbQueryCount_TextInput ),
+                handledEventsToo: false );
         }
 
         // ── Surname search ──────────────────────────────────────────────────
 
-        private async void btnFindSurname_Click( object sender, RoutedEventArgs e ) {
+        private async void btnFindSurname_Click( object? sender, RoutedEventArgs e ) {
             await FindBySurnameAsync();
         }
 
-        private async void tbSurname_KeyDown( object sender, KeyEventArgs e ) {
+        private async void tbSurname_KeyDown( object? sender, KeyEventArgs e ) {
             if ( e.Key == Key.Return ) await FindBySurnameAsync();
         }
 
@@ -52,7 +63,7 @@ namespace WPFGUI {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCombinedData(
                     inputName, !isSwedish, queryCount * 2, "EdustajaSukunimi" ) );
             } catch ( Exception ex ) {
-                MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                await ShowAlert( "Error during search", ex.Message );
                 return;
             }
 
@@ -70,15 +81,15 @@ namespace WPFGUI {
 
         // ── Date search ─────────────────────────────────────────────────────
 
-        private async void btnFindDate_Click( object sender, RoutedEventArgs e ) {
+        private async void btnFindDate_Click( object? sender, RoutedEventArgs e ) {
             await FindByDateAsync();
         }
 
-        private async void tbDate_KeyDown( object sender, KeyEventArgs e ) {
+        private async void tbDate_KeyDown( object? sender, KeyEventArgs e ) {
             if ( e.Key == Key.Return ) await FindByDateAsync();
         }
 
-        private void btnToday_Click( object sender, RoutedEventArgs e ) {
+        private void btnToday_Click( object? sender, RoutedEventArgs e ) {
             tbDate.Text = DateTime.Today.ToString( "yyyy-MM-dd" );
         }
 
@@ -92,8 +103,8 @@ namespace WPFGUI {
                      new[] { "yyyy-MM-dd", "yyyy-MM", "yyyy" },
                      System.Globalization.CultureInfo.InvariantCulture,
                      System.Globalization.DateTimeStyles.None, out _ ) ) {
-                MessageBox.Show( "Enter a year (e.g. 2024), year and month (e.g. 2024-03), or full date (e.g. 2024-03-10).",
-                    "Invalid date", MessageBoxButton.OK, MessageBoxImage.Warning );
+                await ShowAlert( "Invalid date",
+                    "Enter a year (e.g. 2024), year and month (e.g. 2024-03), or full date (e.g. 2024-03-10)." );
                 return;
             }
 
@@ -107,7 +118,7 @@ namespace WPFGUI {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetVotingDataByDate(
                     inputDate, !isSwedish, queryCount * 2 ) );
             } catch ( Exception ex ) {
-                MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                await ShowAlert( "Error during search", ex.Message );
                 return;
             }
 
@@ -118,8 +129,8 @@ namespace WPFGUI {
             RenameColumn( result, "AanestysTulosTyhjiä",  "Tyhjä" );
             RenameColumn( result, "AanestysTulosTyhjia",  "Tyhjä" );
             RenameColumn( result, "AanestysTulosPoissa",  "Poissa" );
-            RenameColumn( result, "KohtaOtsikko",        "Kohta" );
-            RenameColumn( result, "AanestysOtsikko",     "Äänestysaihe" );
+            RenameColumn( result, "KohtaOtsikko",         "Kohta" );
+            RenameColumn( result, "AanestysOtsikko",      "Äänestysaihe" );
 
             MarkWinningVotes( result );
 
@@ -128,8 +139,8 @@ namespace WPFGUI {
                 sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
-        // Add hidden boolean helper columns so CellStyle DataTriggers can make
-        // the winning vote column bold.  Ties do not bold either column.
+        // Add hidden boolean helper columns so template columns can bold the winning vote.
+        // Ties do not bold either column.
         private static void MarkWinningVotes( DataTable table ) {
             if ( !table.Columns.Contains( "Jaa" ) || !table.Columns.Contains( "Ei" ) ) return;
 
@@ -147,7 +158,7 @@ namespace WPFGUI {
 
         // ── Current MPs ─────────────────────────────────────────────────────
 
-        private async void btnCurrentMPs_Click( object sender, RoutedEventArgs e ) {
+        private async void btnCurrentMPs_Click( object? sender, RoutedEventArgs e ) {
             await FindCurrentMPsAsync();
         }
 
@@ -158,7 +169,7 @@ namespace WPFGUI {
             try {
                 result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCurrentMPs() );
             } catch ( Exception ex ) {
-                MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                await ShowAlert( "Error during search", ex.Message );
                 return;
             }
 
@@ -174,7 +185,7 @@ namespace WPFGUI {
 
         // ── Party distribution (drill-down on row double-click) ─────────────
 
-        private async void dataGrid_MouseDoubleClick( object sender, MouseButtonEventArgs e ) {
+        private async void dataGrid_DoubleTapped( object? sender, TappedEventArgs e ) {
             if ( newDataTable == null ) return;
 
             var row = ( dataGrid.SelectedItem as DataRowView )?.Row;
@@ -202,7 +213,7 @@ namespace WPFGUI {
                     result = await Task.Run( () => MaSHi.OpenDataRetriever.GetEdustajaData(
                         votingId, !isSwedish, partyAbbrev ) );
                 } catch ( Exception ex ) {
-                    MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                    await ShowAlert( "Error during search", ex.Message );
                     return;
                 }
 
@@ -217,7 +228,7 @@ namespace WPFGUI {
                     result = await Task.Run( () => MaSHi.OpenDataRetriever.GetPartyDistData(
                         votingId, !isSwedish, "AanestysId" ) );
                 } catch ( Exception ex ) {
-                    MessageBox.Show( ex.Message, "Error during search", MessageBoxButton.OK, MessageBoxImage.Error );
+                    await ShowAlert( "Error during search", ex.Message );
                     return;
                 }
 
@@ -229,7 +240,7 @@ namespace WPFGUI {
 
         // ── Back button ─────────────────────────────────────────────────────
 
-        private void btnBack_Click( object sender, RoutedEventArgs e ) {
+        private void btnBack_Click( object? sender, RoutedEventArgs e ) {
             if ( oldDataTable == null ) return;
 
             var temp = oldDataTable;
@@ -240,9 +251,10 @@ namespace WPFGUI {
             oldDgStatus = dgStatus;
             dgStatus = tempStatus;
 
-            Title = "VoteCheck (with WPF) - " + dgStatus;
+            Title = "VoteCheck (with Avalonia) - " + dgStatus;
 
-            ApplyDataSource( newDataTable, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            // newDataTable is the original oldDataTable, which was verified non-null at the start of this method.
+            ApplyDataSource( newDataTable!, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
         // ── Helpers ─────────────────────────────────────────────────────────
@@ -253,81 +265,94 @@ namespace WPFGUI {
             oldDgStatus = dgStatus;
             dgStatus = status;
 
-            Title = "VoteCheck (with WPF) - " + dgStatus;
-            lblHasMore.Visibility = MaSHi.OpenDataRetriever.hasMore ? Visibility.Visible : Visibility.Collapsed;
+            Title = "VoteCheck (with Avalonia) - " + dgStatus;
+            lblHasMore.IsVisible = MaSHi.OpenDataRetriever.hasMore;
 
             ApplyDataSource( table, sortColumnIndex, sortDirection );
         }
 
         private void ApplyDataSource( DataTable table, int sortColumnIndex, ListSortDirection sortDirection ) {
-            var view = table.DefaultView;
-            view.Sort = "";
+            // Sort the DataView directly
+            if ( sortColumnIndex < table.Columns.Count ) {
+                string colName = table.Columns[sortColumnIndex].ColumnName;
+                string dir = sortDirection == ListSortDirection.Ascending ? "ASC" : "DESC";
+                table.DefaultView.Sort = $"{colName} {dir}";
+            }
 
             dataGrid.ItemsSource = null;
             dataGrid.Columns.Clear();
-            dataGrid.ItemsSource = view;
 
-            // Apply sort if column index is valid
-            if ( sortColumnIndex < table.Columns.Count ) {
-                string colName = table.Columns[sortColumnIndex].ColumnName;
-                var cv = CollectionViewSource.GetDefaultView( dataGrid.ItemsSource );
-                cv.SortDescriptions.Clear();
-                cv.SortDescriptions.Add( new SortDescription( colName,
-                    sortDirection == ListSortDirection.Ascending
-                        ? System.ComponentModel.ListSortDirection.Ascending
-                        : System.ComponentModel.ListSortDirection.Descending ) );
+            // Manually create a column for each DataTable column using template columns.
+            // Avalonia's AutoGenerateColumns reflects on DataRowView's own CLR properties
+            // (DataView, Item, Row, RowVersion…) instead of the actual DataTable columns, and
+            // DataGridTextColumn bindings do not resolve DataRowView indexers in Avalonia,
+            // so we use DataGridTemplateColumn with FuncDataTemplate for all columns.
+            foreach ( DataColumn col in table.Columns ) {
+                string name = col.ColumnName;
+
+                // Skip hidden helper columns
+                if ( name == ColJaaBold || name == ColEiBold ) continue;
+
+                // Skip redundant date column when the more specific timestamp column is present
+                if ( name == "IstuntoPvm" && table.Columns.Contains( "AanestysAlkuaika" ) ) continue;
+
+                // Skip parliamentary journal reference (not useful in the grid)
+                if ( name == "PJOtsikko" ) continue;
+
+                DataGridColumn column;
+
+                // Winning-vote columns use a template that bolds the larger value
+                if ( ( name == "Jaa" && table.Columns.Contains( ColJaaBold ) ) ||
+                     ( name == "Ei"  && table.Columns.Contains( ColEiBold  ) ) ) {
+                    string helperCol = name == "Jaa" ? ColJaaBold : ColEiBold;
+                    column = new DataGridTemplateColumn {
+                        Header             = name,
+                        Width              = new DataGridLength( 50 ),
+                        SortMemberPath     = name,
+                        CustomSortComparer = new DataRowViewComparer( name ),
+                        CellTemplate       = CreateBoldTemplate( name, helperCol )
+                    };
+                } else {
+                    var templateCol = new DataGridTemplateColumn {
+                        Header             = name,
+                        SortMemberPath     = name,
+                        CustomSortComparer = new DataRowViewComparer( name ),
+                        CellTemplate       = CreateTextTemplate( name )
+                    };
+                    ApplyColumnWidth( templateCol, name );
+                    column = templateCol;
+                }
+
+                dataGrid.Columns.Add( column );
             }
+
+            dataGrid.ItemsSource = table.DefaultView;
         }
 
-        // Auto-generating column: hide helper columns, apply bold CellStyle to Jaa/Ei
-        private void dataGrid_AutoGeneratingColumn( object sender, DataGridAutoGeneratingColumnEventArgs e ) {
-            // Hide helper columns
-            if ( e.PropertyName == ColJaaBold || e.PropertyName == ColEiBold ) {
-                e.Cancel = true;
-                return;
-            }
-
-            // Hide IstuntoPvm when AanestysAlkuaika is present (redundant date column)
-            if ( e.PropertyName == "IstuntoPvm" &&
-                 newDataTable != null && newDataTable.Columns.Contains( "AanestysAlkuaika" ) ) {
-                e.Cancel = true;
-                return;
-            }
-
-            // Hide PJOtsikko (parliamentary journal reference, not useful in the grid)
-            if ( e.PropertyName == "PJOtsikko" ) {
-                e.Cancel = true;
-                return;
-            }
-
-            // Per-column widths sized to fit all columns inside the window without horizontal scrolling.
-            // Grid area ≈ 1185 px (window 1450 − left panel 265).
-            switch ( e.PropertyName ) {
+        // Applies per-column widths sized to fit all columns inside the window without horizontal scrolling.
+        // Grid area ≈ 1185 px (window 1450 − left panel 265).
+        private static void ApplyColumnWidth( DataGridColumn col, string name ) {
+            switch ( name ) {
                 // ── long text columns (all views) ──
                 case "Kohta":
-                    e.Column.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells );
-                    e.Column.MaxWidth = 500;
-                    e.Column.CellStyle = new Style( typeof( DataGridCell ) ) {
-                        Setters = {
-                            new Setter( TextBlock.TextWrappingProperty, TextWrapping.Wrap )
-                        }
-                    };
+                    col.Width    = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells );
+                    col.MaxWidth = 500;
                     break;
 
                 case "Äänestysaihe":
-                    e.Column.Width = new DataGridLength( 120 ); break;
+                    col.Width = new DataGridLength( 120 ); break;
 
                 case "Ryhmä":           // party dist view full party name
-                    e.Column.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells ); break;
+                    col.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells ); break;
 
                 case "Käsittely":
                 case "Pääkohta":
-                    e.Column.Width = new DataGridLength( 110 ); break;
+                    col.Width = new DataGridLength( 110 ); break;
 
                 // ── date / time columns ──
                 case "IstuntoPvm":
                 case "AanestysAlkuaika":
-                    e.Column.Width = new DataGridLength( 135 ); break;
+                    col.Width = new DataGridLength( 135 ); break;
 
                 // ── vote-count columns (date view & party dist view) ──
                 case "Jaa":
@@ -338,55 +363,66 @@ namespace WPFGUI {
                 case "EiLkm":
                 case "TyhjaLkm":
                 case "PoissaLkm":
-                    e.Column.Width = new DataGridLength( 50 ); break;
+                    col.Width = new DataGridLength( 50 ); break;
 
                 // ── short identifier / code columns ──
                 case "AanestysId":
                 case "EdustajaId":
-                    e.Column.Width = new DataGridLength( 65 ); break;
+                    col.Width = new DataGridLength( 65 ); break;
 
                 case "EdustajaHenkiloNumero":
-                    e.Column.Width = new DataGridLength( 60 ); break;
+                    col.Width = new DataGridLength( 60 ); break;
 
                 case "AanestysMitatoity":
-                    e.Column.Width = new DataGridLength( 80 ); break;
+                    col.Width = new DataGridLength( 80 ); break;
 
                 case "Puolue":
                 case "Ryhmalyhenne":
-                    e.Column.Width = new DataGridLength( 55 ); break;
+                    col.Width = new DataGridLength( 55 ); break;
 
                 case "Ministeri":
-                    e.Column.Width = new DataGridLength( 65 ); break;
+                    col.Width = new DataGridLength( 65 ); break;
 
                 case "Paikka":
-                    e.Column.Width = new DataGridLength( 55 ); break;
+                    col.Width = new DataGridLength( 55 ); break;
 
                 case "Ääni":
-                    e.Column.Width = new DataGridLength( 55 ); break;
+                    col.Width = new DataGridLength( 55 ); break;
 
                 // ── name columns (surname view & MP view) ──
                 case "Etunimi":
-                    e.Column.Width = new DataGridLength( 90 ); break;
+                    col.Width = new DataGridLength( 90 ); break;
 
                 case "Sukunimi":
-                    e.Column.Width = new DataGridLength( 100 ); break;
+                    col.Width = new DataGridLength( 100 ); break;
             }
+        }
 
-            // Bold winning-vote columns only when the helper columns exist in the table
-            if ( e.PropertyName == "Jaa" || e.PropertyName == "Ei" ) {
-                string helperCol = ( e.PropertyName == "Jaa" ) ? ColJaaBold : ColEiBold;
+        // Creates a plain cell template that renders the column value as text.
+        private static FuncDataTemplate<DataRowView?> CreateTextTemplate( string colName ) {
+            return new FuncDataTemplate<DataRowView?>( ( row, _ ) =>
+                new TextBlock {
+                    Text              = row?[colName]?.ToString() ?? "",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin            = new Thickness( 4, 0, 4, 0 )
+                } );
+        }
 
-                if ( newDataTable != null && newDataTable.Columns.Contains( helperCol ) ) {
-                    var style = new Style( typeof( DataGridCell ) );
-                    var trigger = new DataTrigger {
-                        Binding = new Binding( "[" + helperCol + "]" ),
-                        Value   = true
-                    };
-                    trigger.Setters.Add( new Setter( FontWeightProperty, FontWeights.Bold ) );
-                    style.Triggers.Add( trigger );
-                    e.Column.CellStyle = style;
-                }
-            }
+        // Creates a cell template that renders the value in bold when the helper boolean column is true.
+        // <param name="colName">The data column whose value is displayed in the cell.</param>
+        // <param name="helperCol">The hidden boolean column that controls bold formatting (true = bold).</param>
+        private static FuncDataTemplate<DataRowView?> CreateBoldTemplate( string colName, string helperCol ) {
+            return new FuncDataTemplate<DataRowView?>( ( row, _ ) => {
+                bool bold = row != null
+                            && row.Row.Table.Columns.Contains( helperCol )
+                            && row[helperCol] is bool b && b;
+                return new TextBlock {
+                    Text              = row?[colName]?.ToString() ?? "",
+                    FontWeight        = bold ? FontWeight.Bold : FontWeight.Normal,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin            = new Thickness( 4, 0, 4, 0 )
+                };
+            } );
         }
 
         private int GetQueryCount() {
@@ -399,10 +435,69 @@ namespace WPFGUI {
                 table.Columns[oldName]!.ColumnName = newName;
         }
 
+        private async Task ShowAlert( string title, string message ) {
+            var dialog = new Window {
+                Title                   = title,
+                SizeToContent           = SizeToContent.WidthAndHeight,
+                MinWidth                = 350,
+                CanResize               = false,
+                WindowStartupLocation   = WindowStartupLocation.CenterOwner
+            };
+
+            var okBtn = new Button {
+                Content             = "OK",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Padding             = new Thickness( 20, 4 )
+            };
+
+            dialog.Content = new StackPanel {
+                Margin   = new Thickness( 24 ),
+                Spacing  = 16,
+                Children = {
+                    new TextBlock {
+                        Text         = message,
+                        TextWrapping = TextWrapping.Wrap,
+                        MaxWidth     = 400
+                    },
+                    okBtn
+                }
+            };
+
+            okBtn.Click += ( _, _ ) => dialog.Close();
+            await dialog.ShowDialog( this );
+        }
+
         // Allow only digits in the query-count textbox
         private static readonly Regex _digitsOnly = new Regex( @"^\d+$", RegexOptions.Compiled );
-        private void tbQueryCount_PreviewTextInput( object sender, TextCompositionEventArgs e ) {
-            e.Handled = !_digitsOnly.IsMatch( e.Text );
+        private void tbQueryCount_TextInput( object? sender, TextInputEventArgs e ) {
+            e.Handled = e.Text != null && !_digitsOnly.IsMatch( e.Text );
+        }
+
+        // Compares two DataRowView objects by a named column value.
+        // Direction-agnostic (always ascending); Avalonia's DataGrid inverts the result
+        // automatically when the user has selected descending sort.
+        //
+        // This is required because DataGridTemplateColumn has no CLR binding path from
+        // which Avalonia can derive a PropertyDescriptor for DataRowView.  Setting
+        // CustomSortComparer on the column causes DataGridColumn.GetSortDescription() to
+        // produce a DataGridSortDescription.FromComparer(...) instead of FromPath(...).
+        // FromPath silently fails for DataRowView items (no type-level CLR properties),
+        // whereas FromComparer works correctly.
+        private sealed class DataRowViewComparer : IComparer {
+            private readonly string _columnName;
+            public DataRowViewComparer( string columnName ) => _columnName = columnName;
+            public int Compare( object? x, object? y ) {
+                object? a = (x as DataRowView)?[_columnName];
+                object? b = (y as DataRowView)?[_columnName];
+                // Normalize database-null to null so Comparer.DefaultInvariant doesn't throw
+                if ( a is DBNull ) a = null;
+                if ( b is DBNull ) b = null;
+                if ( a == null && b == null ) return 0;
+                if ( a == null ) return -1;
+                if ( b == null ) return  1;
+                return Comparer.DefaultInvariant.Compare( a, b );
+            }
         }
     }
 }
+
