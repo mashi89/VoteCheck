@@ -64,8 +64,14 @@
                   GridLinesVisibility="Horizontal"
                   DoubleTapped="dataGrid_DoubleTapped">
             <DataGrid.Styles>
+                <!-- Base row style: white background, dark text so the Fluent dark theme doesn't bleed through -->
+                <Style Selector="DataGridRow">
+                    <Setter Property="Background" Value="White"/>
+                    <Setter Property="Foreground" Value="#1A1A1A"/>
+                </Style>
+                <!-- Alternating row stripe: soft blue-grey for easy scanning -->
                 <Style Selector="DataGridRow:nth-child(2n)">
-                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Background" Value="#EEF2F7"/>
                 </Style>
             </DataGrid.Styles>
         </DataGrid>
