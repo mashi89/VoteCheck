@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.ComponentModel;
 using System.Data;
 using System.Text.RegularExpressions;
@@ -34,42 +35,6 @@ namespace WPFGUI {
                 InputElement.TextInputEvent,
                 new EventHandler<TextInputEventArgs>( tbQueryCount_TextInput ),
                 handledEventsToo: false );
-
-            // Handle column-header sorting manually so DataView.Sort is updated correctly
-            // for DataGridTemplateColumn (which has no binding path that Avalonia can sort on).
-            dataGrid.Sorting += dataGrid_Sorting;
-        }
-
-        // ── Column-header sort ───────────────────────────────────────────────
-
-        // Avalonia's DataGrid cannot automatically sort a DataView when DataGridTemplateColumn
-        // is used: it looks up a PropertyDescriptor by SortMemberPath on typeof(DataRowView)
-        // which returns nothing, so the sort is silently skipped.  We apply DataView.Sort
-        // directly here and leave e.Handled = false so Avalonia's default processing
-        // continues and updates the visual sort-direction arrow on the column header.
-        //
-        // Direction tracking: DataGridColumn.SortDirection has only an internal setter in
-        // Avalonia 11, so we derive the current direction from the DataView.Sort string.
-        private void dataGrid_Sorting( object? sender, DataGridColumnEventArgs e ) {
-            string? sortPath = e.Column.SortMemberPath;
-            if ( string.IsNullOrEmpty( sortPath ) || newDataTable == null ) return;
-
-            // Toggle: if the DataView is currently sorted ascending by this column → switch to
-            // descending; otherwise (different column or descending) → ascending.
-            // Parse DataView.Sort by splitting on whitespace to avoid false prefix matches
-            // (e.g. "Name" matching "FullName ASC").
-            string currentSort = newDataTable.DefaultView.Sort ?? "";
-            string[] sortParts = currentSort.Trim().Split( ' ', StringSplitOptions.RemoveEmptyEntries );
-            bool alreadyAsc = sortParts.Length >= 1
-                              && string.Equals( sortParts[0], sortPath, StringComparison.OrdinalIgnoreCase )
-                              && ( sortParts.Length < 2
-                                   || !string.Equals( sortParts[1], "DESC", StringComparison.OrdinalIgnoreCase ) );
-
-            string dir = alreadyAsc ? "DESC" : "ASC";
-            newDataTable.DefaultView.Sort = $"{sortPath} {dir}";
-
-            // Leaving e.Handled = false lets Avalonia's default processing run so it can
-            // update the sort-direction arrow on the column header.
         }
 
         // ── Surname search ──────────────────────────────────────────────────
@@ -341,16 +306,18 @@ namespace WPFGUI {
                      ( name == "Ei"  && table.Columns.Contains( ColEiBold  ) ) ) {
                     string helperCol = name == "Jaa" ? ColJaaBold : ColEiBold;
                     column = new DataGridTemplateColumn {
-                        Header         = name,
-                        Width          = new DataGridLength( 50 ),
-                        SortMemberPath = name,
-                        CellTemplate   = CreateBoldTemplate( name, helperCol )
+                        Header             = name,
+                        Width              = new DataGridLength( 50 ),
+                        SortMemberPath     = name,
+                        CustomSortComparer = new DataRowViewComparer( name ),
+                        CellTemplate       = CreateBoldTemplate( name, helperCol )
                     };
                 } else {
                     var templateCol = new DataGridTemplateColumn {
-                        Header         = name,
-                        SortMemberPath = name,
-                        CellTemplate   = CreateTextTemplate( name )
+                        Header             = name,
+                        SortMemberPath     = name,
+                        CustomSortComparer = new DataRowViewComparer( name ),
+                        CellTemplate       = CreateTextTemplate( name )
                     };
                     ApplyColumnWidth( templateCol, name );
                     column = templateCol;
@@ -504,6 +471,32 @@ namespace WPFGUI {
         private static readonly Regex _digitsOnly = new Regex( @"^\d+$", RegexOptions.Compiled );
         private void tbQueryCount_TextInput( object? sender, TextInputEventArgs e ) {
             e.Handled = e.Text != null && !_digitsOnly.IsMatch( e.Text );
+        }
+
+        // Compares two DataRowView objects by a named column value.
+        // Direction-agnostic (always ascending); Avalonia's DataGrid inverts the result
+        // automatically when the user has selected descending sort.
+        //
+        // This is required because DataGridTemplateColumn has no CLR binding path from
+        // which Avalonia can derive a PropertyDescriptor for DataRowView.  Setting
+        // CustomSortComparer on the column causes DataGridColumn.GetSortDescription() to
+        // produce a DataGridSortDescription.FromComparer(...) instead of FromPath(...).
+        // FromPath silently fails for DataRowView items (no type-level CLR properties),
+        // whereas FromComparer works correctly.
+        private sealed class DataRowViewComparer : IComparer {
+            private readonly string _columnName;
+            public DataRowViewComparer( string columnName ) => _columnName = columnName;
+            public int Compare( object? x, object? y ) {
+                object? a = (x as DataRowView)?[_columnName];
+                object? b = (y as DataRowView)?[_columnName];
+                // Normalize database-null to null so Comparer.DefaultInvariant doesn't throw
+                if ( a is DBNull ) a = null;
+                if ( b is DBNull ) b = null;
+                if ( a == null && b == null ) return 0;
+                if ( a == null ) return -1;
+                if ( b == null ) return  1;
+                return Comparer.DefaultInvariant.Compare( a, b );
+            }
         }
     }
 }
