@@ -34,6 +34,42 @@ namespace WPFGUI {
                 InputElement.TextInputEvent,
                 new EventHandler<TextInputEventArgs>( tbQueryCount_TextInput ),
                 handledEventsToo: false );
+
+            // Handle column-header sorting manually so DataView.Sort is updated correctly
+            // for DataGridTemplateColumn (which has no binding path that Avalonia can sort on).
+            dataGrid.Sorting += dataGrid_Sorting;
+        }
+
+        // ── Column-header sort ───────────────────────────────────────────────
+
+        // Avalonia's DataGrid cannot automatically sort a DataView when DataGridTemplateColumn
+        // is used: it looks up a PropertyDescriptor by SortMemberPath on typeof(DataRowView)
+        // which returns nothing, so the sort is silently skipped.  We apply DataView.Sort
+        // directly here and leave e.Handled = false so Avalonia's default processing
+        // continues and updates the visual sort-direction arrow on the column header.
+        //
+        // Direction tracking: DataGridColumn.SortDirection has only an internal setter in
+        // Avalonia 11, so we derive the current direction from the DataView.Sort string.
+        private void dataGrid_Sorting( object? sender, DataGridColumnEventArgs e ) {
+            string? sortPath = e.Column.SortMemberPath;
+            if ( string.IsNullOrEmpty( sortPath ) || newDataTable == null ) return;
+
+            // Toggle: if the DataView is currently sorted ascending by this column → switch to
+            // descending; otherwise (different column or descending) → ascending.
+            // Parse DataView.Sort by splitting on whitespace to avoid false prefix matches
+            // (e.g. "Name" matching "FullName ASC").
+            string currentSort = newDataTable.DefaultView.Sort ?? "";
+            string[] sortParts = currentSort.Trim().Split( ' ', StringSplitOptions.RemoveEmptyEntries );
+            bool alreadyAsc = sortParts.Length >= 1
+                              && string.Equals( sortParts[0], sortPath, StringComparison.OrdinalIgnoreCase )
+                              && ( sortParts.Length < 2
+                                   || !string.Equals( sortParts[1], "DESC", StringComparison.OrdinalIgnoreCase ) );
+
+            string dir = alreadyAsc ? "DESC" : "ASC";
+            newDataTable.DefaultView.Sort = $"{sortPath} {dir}";
+
+            // Leaving e.Handled = false lets Avalonia's default processing run so it can
+            // update the sort-direction arrow on the column header.
         }
 
         // ── Surname search ──────────────────────────────────────────────────
