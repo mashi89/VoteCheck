@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -251,9 +252,8 @@ namespace WPFGUI {
 
             Title = "VoteCheck (with Avalonia) - " + dgStatus;
 
-            // After the swap, newDataTable == original oldDataTable which was verified non-null above.
-            if ( newDataTable == null ) return;
-            ApplyDataSource( newDataTable, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            // newDataTable is the original oldDataTable, which was verified non-null at the start of this method.
+            ApplyDataSource( newDataTable!, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
         // ── Helpers ─────────────────────────────────────────────────────────
@@ -280,37 +280,122 @@ namespace WPFGUI {
 
             dataGrid.ItemsSource = null;
             dataGrid.Columns.Clear();
-            dataGrid.ItemsSource = table.DefaultView;
 
-            // Replace the auto-generated Jaa/Ei text columns with template columns that bold the winner.
-            ReplaceWithBoldColumn( "Jaa", ColJaaBold, table );
-            ReplaceWithBoldColumn( "Ei",  ColEiBold,  table );
+            // Manually create a column for each DataTable column.
+            // Avalonia's AutoGenerateColumns reflects on DataRowView's own CLR properties
+            // (DataView, Item, Row, RowVersion…) instead of the actual DataTable columns,
+            // so we build the columns ourselves using indexer-path bindings supported by DataRowView.
+            foreach ( DataColumn col in table.Columns ) {
+                string name = col.ColumnName;
+
+                // Skip hidden helper columns
+                if ( name == ColJaaBold || name == ColEiBold ) continue;
+
+                // Skip redundant date column when the more specific timestamp column is present
+                if ( name == "IstuntoPvm" && table.Columns.Contains( "AanestysAlkuaika" ) ) continue;
+
+                // Skip parliamentary journal reference (not useful in the grid)
+                if ( name == "PJOtsikko" ) continue;
+
+                DataGridColumn column;
+
+                // Winning-vote columns use a template that bolds the larger value
+                if ( ( name == "Jaa" && table.Columns.Contains( ColJaaBold ) ) ||
+                     ( name == "Ei"  && table.Columns.Contains( ColEiBold  ) ) ) {
+                    string helperCol = name == "Jaa" ? ColJaaBold : ColEiBold;
+                    column = new DataGridTemplateColumn {
+                        Header         = name,
+                        Width          = new DataGridLength( 50 ),
+                        SortMemberPath = name,
+                        CellTemplate   = CreateBoldTemplate( name, helperCol )
+                    };
+                } else {
+                    var textCol = new DataGridTextColumn {
+                        Header  = name,
+                        Binding = new Binding( $"[{name}]" )
+                    };
+                    ApplyColumnWidth( textCol, name );
+                    column = textCol;
+                }
+
+                dataGrid.Columns.Add( column );
+            }
+
+            dataGrid.ItemsSource = table.DefaultView;
         }
 
-        // Find the auto-generated column by header, remove it, and insert a DataGridTemplateColumn
-        // at the same position that renders the winning-vote value in bold.
-        private void ReplaceWithBoldColumn( string colName, string helperCol, DataTable table ) {
-            if ( !table.Columns.Contains( colName ) || !table.Columns.Contains( helperCol ) ) return;
+        // Applies per-column widths sized to fit all columns inside the window without horizontal scrolling.
+        // Grid area ≈ 1185 px (window 1450 − left panel 265).
+        private static void ApplyColumnWidth( DataGridTextColumn col, string name ) {
+            switch ( name ) {
+                // ── long text columns (all views) ──
+                case "Kohta":
+                    col.Width    = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells );
+                    col.MaxWidth = 500;
+                    break;
 
-            int idx = -1;
-            for ( int i = 0; i < dataGrid.Columns.Count; i++ ) {
-                if ( dataGrid.Columns[i].Header?.ToString() == colName ) { idx = i; break; }
+                case "Äänestysaihe":
+                    col.Width = new DataGridLength( 120 ); break;
+
+                case "Ryhmä":           // party dist view full party name
+                    col.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells ); break;
+
+                case "Käsittely":
+                case "Pääkohta":
+                    col.Width = new DataGridLength( 110 ); break;
+
+                // ── date / time columns ──
+                case "IstuntoPvm":
+                case "AanestysAlkuaika":
+                    col.Width = new DataGridLength( 135 ); break;
+
+                // ── vote-count columns (date view & party dist view) ──
+                case "Jaa":
+                case "Ei":
+                case "Tyhjä":
+                case "Poissa":
+                case "JaaLkm":
+                case "EiLkm":
+                case "TyhjaLkm":
+                case "PoissaLkm":
+                    col.Width = new DataGridLength( 50 ); break;
+
+                // ── short identifier / code columns ──
+                case "AanestysId":
+                case "EdustajaId":
+                    col.Width = new DataGridLength( 65 ); break;
+
+                case "EdustajaHenkiloNumero":
+                    col.Width = new DataGridLength( 60 ); break;
+
+                case "AanestysMitatoity":
+                    col.Width = new DataGridLength( 80 ); break;
+
+                case "Puolue":
+                case "Ryhmalyhenne":
+                    col.Width = new DataGridLength( 55 ); break;
+
+                case "Ministeri":
+                    col.Width = new DataGridLength( 65 ); break;
+
+                case "Paikka":
+                    col.Width = new DataGridLength( 55 ); break;
+
+                case "Ääni":
+                    col.Width = new DataGridLength( 55 ); break;
+
+                // ── name columns (surname view & MP view) ──
+                case "Etunimi":
+                    col.Width = new DataGridLength( 90 ); break;
+
+                case "Sukunimi":
+                    col.Width = new DataGridLength( 100 ); break;
             }
-            if ( idx < 0 ) return;
-
-            dataGrid.Columns.RemoveAt( idx );
-
-            var templateCol = new DataGridTemplateColumn {
-                Header         = colName,
-                Width          = new DataGridLength( 50 ),
-                SortMemberPath = colName,
-                CellTemplate   = CreateBoldTemplate( colName, helperCol )
-            };
-
-            dataGrid.Columns.Insert( idx, templateCol );
         }
 
         // Creates a cell template that renders the value in bold when the helper boolean column is true.
+        // <param name="colName">The data column whose value is displayed in the cell.</param>
+        // <param name="helperCol">The hidden boolean column that controls bold formatting (true = bold).</param>
         private static FuncDataTemplate<DataRowView?> CreateBoldTemplate( string colName, string helperCol ) {
             return new FuncDataTemplate<DataRowView?>( ( row, _ ) => {
                 bool bold = row != null
@@ -323,95 +408,6 @@ namespace WPFGUI {
                     Margin            = new Thickness( 4, 0, 4, 0 )
                 };
             } );
-        }
-
-        // Auto-generating column: hide helper columns and set column widths.
-        private void dataGrid_AutoGeneratingColumn( object? sender, DataGridAutoGeneratingColumnEventArgs e ) {
-            // Hide helper columns
-            if ( e.PropertyName == ColJaaBold || e.PropertyName == ColEiBold ) {
-                e.Cancel = true;
-                return;
-            }
-
-            // Hide IstuntoPvm when AanestysAlkuaika is present (redundant date column)
-            if ( e.PropertyName == "IstuntoPvm" &&
-                 newDataTable != null && newDataTable.Columns.Contains( "AanestysAlkuaika" ) ) {
-                e.Cancel = true;
-                return;
-            }
-
-            // Hide PJOtsikko (parliamentary journal reference, not useful in the grid)
-            if ( e.PropertyName == "PJOtsikko" ) {
-                e.Cancel = true;
-                return;
-            }
-
-            // Per-column widths sized to fit all columns inside the window without horizontal scrolling.
-            // Grid area ≈ 1185 px (window 1450 − left panel 265).
-            switch ( e.PropertyName ) {
-                // ── long text columns (all views) ──
-                case "Kohta":
-                    e.Column.Width    = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells );
-                    e.Column.MaxWidth = 500;
-                    break;
-
-                case "Äänestysaihe":
-                    e.Column.Width = new DataGridLength( 120 ); break;
-
-                case "Ryhmä":           // party dist view full party name
-                    e.Column.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells ); break;
-
-                case "Käsittely":
-                case "Pääkohta":
-                    e.Column.Width = new DataGridLength( 110 ); break;
-
-                // ── date / time columns ──
-                case "IstuntoPvm":
-                case "AanestysAlkuaika":
-                    e.Column.Width = new DataGridLength( 135 ); break;
-
-                // ── vote-count columns (date view & party dist view) ──
-                case "Jaa":
-                case "Ei":
-                case "Tyhjä":
-                case "Poissa":
-                case "JaaLkm":
-                case "EiLkm":
-                case "TyhjaLkm":
-                case "PoissaLkm":
-                    e.Column.Width = new DataGridLength( 50 ); break;
-
-                // ── short identifier / code columns ──
-                case "AanestysId":
-                case "EdustajaId":
-                    e.Column.Width = new DataGridLength( 65 ); break;
-
-                case "EdustajaHenkiloNumero":
-                    e.Column.Width = new DataGridLength( 60 ); break;
-
-                case "AanestysMitatoity":
-                    e.Column.Width = new DataGridLength( 80 ); break;
-
-                case "Puolue":
-                case "Ryhmalyhenne":
-                    e.Column.Width = new DataGridLength( 55 ); break;
-
-                case "Ministeri":
-                    e.Column.Width = new DataGridLength( 65 ); break;
-
-                case "Paikka":
-                    e.Column.Width = new DataGridLength( 55 ); break;
-
-                case "Ääni":
-                    e.Column.Width = new DataGridLength( 55 ); break;
-
-                // ── name columns (surname view & MP view) ──
-                case "Etunimi":
-                    e.Column.Width = new DataGridLength( 90 ); break;
-
-                case "Sukunimi":
-                    e.Column.Width = new DataGridLength( 100 ); break;
-            }
         }
 
         private int GetQueryCount() {

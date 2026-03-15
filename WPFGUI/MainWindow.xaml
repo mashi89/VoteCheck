@@ -58,11 +58,10 @@
 
         <!-- Data grid -->
         <DataGrid x:Name="dataGrid" Grid.Column="1" Margin="5,10,10,10"
-                  AutoGenerateColumns="True"
+                  AutoGenerateColumns="False"
                   IsReadOnly="True"
                   SelectionMode="Single"
                   GridLinesVisibility="Horizontal"
-                  AutoGeneratingColumn="dataGrid_AutoGeneratingColumn"
                   DoubleTapped="dataGrid_DoubleTapped">
             <DataGrid.Styles>
                 <Style Selector="DataGridRow:nth-child(2n)">
