@@ -281,10 +281,11 @@ namespace WPFGUI {
             dataGrid.ItemsSource = null;
             dataGrid.Columns.Clear();
 
-            // Manually create a column for each DataTable column.
+            // Manually create a column for each DataTable column using template columns.
             // Avalonia's AutoGenerateColumns reflects on DataRowView's own CLR properties
-            // (DataView, Item, Row, RowVersion…) instead of the actual DataTable columns,
-            // so we build the columns ourselves using indexer-path bindings supported by DataRowView.
+            // (DataView, Item, Row, RowVersion…) instead of the actual DataTable columns, and
+            // DataGridTextColumn bindings do not resolve DataRowView indexers in Avalonia,
+            // so we use DataGridTemplateColumn with FuncDataTemplate for all columns.
             foreach ( DataColumn col in table.Columns ) {
                 string name = col.ColumnName;
 
@@ -310,12 +311,13 @@ namespace WPFGUI {
                         CellTemplate   = CreateBoldTemplate( name, helperCol )
                     };
                 } else {
-                    var textCol = new DataGridTextColumn {
-                        Header  = name,
-                        Binding = new Binding( $"[{name}]" )
+                    var templateCol = new DataGridTemplateColumn {
+                        Header         = name,
+                        SortMemberPath = name,
+                        CellTemplate   = CreateTextTemplate( name )
                     };
-                    ApplyColumnWidth( textCol, name );
-                    column = textCol;
+                    ApplyColumnWidth( templateCol, name );
+                    column = templateCol;
                 }
 
                 dataGrid.Columns.Add( column );
@@ -326,7 +328,7 @@ namespace WPFGUI {
 
         // Applies per-column widths sized to fit all columns inside the window without horizontal scrolling.
         // Grid area ≈ 1185 px (window 1450 − left panel 265).
-        private static void ApplyColumnWidth( DataGridTextColumn col, string name ) {
+        private static void ApplyColumnWidth( DataGridColumn col, string name ) {
             switch ( name ) {
                 // ── long text columns (all views) ──
                 case "Kohta":
@@ -391,6 +393,16 @@ namespace WPFGUI {
                 case "Sukunimi":
                     col.Width = new DataGridLength( 100 ); break;
             }
+        }
+
+        // Creates a plain cell template that renders the column value as text.
+        private static FuncDataTemplate<DataRowView?> CreateTextTemplate( string colName ) {
+            return new FuncDataTemplate<DataRowView?>( ( row, _ ) =>
+                new TextBlock {
+                    Text              = row?[colName]?.ToString() ?? "",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin            = new Thickness( 4, 0, 4, 0 )
+                } );
         }
 
         // Creates a cell template that renders the value in bold when the helper boolean column is true.
