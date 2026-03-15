@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36930.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCollector", "VoteCollector\VoteCollector.csproj", "{707B84A7-D44A-4BC5-AD11-A057A8AFBB24}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPFGUI", "WPFGUI\WPFGUI.csproj", "{C1D4E2F3-A5B6-4C7D-8E9F-0A1B2C3D4E5F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheckGUI", "WPFGUI\VoteCheckGUI.csproj", "{C1D4E2F3-A5B6-4C7D-8E9F-0A1B2C3D4E5F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCollectorTests", "VoteCollectorTests\VoteCollectorTests.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject

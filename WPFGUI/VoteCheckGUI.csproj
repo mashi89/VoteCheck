@@ -2,8 +2,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <AssemblyName>WPFGUI</AssemblyName>
-    <RootNamespace>WPFGUI</RootNamespace>
+    <AssemblyName>VoteCheckGUIAssembly</AssemblyName>
+    <RootNamespace>VoteCheckGUI</RootNamespace>
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>

@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="WPFGUI.MainWindow"
+        x:Class="VoteCheckGUI.MainWindow"
         Title="VoteCheck (with Avalonia)"
         Width="1450" Height="650"
         MinWidth="700" MinHeight="400">

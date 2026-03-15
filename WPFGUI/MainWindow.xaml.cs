@@ -15,7 +15,7 @@ using Avalonia.Media;
 
 #nullable enable
 
-namespace WPFGUI {
+namespace VoteCheckGUI {
     public partial class MainWindow : Window {
 
         private DataTable? oldDataTable = null;

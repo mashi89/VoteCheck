@@ -1,7 +1,7 @@
 using System;
 using Avalonia;
 
-namespace WPFGUI {
+namespace VoteCheckGUI {
     internal class Program {
         [STAThread]
         public static void Main( string[] args ) {
