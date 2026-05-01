@@ -313,36 +313,44 @@ namespace MaSHi {
             Logger.Info( $"GetCombinedData inputName={inputName} type={type} count={count} skipEven={skipEven}" );
             DataRow votingDataRow = null;
 
-            // Initial data query
+            // Use a local reference — the static finalTable field gets overwritten by
+            // GetVotingDataOfOne calls inside the loop, which would invalidate row lookups.
+            DataTable nameTable;
             try
             {
-                finalTable = GetNameData(inputName, skipEven, count.ToString(), type);
+                nameTable = GetNameData(inputName, skipEven, count.ToString(), type);
             }
             catch (Exception ex)
             {
                 Logger.Error( "GetCombinedData failed during name lookup", ex );
                 throw;
-            }            
-
-            // Add new columns for voting data
-            finalTable.Columns.Add("AanestysOtsikko").SetOrdinal(7);
-            finalTable.Columns.Add("KohtaOtsikko").SetOrdinal(8);
-            finalTable.Columns.Add("PaaKohtaOtsikko").SetOrdinal(9);
-            finalTable.Columns.Add("KohtaKasittelyOtsikko").SetOrdinal(10);            
-            finalTable.Columns.Add("AanestysAlkuaika").SetOrdinal(11);
-
-            // Insert voting data for each row
-            foreach (DataRow row in finalTable.Rows)
-            {
-                // Make new queries
-                votingDataRow = GetVotingDataOfOne(row.ItemArray[1].ToString());
-                row[7] = votingDataRow[12];
-                row[8] = votingDataRow[21];
-                row[9] = votingDataRow[15];
-                row[10] = votingDataRow[17];
-                row[11] = votingDataRow[9];
-
             }
+
+            // Add enrichment columns and capture DataColumn refs before the loop so
+            // that row[DataColumn] lookups are immune to any static-field side effects.
+            DataColumn colAanestysOtsikko       = nameTable.Columns.Add("AanestysOtsikko");
+            DataColumn colKohtaOtsikko          = nameTable.Columns.Add("KohtaOtsikko");
+            DataColumn colPaaKohtaOtsikko       = nameTable.Columns.Add("PaaKohtaOtsikko");
+            DataColumn colKohtaKasittelyOtsikko = nameTable.Columns.Add("KohtaKasittelyOtsikko");
+            DataColumn colAanestysAlkuaika      = nameTable.Columns.Add("AanestysAlkuaika");
+
+            foreach (DataRow row in nameTable.Rows)
+            {
+                string aanestysId = row["AanestysId"]?.ToString();
+                votingDataRow = GetVotingDataOfOne(aanestysId);
+                if (votingDataRow == null)
+                {
+                    Logger.Warn( $"GetCombinedData: no voting row found for AanestysId={aanestysId}, skipping enrichment" );
+                    continue;
+                }
+                row[colAanestysOtsikko]       = ColOrEmpty(votingDataRow, "AanestysOtsikko");
+                row[colKohtaOtsikko]          = ColOrEmpty(votingDataRow, "KohtaOtsikko");
+                row[colPaaKohtaOtsikko]       = ColOrEmpty(votingDataRow, "PaaKohtaOtsikko");
+                row[colKohtaKasittelyOtsikko] = ColOrEmpty(votingDataRow, "KohtaKasittelyOtsikko");
+                row[colAanestysAlkuaika]      = ColOrEmpty(votingDataRow, "AanestysAlkuaika");
+            }
+
+            finalTable = nameTable;
 
             // Cleaning
             finalTable.Columns.Remove("EdustajaId");
@@ -404,6 +412,9 @@ namespace MaSHi {
             return nameTable;
         }
 
+        private static object ColOrEmpty(DataRow row, string colName) =>
+            row.Table.Columns.Contains(colName) ? (row[colName] ?? "") : (object)"";
+
         // GetVotingData forms the url to seek for data concerning a certain voting id
         private static DataRow GetVotingDataOfOne(string votingNbr)
         {
@@ -424,10 +435,11 @@ namespace MaSHi {
             {
 
                 Logger.Error( $"GetVotingDataOfOne failed for votingNbr={votingNbr}", ex );
+                return null;
 
             }
 
-            return votingTable.Rows[0];
+            return votingTable?.Rows.Count > 0 ? votingTable.Rows[0] : null;
         }       
         
         // Read JSON data from target

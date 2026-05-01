@@ -7,6 +7,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="4"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -26,8 +27,17 @@
                        TextTrimming="CharacterEllipsis"/>
         </Border>
 
+        <!-- Loading bar -->
+        <ProgressBar x:Name="progressBar"
+                     Grid.Row="1" Grid.ColumnSpan="2"
+                     IsIndeterminate="True"
+                     IsVisible="False"
+                     Height="4"
+                     Foreground="#4A90D9"
+                     Background="Transparent"/>
+
         <!-- Left panel -->
-        <DockPanel Grid.Row="1" Grid.Column="0" Margin="10,10,5,10" LastChildFill="False">
+        <DockPanel Grid.Row="2" Grid.Column="0" Margin="10,10,5,10" LastChildFill="False">
 
             <!-- Back button at the top -->
             <Button x:Name="btnBack" Content="Back" Width="60" HorizontalAlignment="Left"
@@ -73,7 +83,7 @@
         </DockPanel>
 
         <!-- Data grid -->
-        <DataGrid x:Name="dataGrid" Grid.Row="1" Grid.Column="1" Margin="5,10,10,10"
+        <DataGrid x:Name="dataGrid" Grid.Row="2" Grid.Column="1" Margin="5,10,10,10"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   SelectionMode="Single"

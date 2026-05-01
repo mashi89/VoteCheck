@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
@@ -54,12 +55,18 @@ namespace VoteCheckGUI {
         private async Task FindBySurnameAsync() {
             if ( string.IsNullOrWhiteSpace( tbSurname.Text ) ) return;
 
-            MaSHi.Logger.Info( $"[UI] FindBySurname: {tbSurname.Text.Trim()}" );
-            dataGrid.ItemsSource = null;
+            SetBusy( true );
+            try { await FindBySurnameInternalAsync(); } finally { SetBusy( false ); }
+        }
 
+        private async Task FindBySurnameInternalAsync() {
             string inputName = tbSurname.Text.Trim();
             if ( inputName.Length == 0 ) return;
             inputName = char.ToUpper( inputName[0] ) + inputName.Substring( 1 );
+
+            string dateFilter = tbDate.Text?.Trim() ?? "";
+            MaSHi.Logger.Info( $"[UI] FindBySurname: {inputName} dateFilter={( dateFilter.Length > 0 ? dateFilter : "(none)" )}" );
+            dataGrid.ItemsSource = null;
 
             int queryCount = GetQueryCount();
             bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
@@ -81,7 +88,17 @@ namespace VoteCheckGUI {
             RenameColumn( result, "KohtaOtsikko",           "Kohta" );
             RenameColumn( result, "AanestysOtsikko",        "Äänestysaihe" );
 
-            SetBreadcrumb( $"Sukunimihaku: {inputName}" );
+            // Filter by date prefix if the date field is filled in.
+            // AanestysAlkuaika is enriched from SaliDBAanestys and starts with yyyy-MM-dd.
+            if ( dateFilter.Length > 0 && result.Columns.Contains( "AanestysAlkuaika" ) ) {
+                var matching = result.AsEnumerable()
+                    .Where( r => r["AanestysAlkuaika"]?.ToString()?.StartsWith( dateFilter ) == true )
+                    .ToList();
+                result = matching.Count > 0 ? matching.CopyToDataTable() : result.Clone();
+                MaSHi.Logger.Info( $"[UI] Date filter '{dateFilter}' applied, {matching.Count} rows remain" );
+            }
+
+            SetBreadcrumb( $"Sukunimihaku: {inputName}" + ( dateFilter.Length > 0 ? $" / {dateFilter}" : "" ) );
             ShowData( result, "Sukunimihaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
@@ -100,6 +117,13 @@ namespace VoteCheckGUI {
         }
 
         private async Task FindByDateAsync() {
+            if ( string.IsNullOrWhiteSpace( tbDate.Text ) ) return;
+
+            SetBusy( true );
+            try { await FindByDateInternalAsync(); } finally { SetBusy( false ); }
+        }
+
+        private async Task FindByDateInternalAsync() {
             if ( string.IsNullOrWhiteSpace( tbDate.Text ) ) return;
 
             string inputDate = tbDate.Text.Trim();
@@ -171,6 +195,11 @@ namespace VoteCheckGUI {
         }
 
         private async Task FindCurrentMPsAsync() {
+            SetBusy( true );
+            try { await FindCurrentMPsInternalAsync(); } finally { SetBusy( false ); }
+        }
+
+        private async Task FindCurrentMPsInternalAsync() {
             MaSHi.Logger.Info( "[UI] FindCurrentMPs" );
             dataGrid.ItemsSource = null;
 
@@ -196,6 +225,12 @@ namespace VoteCheckGUI {
         // ── Party distribution (drill-down on row double-click) ─────────────
 
         private async void dataGrid_DoubleTapped( object? sender, TappedEventArgs e ) {
+            if ( newDataTable == null ) return;
+            SetBusy( true );
+            try { await DrillDownAsync(); } finally { SetBusy( false ); }
+        }
+
+        private async Task DrillDownAsync() {
             if ( newDataTable == null ) return;
 
             var row = ( dataGrid.SelectedItem as DataRowView )?.Row;
@@ -438,6 +473,14 @@ namespace VoteCheckGUI {
                     Margin            = new Thickness( 4, 0, 4, 0 )
                 };
             } );
+        }
+
+        private void SetBusy( bool busy ) {
+            progressBar.IsVisible = busy;
+            btnFindDate.IsEnabled    = !busy;
+            btnFindSurname.IsEnabled = !busy;
+            btnCurrentMPs.IsEnabled  = !busy;
+            btnBack.IsEnabled        = !busy;
         }
 
         private static string RowLabel( DataRow row ) {
