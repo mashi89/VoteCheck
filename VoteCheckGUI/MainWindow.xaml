@@ -88,7 +88,9 @@
                   IsReadOnly="True"
                   SelectionMode="Single"
                   GridLinesVisibility="Horizontal"
-                  DoubleTapped="dataGrid_DoubleTapped">
+                  CanUserSortColumns="True"
+                  DoubleTapped="dataGrid_DoubleTapped"
+                  Sorting="dataGrid_Sorting">
             <DataGrid.Styles>
                 <!-- Base row style: white background, dark text so the Fluent dark theme doesn't bleed through -->
                 <Style Selector="DataGridRow">

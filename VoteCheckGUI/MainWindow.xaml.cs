@@ -291,6 +291,30 @@ namespace VoteCheckGUI {
             }
         }
 
+        // ── Column header sorting ────────────────────────────────────────────
+
+        private void dataGrid_Sorting( object? sender, DataGridColumnEventArgs e ) {
+            if ( newDataTable == null || string.IsNullOrEmpty( e.Column.SortMemberPath ) ) return;
+
+            string colName = e.Column.SortMemberPath;
+
+            // Toggle: if DataView is already sorted ASC on this column, switch to DESC.
+            string currentSort = newDataTable.DefaultView.Sort;
+            bool ascending = !string.Equals( currentSort, $"[{colName}] ASC",
+                                 StringComparison.OrdinalIgnoreCase );
+
+            MaSHi.Logger.Info( $"[UI] Sorting column={colName} ascending={ascending}" );
+
+            newDataTable.DefaultView.Sort = $"[{colName}] {( ascending ? "ASC" : "DESC" )}";
+
+            // Avalonia doesn't react to DataView.ListChanged for sort updates on DataRowView
+            // sources, so explicitly re-bind to make the reordered rows appear.
+            dataGrid.ItemsSource = null;
+            dataGrid.ItemsSource = newDataTable.DefaultView;
+
+            // Don't set e.Handled — let Avalonia update the column header sort indicator.
+        }
+
         // ── Back button ─────────────────────────────────────────────────────
 
         private void btnBack_Click( object? sender, RoutedEventArgs e ) {
