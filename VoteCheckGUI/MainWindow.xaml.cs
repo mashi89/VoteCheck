@@ -54,6 +54,7 @@ namespace VoteCheckGUI {
         private async Task FindBySurnameAsync() {
             if ( string.IsNullOrWhiteSpace( tbSurname.Text ) ) return;
 
+            MaSHi.Logger.Info( $"[UI] FindBySurname: {tbSurname.Text.Trim()}" );
             dataGrid.ItemsSource = null;
 
             string inputName = tbSurname.Text.Trim();
@@ -113,6 +114,7 @@ namespace VoteCheckGUI {
                 return;
             }
 
+            MaSHi.Logger.Info( $"[UI] FindByDate: {inputDate}" );
             dataGrid.ItemsSource = null;
 
             int queryCount = GetQueryCount();
@@ -169,6 +171,7 @@ namespace VoteCheckGUI {
         }
 
         private async Task FindCurrentMPsAsync() {
+            MaSHi.Logger.Info( "[UI] FindCurrentMPs" );
             dataGrid.ItemsSource = null;
 
             DataTable? result = null;
@@ -231,6 +234,7 @@ namespace VoteCheckGUI {
                 RenameColumn( result, "EdustajaRyhmaLyhenne", "Puolue" );
                 RenameColumn( result, "EdustajaAanestys",     "Ääni" );
 
+                MaSHi.Logger.Info( $"[UI] DrillDown → Edustajahaku votingId={votingId} party={partyLabel}" );
                 PushBreadcrumb( partyLabel );
                 ShowData( result, "Edustajahaku", sortColumnIndex: 3, sortDirection: ListSortDirection.Ascending );
             } else {
@@ -246,6 +250,7 @@ namespace VoteCheckGUI {
 
                 RenameColumn( result, "Ryhma", "Ryhmä" );
 
+                MaSHi.Logger.Info( $"[UI] DrillDown → Puoluejakaumahaku votingId={votingId} topic=\"{votingLabel}\"" );
                 PushBreadcrumb( votingLabel );
                 ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
             }
@@ -254,6 +259,7 @@ namespace VoteCheckGUI {
         // ── Back button ─────────────────────────────────────────────────────
 
         private void btnBack_Click( object? sender, RoutedEventArgs e ) {
+            MaSHi.Logger.Info( $"[UI] Back: {dgStatus} → {oldDgStatus}" );
             if ( oldDataTable == null ) return;
 
             var temp = oldDataTable;
@@ -479,6 +485,7 @@ namespace VoteCheckGUI {
         }
 
         private async Task ShowAlert( string title, string message ) {
+            MaSHi.Logger.Error( $"[UI] Alert shown — {title}: {message}" );
             var dialog = new Window {
                 Title                   = title,
                 SizeToContent           = SizeToContent.WidthAndHeight,

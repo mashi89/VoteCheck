@@ -90,6 +90,7 @@ namespace MaSHi {
         // GetPartyDistData method should seek the party vote distribution for a voting id
         public static DataTable GetVotingData(string year, bool skipEven, int count, string type)
         {
+            Logger.Info( $"GetVotingData year={year} type={type} count={count} skipEven={skipEven}" );
             DataTable votingTable = null;
             string dbName = "SaliDBAanestys";
 
@@ -106,7 +107,7 @@ namespace MaSHi {
             catch (Exception ex)
             {
 
-                System.Console.WriteLine(ex.Message);
+                Logger.Error( "GetVotingData failed", ex );
 
             }
 
@@ -183,6 +184,7 @@ namespace MaSHi {
         // GetPartyDistData method should seek the party vote distribution for a voting id
         public static DataTable GetPartyDistData(string votingId, bool skipEven, string type)
         {
+            Logger.Info( $"GetPartyDistData votingId={votingId} skipEven={skipEven}" );
             // Get voting data
             try
             {
@@ -190,7 +192,8 @@ namespace MaSHi {
             }
             catch (Exception ex)
             {
-                throw ex;
+                Logger.Error( "GetPartyDistData failed", ex );
+                throw;
             }
 
             // Cleaning
@@ -204,6 +207,7 @@ namespace MaSHi {
         // paginating through all pages until hasMore = false.
         public static DataTable GetCurrentMPs()
         {
+            Logger.Info( "GetCurrentMPs started" );
             const int perPage = 100;
             string dbName = "SeatingOfParliament";
             DataTable result = null;
@@ -222,6 +226,7 @@ namespace MaSHi {
                 }
                 catch (Exception ex)
                 {
+                    Logger.Error( $"GetCurrentMPs failed fetching page {page}", ex );
                     throw new Exception("Failed to fetch MP data: " + ex.Message, ex);
                 }
 
@@ -252,10 +257,12 @@ namespace MaSHi {
 
                 // skipEven: false, voting: true — AppendTable adds all rows regardless of token[1] value
                 result = AppendTable(pageObj, result, skipEven: false, voting: true);
+                Logger.Info( $"GetCurrentMPs page {page} fetched, rows so far: {result?.Rows.Count}" );
                 page++;
             }
 
             hasMore = false; // All pages have been fetched
+            Logger.Info( $"GetCurrentMPs complete, total rows: {result?.Rows.Count}" );
             return result;
         }
 
@@ -264,6 +271,7 @@ namespace MaSHi {
         // whitespace-trimmed) are returned.  Matches the abbreviations used in Parties.txt.
         public static DataTable GetEdustajaData(string votingId, bool skipEven, string partyFilter = null)
         {
+            Logger.Info( $"GetEdustajaData votingId={votingId} partyFilter={partyFilter ?? "(none)"} skipEven={skipEven}" );
             DataTable edustajaTable = null;
             string dbName = "SaliDBAanestysEdustaja";
 
@@ -273,8 +281,9 @@ namespace MaSHi {
             {
                 edustajaTable = ReadData(baseUrl, skipEven, false);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Logger.Error( "GetEdustajaData failed", ex );
                 throw;
             }
 
@@ -301,6 +310,7 @@ namespace MaSHi {
         // This method makes two different queries and combines them in one table
         public static DataTable GetCombinedData(string inputName, bool skipEven, int count, string type)
         {
+            Logger.Info( $"GetCombinedData inputName={inputName} type={type} count={count} skipEven={skipEven}" );
             DataRow votingDataRow = null;
 
             // Initial data query
@@ -310,7 +320,8 @@ namespace MaSHi {
             }
             catch (Exception ex)
             {
-                throw ex;
+                Logger.Error( "GetCombinedData failed during name lookup", ex );
+                throw;
             }            
 
             // Add new columns for voting data
@@ -361,8 +372,8 @@ namespace MaSHi {
             catch (Exception ex)
             {
 
-                System.Console.WriteLine(ex.Message);
-                throw ex;
+                Logger.Error( $"GetVotingDistData failed for votingId={votingId}", ex );
+                throw;
 
             }
 
@@ -377,7 +388,7 @@ namespace MaSHi {
 
             // Create url structure
             baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
-   
+
             // Read data and form finalTable
             try {
 
@@ -385,8 +396,8 @@ namespace MaSHi {
 
             } catch ( Exception ex ) {
 
-                System.Console.WriteLine( ex.Message );
-                throw ex;
+                Logger.Error( $"GetNameData failed for inputName={inputName} type={type}", ex );
+                throw;
 
             }
 
@@ -412,7 +423,7 @@ namespace MaSHi {
             catch (Exception ex)
             {
 
-                System.Console.WriteLine(ex.Message);
+                Logger.Error( $"GetVotingDataOfOne failed for votingNbr={votingNbr}", ex );
 
             }
 
@@ -431,7 +442,7 @@ namespace MaSHi {
             try {
                 json = GetDataAsync( dataUrl ).GetAwaiter().GetResult();
             } catch ( Exception ex ) {
-                System.Console.WriteLine(ex.Message);
+                Logger.Error( "ReadData HTTP request failed", ex );
                 throw;
             }
 
@@ -460,7 +471,8 @@ namespace MaSHi {
 
                 if ( !( o.SelectToken( "rowCount" ).ToString() == "0" ) ) {
 
-                    System.Console.WriteLine( "Commencing handling of page " + counter );
+                    int rowCount = (int)o.SelectToken( "rowCount" );
+                    Logger.Info( $"ReadData page {counter}: {rowCount} rows, hasMore={hasMore}" );
 
                     // Initialize or not?
                     if ( saveCounter == 0 ) {
@@ -471,8 +483,7 @@ namespace MaSHi {
                     }
 
                 } else {
-                    // Handle row count zero
-                    System.Console.WriteLine( "No rows found." );
+                    Logger.Warn( "ReadData: API returned rowCount=0" );
                     throw new Exception("No rows found.");
                 }
 
@@ -490,22 +501,19 @@ namespace MaSHi {
         // Initialize table
         private static DataTable InitTable(JObject input) {
 
-            // Initialize
-            System.Console.Write("Initializing table");
             DataTable table = new DataTable();
             counter = 0;
 
             // Get column count
             int columnCount = (int)input.SelectToken( "columnCount" );
-           
+
             // Insert column names to string array
             for ( int i = 1; i < ( columnCount + 1 ); i++ ) {
                 JToken columnTokens = input.SelectToken( "columnNames" );
                 table.Columns.Add( columnTokens[i - 1].ToString() );
-                System.Console.Write( "." );
             }
-            System.Console.WriteLine( "done." );
-            
+            Logger.Info( $"InitTable: {columnCount} columns" );
+
             return table;
         }
 
@@ -558,7 +566,7 @@ namespace MaSHi {
                 }
 
             } else {
-                System.Console.WriteLine( "Row data not found." );
+                Logger.Warn( "AppendTable: rowData token not found in response" );
             }
             return tempTable;
         }
@@ -566,21 +574,20 @@ namespace MaSHi {
         // Http get string from url
         private static async Task<string> GetDataAsync(string url) {
 
-            System.Console.WriteLine($"[HTTP Request] URL: {url}");
-            System.Console.WriteLine($"[HTTP Request] URL Length: {url.Length}");
-            
+            Logger.Info( $"GET {url}" );
             try {
                 var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
-                System.Console.WriteLine($"[HTTP Response] Status Code: {response.StatusCode}");
-                
+                string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
                 if (!response.IsSuccessStatusCode) {
-                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    System.Console.WriteLine($"[HTTP Response] Error Content: {content}");
+                    Logger.Warn( $"HTTP {(int)response.StatusCode} {response.StatusCode} — body: {body}" );
+                } else {
+                    Logger.Info( $"HTTP {(int)response.StatusCode} OK ({body.Length} bytes)" );
                 }
-                
-                return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                return body;
             } catch (Exception ex) {
-                System.Console.WriteLine($"[HTTP Exception] {ex.GetType().Name}: {ex.Message}");
+                Logger.Error( $"HTTP request failed: {url}", ex );
                 throw;
             }
 
