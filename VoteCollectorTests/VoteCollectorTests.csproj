@@ -13,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VoteCollector\VoteCollector.csproj" />
+    <ProjectReference Include="..\VoteCheckGUI\VoteCheckGUI.csproj" />
   </ItemGroup>
 </Project>

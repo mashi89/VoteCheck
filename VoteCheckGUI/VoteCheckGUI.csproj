@@ -22,4 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\VoteCollector\VoteCollector.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="VoteCollectorTests" />
+  </ItemGroup>
 </Project>

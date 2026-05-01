@@ -5,13 +5,29 @@
         Width="1450" Height="650"
         MinWidth="700" MinHeight="400">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="265"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- Breadcrumb bar -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Background="#F0F4F8" BorderBrush="#C8D6E5" BorderThickness="0,0,0,1"
+                Padding="10,5">
+            <TextBlock x:Name="lblBreadcrumb"
+                       Text="—"
+                       FontSize="12"
+                       Foreground="#4A6080"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis"/>
+        </Border>
+
         <!-- Left panel -->
-        <DockPanel Grid.Column="0" Margin="10,10,5,10" LastChildFill="False">
+        <DockPanel Grid.Row="1" Grid.Column="0" Margin="10,10,5,10" LastChildFill="False">
 
             <!-- Back button at the top -->
             <Button x:Name="btnBack" Content="Back" Width="60" HorizontalAlignment="Left"
@@ -57,7 +73,7 @@
         </DockPanel>
 
         <!-- Data grid -->
-        <DataGrid x:Name="dataGrid" Grid.Column="1" Margin="5,10,10,10"
+        <DataGrid x:Name="dataGrid" Grid.Row="1" Grid.Column="1" Margin="5,10,10,10"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   SelectionMode="Single"

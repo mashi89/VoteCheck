@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Text.RegularExpressions;
@@ -22,6 +23,9 @@ namespace VoteCheckGUI {
         private DataTable? newDataTable = null;
         private string? dgStatus = null;
         private string? oldDgStatus = null;
+
+        private readonly List<string> _breadcrumb = new();
+        private List<string>? _oldBreadcrumb = null;
 
         // Column names that contain bold-winner info (hidden helper columns)
         private const string ColJaaBold = "_JaaBold";
@@ -76,6 +80,7 @@ namespace VoteCheckGUI {
             RenameColumn( result, "KohtaOtsikko",           "Kohta" );
             RenameColumn( result, "AanestysOtsikko",        "Äänestysaihe" );
 
+            SetBreadcrumb( $"Sukunimihaku: {inputName}" );
             ShowData( result, "Sukunimihaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
@@ -134,6 +139,7 @@ namespace VoteCheckGUI {
 
             MarkWinningVotes( result );
 
+            SetBreadcrumb( $"Päivähaku: {inputDate}" );
             ShowData( result, "Päivähaku",
                 // After column cleanup in GetVotingData, index 1 = AanestysAlkuaika (used as query and sort column).
                 sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
@@ -180,6 +186,7 @@ namespace VoteCheckGUI {
             RenameColumn( result, "party",       "Puolue" );
             RenameColumn( result, "minister",    "Ministeri" );
 
+            SetBreadcrumb( "Kansanedustajat" );
             ShowData( result, "Kansanedustajat", sortColumnIndex: 2, sortDirection: ListSortDirection.Ascending );
         }
 
@@ -201,12 +208,14 @@ namespace VoteCheckGUI {
 
             if ( dgStatus == "Puoluejakaumahaku" ) {
                 string? partyAbbrev = null;
+                string partyLabel = "";
                 if ( newDataTable.Columns.Contains( "Ryhmä" ) ) {
                     string ryhma = row["Ryhmä"]?.ToString()?.Trim() ?? "";
                     if ( !MaSHi.OpenDataRetriever.PartyNameToAbbreviation.TryGetValue( ryhma, out string? mapped ) )
                         partyAbbrev = ryhma; // fallback: value is already an abbreviation
                     else
                         partyAbbrev = mapped;
+                    partyLabel = partyAbbrev?.ToUpper() ?? ryhma;
                 }
 
                 try {
@@ -222,8 +231,11 @@ namespace VoteCheckGUI {
                 RenameColumn( result, "EdustajaRyhmaLyhenne", "Puolue" );
                 RenameColumn( result, "EdustajaAanestys",     "Ääni" );
 
+                PushBreadcrumb( partyLabel );
                 ShowData( result, "Edustajahaku", sortColumnIndex: 3, sortDirection: ListSortDirection.Ascending );
             } else {
+                string votingLabel = RowLabel( row );
+
                 try {
                     result = await Task.Run( () => MaSHi.OpenDataRetriever.GetPartyDistData(
                         votingId, !isSwedish, "AanestysId" ) );
@@ -234,6 +246,7 @@ namespace VoteCheckGUI {
 
                 RenameColumn( result, "Ryhma", "Ryhmä" );
 
+                PushBreadcrumb( votingLabel );
                 ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
             }
         }
@@ -252,6 +265,7 @@ namespace VoteCheckGUI {
             dgStatus = tempStatus;
 
             Title = "VoteCheck (with Avalonia) - " + dgStatus;
+            PopBreadcrumb();
 
             // newDataTable is the original oldDataTable, which was verified non-null at the start of this method.
             ApplyDataSource( newDataTable!, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
@@ -332,22 +346,17 @@ namespace VoteCheckGUI {
         // Applies per-column widths sized to fit all columns inside the window without horizontal scrolling.
         // Grid area ≈ 1185 px (window 1450 − left panel 265).
         private static void ApplyColumnWidth( DataGridColumn col, string name ) {
+            if ( ColumnSizingHelper.GetSizing( name ) == ColumnSizing.Star ) {
+                col.Width    = new DataGridLength( 1, DataGridLengthUnitType.Star );
+                col.MinWidth = name switch {
+                    "Kohta"     => 100,
+                    "Ryhmä"     => 150,
+                    _           => 110,
+                };
+                return;
+            }
+
             switch ( name ) {
-                // ── long text columns (all views) ──
-                case "Kohta":
-                    col.Width    = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells );
-                    col.MaxWidth = 500;
-                    break;
-
-                case "Äänestysaihe":
-                    col.Width = new DataGridLength( 120 ); break;
-
-                case "Ryhmä":           // party dist view full party name
-                    col.Width = new DataGridLength( 1, DataGridLengthUnitType.SizeToCells ); break;
-
-                case "Käsittely":
-                case "Pääkohta":
-                    col.Width = new DataGridLength( 110 ); break;
 
                 // ── date / time columns ──
                 case "IstuntoPvm":
@@ -423,6 +432,40 @@ namespace VoteCheckGUI {
                     Margin            = new Thickness( 4, 0, 4, 0 )
                 };
             } );
+        }
+
+        private static string RowLabel( DataRow row ) {
+            foreach ( string col in new[] { "Äänestysaihe", "Kohta", "Pääkohta", "Käsittely" } ) {
+                string val = row.Table.Columns.Contains( col )
+                    ? row[col]?.ToString()?.Trim() ?? ""
+                    : "";
+                if ( val.Length > 0 ) {
+                    return val.Length > 60 ? val[..57] + "…" : val;
+                }
+            }
+            return row["AanestysId"]?.ToString() ?? "?";
+        }
+
+        private void SetBreadcrumb( params string[] items ) {
+            _oldBreadcrumb = new List<string>( _breadcrumb );
+            _breadcrumb.Clear();
+            _breadcrumb.AddRange( items );
+            lblBreadcrumb.Text = string.Join( " › ", _breadcrumb );
+        }
+
+        private void PushBreadcrumb( string item ) {
+            _oldBreadcrumb = new List<string>( _breadcrumb );
+            _breadcrumb.Add( item );
+            lblBreadcrumb.Text = string.Join( " › ", _breadcrumb );
+        }
+
+        private void PopBreadcrumb() {
+            if ( _oldBreadcrumb != null ) {
+                _breadcrumb.Clear();
+                _breadcrumb.AddRange( _oldBreadcrumb );
+                _oldBreadcrumb = null;
+            }
+            lblBreadcrumb.Text = _breadcrumb.Count > 0 ? string.Join( " › ", _breadcrumb ) : "—";
         }
 
         private int GetQueryCount() {
