@@ -28,6 +28,9 @@ namespace VoteCheckGUI {
         private readonly List<string> _breadcrumb = new();
         private List<string>? _oldBreadcrumb = null;
 
+        private string? _sortColumn = null;
+        private bool _sortAscending = true;
+
         // Column names that contain bold-winner info (hidden helper columns)
         private const string ColJaaBold = "_JaaBold";
         private const string ColEiBold  = "_EiBold";
@@ -40,6 +43,9 @@ namespace VoteCheckGUI {
                 InputElement.TextInputEvent,
                 new EventHandler<TextInputEventArgs>( tbQueryCount_TextInput ),
                 handledEventsToo: false );
+
+            // Wire sorting in code-behind as belt-and-suspenders over the XAML binding.
+            dataGrid.Sorting += dataGrid_Sorting;
         }
 
         // ── Surname search ──────────────────────────────────────────────────
@@ -298,14 +304,14 @@ namespace VoteCheckGUI {
 
             string colName = e.Column.SortMemberPath;
 
-            // Toggle: if DataView is already sorted ASC on this column, switch to DESC.
-            string currentSort = newDataTable.DefaultView.Sort;
-            bool ascending = !string.Equals( currentSort, $"[{colName}] ASC",
-                                 StringComparison.OrdinalIgnoreCase );
+            // Toggle: clicking the same column again flips ASC↔DESC; a new column starts ASC.
+            bool ascending = !( _sortColumn == colName && _sortAscending );
+            _sortColumn    = colName;
+            _sortAscending = ascending;
 
             MaSHi.Logger.Info( $"[UI] Sorting column={colName} ascending={ascending}" );
 
-            newDataTable.DefaultView.Sort = $"[{colName}] {( ascending ? "ASC" : "DESC" )}";
+            newDataTable.DefaultView.Sort = $"{colName} {( ascending ? "ASC" : "DESC" )}";
 
             // Avalonia doesn't react to DataView.ListChanged for sort updates on DataRowView
             // sources, so explicitly re-bind to make the reordered rows appear.
@@ -351,6 +357,9 @@ namespace VoteCheckGUI {
         }
 
         private void ApplyDataSource( DataTable table, int sortColumnIndex, ListSortDirection sortDirection ) {
+            _sortColumn    = null;
+            _sortAscending = true;
+
             // Sort the DataView directly
             if ( sortColumnIndex < table.Columns.Count ) {
                 string colName = table.Columns[sortColumnIndex].ColumnName;
@@ -388,6 +397,7 @@ namespace VoteCheckGUI {
                         Header             = name,
                         Width              = new DataGridLength( 50 ),
                         SortMemberPath     = name,
+                        CanUserSort        = true,
                         CustomSortComparer = new DataRowViewComparer( name ),
                         CellTemplate       = CreateBoldTemplate( name, helperCol )
                     };
@@ -395,6 +405,7 @@ namespace VoteCheckGUI {
                     var templateCol = new DataGridTemplateColumn {
                         Header             = name,
                         SortMemberPath     = name,
+                        CanUserSort        = true,
                         CustomSortComparer = new DataRowViewComparer( name ),
                         CellTemplate       = CreateTextTemplate( name )
                     };
