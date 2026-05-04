@@ -420,8 +420,8 @@ namespace VoteCollectorTests
             Assert.AreEqual("13259",   finnishRow["AanestysId"].ToString());
             Assert.AreEqual("1",       finnishRow["KieliId"].ToString());
             Assert.AreEqual("1996",    finnishRow["IstuntoVPVuosi"].ToString());
-            Assert.AreEqual("134",     finnishRow["AanestysTulosJaa"].ToString().Trim());
-            Assert.AreEqual("33",      finnishRow["AanestysTulosEi"].ToString().Trim());
+            Assert.AreEqual("134",     finnishRow["AanestysTulosJaa"].ToString()?.Trim());
+            Assert.AreEqual("33",      finnishRow["AanestysTulosEi"].ToString()?.Trim());
         }
 
         // ── missing rowData key ────────────────────────────────────────────────

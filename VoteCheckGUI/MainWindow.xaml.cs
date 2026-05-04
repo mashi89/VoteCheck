@@ -66,7 +66,7 @@ namespace VoteCheckGUI {
         }
 
         private async Task FindBySurnameInternalAsync() {
-            string inputName = tbSurname.Text.Trim();
+            string inputName = tbSurname.Text?.Trim() ?? "";
             if ( inputName.Length == 0 ) return;
             inputName = char.ToUpper( inputName[0] ) + inputName.Substring( 1 );
 
