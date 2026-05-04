@@ -20,13 +20,11 @@ using Avalonia.Media;
 namespace VoteCheckGUI {
     public partial class MainWindow : Window {
 
-        private DataTable? oldDataTable = null;
         private DataTable? newDataTable = null;
         private string? dgStatus = null;
-        private string? oldDgStatus = null;
 
+        private readonly Stack<(DataTable Table, string Status, List<string> Breadcrumb)> _navHistory = new();
         private readonly List<string> _breadcrumb = new();
-        private List<string>? _oldBreadcrumb = null;
 
         private string? _sortColumn = null;
         private bool _sortAscending = true;
@@ -71,18 +69,31 @@ namespace VoteCheckGUI {
             inputName = char.ToUpper( inputName[0] ) + inputName.Substring( 1 );
 
             string dateFilter = tbDate.Text?.Trim() ?? "";
-            MaSHi.Logger.Info( $"[UI] FindBySurname: {inputName} dateFilter={( dateFilter.Length > 0 ? dateFilter : "(none)" )}" );
+            MaSHi.Logger.Info( $"[UI] FindBySurname: {inputName}" + ( dateFilter.Length > 0 ? $" dateFilter={dateFilter}" : "" ) );
             dataGrid.ItemsSource = null;
 
             int queryCount = GetQueryCount();
             bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
             DataTable? result = null;
-            try {
-                result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCombinedData(
-                    inputName, !isSwedish, queryCount * 2, "EdustajaSukunimi" ) );
-            } catch ( Exception ex ) {
-                await ShowAlert( "Error during search", ex.Message );
-                return;
+
+            if ( dateFilter.Length > 0 ) {
+                // All-pages fetch + join with session data, then apply date prefix filter.
+                try {
+                    result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCombinedDataWithDateFilter(
+                        inputName, dateFilter, !isSwedish, queryCount * 2 ) );
+                } catch ( Exception ex ) {
+                    await ShowAlert( "Error during search", ex.Message );
+                    return;
+                }
+            } else {
+                // Single-page fetch — fast path when no date filter.
+                try {
+                    result = await Task.Run( () => MaSHi.OpenDataRetriever.GetCombinedData(
+                        inputName, !isSwedish, queryCount * 2, "EdustajaSukunimi" ) );
+                } catch ( Exception ex ) {
+                    await ShowAlert( "Error during search", ex.Message );
+                    return;
+                }
             }
 
             RenameColumn( result, "EdustajaEtunimi",        "Etunimi" );
@@ -94,18 +105,10 @@ namespace VoteCheckGUI {
             RenameColumn( result, "KohtaOtsikko",           "Kohta" );
             RenameColumn( result, "AanestysOtsikko",        "Äänestysaihe" );
 
-            // Filter by date prefix if the date field is filled in.
-            // AanestysAlkuaika is enriched from SaliDBAanestys and starts with yyyy-MM-dd.
-            if ( dateFilter.Length > 0 && result.Columns.Contains( "AanestysAlkuaika" ) ) {
-                var matching = result.AsEnumerable()
-                    .Where( r => r["AanestysAlkuaika"]?.ToString()?.StartsWith( dateFilter ) == true )
-                    .ToList();
-                result = matching.Count > 0 ? matching.CopyToDataTable() : result.Clone();
-                MaSHi.Logger.Info( $"[UI] Date filter '{dateFilter}' applied, {matching.Count} rows remain" );
-            }
-
-            SetBreadcrumb( $"Sukunimihaku: {inputName}" + ( dateFilter.Length > 0 ? $" / {dateFilter}" : "" ) );
-            ShowData( result, "Sukunimihaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            SetBreadcrumb( dateFilter.Length > 0
+                ? $"Sukunimihaku: {inputName} / {dateFilter}"
+                : $"Sukunimihaku: {inputName}" );
+            ShowData( result, "Sukunimihaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending, resetHistory: true );
         }
 
         // ── Date search ─────────────────────────────────────────────────────
@@ -172,7 +175,7 @@ namespace VoteCheckGUI {
             MarkWinningVotes( result );
 
             SetBreadcrumb( $"Päivähaku: {inputDate}" );
-            ShowData( result, "Päivähaku",
+            ShowData( result, "Päivähaku", resetHistory: true,
                 // After column cleanup in GetVotingData, index 1 = AanestysAlkuaika (used as query and sort column).
                 sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
@@ -225,7 +228,7 @@ namespace VoteCheckGUI {
             RenameColumn( result, "minister",    "Ministeri" );
 
             SetBreadcrumb( "Kansanedustajat" );
-            ShowData( result, "Kansanedustajat", sortColumnIndex: 2, sortDirection: ListSortDirection.Ascending );
+            ShowData( result, "Kansanedustajat", sortColumnIndex: 2, sortDirection: ListSortDirection.Ascending, resetHistory: true );
         }
 
         // ── Party distribution (drill-down on row double-click) ─────────────
@@ -276,8 +279,8 @@ namespace VoteCheckGUI {
                 RenameColumn( result, "EdustajaAanestys",     "Ääni" );
 
                 MaSHi.Logger.Info( $"[UI] DrillDown → Edustajahaku votingId={votingId} party={partyLabel}" );
-                PushBreadcrumb( partyLabel );
                 ShowData( result, "Edustajahaku", sortColumnIndex: 3, sortDirection: ListSortDirection.Ascending );
+                PushBreadcrumb( partyLabel );
             } else {
                 string votingLabel = RowLabel( row );
 
@@ -289,11 +292,13 @@ namespace VoteCheckGUI {
                     return;
                 }
 
+                if ( result == null ) return;
+
                 RenameColumn( result, "Ryhma", "Ryhmä" );
 
                 MaSHi.Logger.Info( $"[UI] DrillDown → Puoluejakaumahaku votingId={votingId} topic=\"{votingLabel}\"" );
-                PushBreadcrumb( votingLabel );
                 ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+                PushBreadcrumb( votingLabel );
             }
         }
 
@@ -324,30 +329,29 @@ namespace VoteCheckGUI {
         // ── Back button ─────────────────────────────────────────────────────
 
         private void btnBack_Click( object? sender, RoutedEventArgs e ) {
-            MaSHi.Logger.Info( $"[UI] Back: {dgStatus} → {oldDgStatus}" );
-            if ( oldDataTable == null ) return;
+            if ( _navHistory.Count == 0 ) return;
 
-            var temp = oldDataTable;
-            oldDataTable = newDataTable;
-            newDataTable = temp;
-
-            var tempStatus = oldDgStatus;
-            oldDgStatus = dgStatus;
-            dgStatus = tempStatus;
-
+            MaSHi.Logger.Info( $"[UI] Back: from {dgStatus}, {_navHistory.Count} entries in history" );
+            var (table, status, crumbs) = _navHistory.Pop();
+            newDataTable = table;
+            dgStatus = status;
+            _breadcrumb.Clear();
+            _breadcrumb.AddRange( crumbs );
+            lblBreadcrumb.Text = _breadcrumb.Count > 0 ? string.Join( " › ", _breadcrumb ) : "—";
             Title = "VoteCheck (with Avalonia) - " + dgStatus;
-            PopBreadcrumb();
 
-            // newDataTable is the original oldDataTable, which was verified non-null at the start of this method.
-            ApplyDataSource( newDataTable!, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
+            ApplyDataSource( newDataTable, sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
         }
 
         // ── Helpers ─────────────────────────────────────────────────────────
 
-        private void ShowData( DataTable table, string status, int sortColumnIndex, ListSortDirection sortDirection ) {
-            oldDataTable = newDataTable;
+        private void ShowData( DataTable table, string status, int sortColumnIndex, ListSortDirection sortDirection, bool resetHistory = false ) {
+            if ( resetHistory )
+                _navHistory.Clear();
+            else if ( newDataTable != null )
+                _navHistory.Push( (newDataTable, dgStatus!, new List<string>( _breadcrumb )) );
+
             newDataTable = table;
-            oldDgStatus = dgStatus;
             dgStatus = status;
 
             Title = "VoteCheck (with Avalonia) - " + dgStatus;
@@ -531,25 +535,14 @@ namespace VoteCheckGUI {
         }
 
         private void SetBreadcrumb( params string[] items ) {
-            _oldBreadcrumb = new List<string>( _breadcrumb );
             _breadcrumb.Clear();
             _breadcrumb.AddRange( items );
             lblBreadcrumb.Text = string.Join( " › ", _breadcrumb );
         }
 
         private void PushBreadcrumb( string item ) {
-            _oldBreadcrumb = new List<string>( _breadcrumb );
             _breadcrumb.Add( item );
             lblBreadcrumb.Text = string.Join( " › ", _breadcrumb );
-        }
-
-        private void PopBreadcrumb() {
-            if ( _oldBreadcrumb != null ) {
-                _breadcrumb.Clear();
-                _breadcrumb.AddRange( _oldBreadcrumb );
-                _oldBreadcrumb = null;
-            }
-            lblBreadcrumb.Text = _breadcrumb.Count > 0 ? string.Join( " › ", _breadcrumb ) : "—";
         }
 
         private int GetQueryCount() {

@@ -74,6 +74,7 @@ namespace MaSHi {
         private static JObject o;
         // Not readonly so that unit tests can substitute a mock HttpClient via reflection.
         private static HttpClient _httpClient = CreateHttpClient();
+        private const int MaxPerPage = 100;
         #endregion Variables
 
         private static HttpClient CreateHttpClient() {
@@ -190,6 +191,11 @@ namespace MaSHi {
             {
                 finalTable = GetVotingDistData(votingId, skipEven);
             }
+            catch (Exception ex) when (ex.Message == "No rows found.")
+            {
+                Logger.Info( $"GetPartyDistData: no party distribution rows for votingId={votingId}" );
+                return null;
+            }
             catch (Exception ex)
             {
                 Logger.Error( "GetPartyDistData failed", ex );
@@ -208,7 +214,7 @@ namespace MaSHi {
         public static DataTable GetCurrentMPs()
         {
             Logger.Info( "GetCurrentMPs started" );
-            const int perPage = 100;
+            const int perPage = MaxPerPage;
             string dbName = "SeatingOfParliament";
             DataTable result = null;
             int page = 0;
@@ -275,11 +281,11 @@ namespace MaSHi {
             DataTable edustajaTable = null;
             string dbName = "SaliDBAanestysEdustaja";
 
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=100&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
+            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + MaxPerPage + "&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
 
             try
             {
-                edustajaTable = ReadData(baseUrl, skipEven, false);
+                edustajaTable = ReadData(baseUrl, skipEven, true);
             }
             catch (Exception ex)
             {
@@ -359,9 +365,157 @@ namespace MaSHi {
             finalTable.Columns[finalTable.Columns.IndexOf("EdustajaHenkiloNumero")].SetOrdinal(10);
             return finalTable;
         }
+        // GetCombinedDataWithDateFilter fetches all pages of surname results and all pages of
+        // voting sessions for the given year, then joins them client-side by AanestysId and
+        // applies the date prefix filter.  Avoids N+1 enrichment calls.
+        //
+        // dateFilter: prefix string — "yyyy", "yyyy-MM", or "yyyy-MM-dd".
+        public static DataTable GetCombinedDataWithDateFilter(
+            string inputName, string dateFilter, bool skipEven, int perPage)
+        {
+            Logger.Info( $"GetCombinedDataWithDateFilter inputName={inputName} dateFilter={dateFilter}" );
+
+            string year = dateFilter.Length >= 4 ? dateFilter.Substring( 0, 4 ) : dateFilter;
+
+            // ── Step 1: all surname rows from SaliDBAanestysEdustaja ──────────
+            DataTable mpTable;
+            try
+            {
+                mpTable = FetchAllPages( "SaliDBAanestysEdustaja", "EdustajaSukunimi",
+                                         inputName, perPage, skipEven: false, voting: true );
+            }
+            catch (Exception ex)
+            {
+                Logger.Error( "GetCombinedDataWithDateFilter: MP lookup failed", ex );
+                throw;
+            }
+
+            // ── Step 2: all session rows for the year from SaliDBAanestys ────
+            // Raw rows (not cleaned up by GetVotingData) so all enrichment columns are present.
+            // skipEven keeps only Finnish rows (KieliId=1), which carry the Finnish AanestysIds
+            // that SaliDBAanestysEdustaja also uses.
+            DataTable sessionTable;
+            try
+            {
+                sessionTable = FetchAllPages( "SaliDBAanestys", "IstuntoVPVuosi",
+                                              year, MaxPerPage, skipEven, voting: false );
+            }
+            catch (Exception ex)
+            {
+                Logger.Error( "GetCombinedDataWithDateFilter: session lookup failed", ex );
+                throw;
+            }
+
+            // ── Step 3: build AanestysId → session row lookup, date-prefix filtered ──
+            var sessionMap = new Dictionary<string, DataRow>( StringComparer.OrdinalIgnoreCase );
+            foreach (DataRow row in sessionTable.Rows)
+            {
+                string id      = row["AanestysId"]?.ToString()?.Trim();
+                string alkuaika = row["AanestysAlkuaika"]?.ToString() ?? "";
+                if ( string.IsNullOrEmpty( id ) ) continue;
+                if ( !alkuaika.StartsWith( dateFilter ) ) continue;
+                if ( !sessionMap.ContainsKey( id ) ) sessionMap[id] = row;
+            }
+
+            Logger.Info( $"GetCombinedDataWithDateFilter: {sessionMap.Count} sessions match date filter" );
+
+            // ── Step 4: join and build enriched result table ──────────────────
+            DataTable result = mpTable.Clone();
+            DataColumn colAanestysOtsikko       = result.Columns.Add( "AanestysOtsikko" );
+            DataColumn colKohtaOtsikko          = result.Columns.Add( "KohtaOtsikko" );
+            DataColumn colPaaKohtaOtsikko       = result.Columns.Add( "PaaKohtaOtsikko" );
+            DataColumn colKohtaKasittelyOtsikko = result.Columns.Add( "KohtaKasittelyOtsikko" );
+            DataColumn colAanestysAlkuaika      = result.Columns.Add( "AanestysAlkuaika" );
+
+            foreach (DataRow mpRow in mpTable.Rows)
+            {
+                string id = mpRow["AanestysId"]?.ToString()?.Trim();
+                if ( string.IsNullOrEmpty( id ) || !sessionMap.TryGetValue( id, out DataRow sessionRow ) )
+                    continue;
+
+                DataRow newRow = result.NewRow();
+                foreach (DataColumn col in mpTable.Columns)
+                    newRow[col.ColumnName] = mpRow[col];
+                newRow[colAanestysOtsikko]       = ColOrEmpty( sessionRow, "AanestysOtsikko" );
+                newRow[colKohtaOtsikko]          = ColOrEmpty( sessionRow, "KohtaOtsikko" );
+                newRow[colPaaKohtaOtsikko]       = ColOrEmpty( sessionRow, "PaaKohtaOtsikko" );
+                newRow[colKohtaKasittelyOtsikko] = ColOrEmpty( sessionRow, "KohtaKasittelyOtsikko" );
+                newRow[colAanestysAlkuaika]      = sessionRow["AanestysAlkuaika"]?.ToString() ?? "";
+                result.Rows.Add( newRow );
+            }
+
+            Logger.Info( $"GetCombinedDataWithDateFilter: {result.Rows.Count} joined rows" );
+
+            if ( result.Rows.Count == 0 )
+                throw new Exception( "No rows found matching the date filter." );
+
+            // ── Cleanup (same column order as GetCombinedData) ────────────────
+            result.Columns.Remove( "EdustajaId" );
+            result.Columns.Remove( "Imported" );
+            result.Columns[result.Columns.IndexOf( "AanestysId" )].SetOrdinal( result.Columns.Count - 1 );
+            result.Columns[result.Columns.IndexOf( "EdustajaHenkiloNumero" )].SetOrdinal( result.Columns.Count - 1 );
+
+            hasMore = false;
+            return result;
+        }
         #endregion Public methods
 
         #region Private methods
+
+        // Paginates through all pages of a filtered table query and returns a single DataTable.
+        // Throws "No rows found." when page 0 returns rowCount=0.
+        private static DataTable FetchAllPages( string dbName, string columnName, string columnValue,
+                                                int perPage, bool skipEven, bool voting )
+        {
+            DataTable result = null;
+            int page = 0;
+            bool more = true;
+
+            while (more)
+            {
+                string url = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName +
+                             "/rows?perPage=" + perPage + "&page=" + page +
+                             "&columnName=" + Uri.EscapeDataString( columnName ) +
+                             "&columnValue=" + Uri.EscapeDataString( columnValue );
+
+                string pageJson;
+                try
+                {
+                    pageJson = GetDataAsync( url ).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error( $"FetchAllPages {dbName} page {page} HTTP failed", ex );
+                    throw;
+                }
+
+                if ( string.IsNullOrEmpty( pageJson ) ) throw new Exception( "JSON data is empty." );
+
+                var pageObj = JObject.Parse( pageJson );
+
+                var errorToken = pageObj.SelectToken( "message" );
+                if ( errorToken != null ) throw new Exception( "API error: " + errorToken.ToString() );
+
+                var check = pageObj.SelectToken( "hasMore" );
+                if ( check == null ) throw new Exception( "Unexpected response format: 'hasMore' field missing." );
+
+                more = check.Value<bool>();
+
+                if ( pageObj.SelectToken( "rowCount" )?.ToString() == "0" )
+                {
+                    if ( page == 0 ) throw new Exception( "No rows found." );
+                    break;
+                }
+
+                if ( result == null ) result = InitTable( pageObj );
+                result = AppendTable( pageObj, result, skipEven, voting );
+                Logger.Info( $"FetchAllPages {dbName} page {page}: {result?.Rows.Count} rows so far" );
+                page++;
+            }
+
+            return result;
+        }
+
         private static DataTable GetVotingDistData(string votingId, bool skipEven)
         {
             DataTable distTable = null;
@@ -374,7 +528,7 @@ namespace MaSHi {
             try
             {
 
-                distTable = ReadData(baseUrl, skipEven, false);
+                distTable = ReadData(baseUrl, skipEven, true);
 
             }
             catch (Exception ex)
@@ -400,7 +554,7 @@ namespace MaSHi {
             // Read data and form finalTable
             try {
 
-                nameTable = ReadData( baseUrl, skipEven, false );
+                nameTable = ReadData( baseUrl, skipEven, true );
 
             } catch ( Exception ex ) {
 

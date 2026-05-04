@@ -853,12 +853,15 @@ namespace VoteCollectorTests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(Exception))]
-        public void GetPartyDistData_RethrowsException_OnZeroRows()
+        public void GetPartyDistData_ReturnsNull_OnZeroRows()
         {
+            // Zero rows means no party distribution exists for this vote — returns null so the
+            // UI can keep the previous table rather than showing an error popup.
             TestHelpers.SetMockHttpClient(SampleJson.AnyTable_ZeroRows);
 
-            OpenDataRetriever.GetPartyDistData("13260", skipEven: false, type: "AanestysId");
+            var result = OpenDataRetriever.GetPartyDistData("13260", skipEven: false, type: "AanestysId");
+
+            Assert.IsNull(result);
         }
     }
 
@@ -910,16 +913,16 @@ namespace VoteCollectorTests
         }
 
         [TestMethod]
-        public void GetEdustajaData_ReturnsNoRows_WhenSkipEvenFalse_AndOddAanestysId()
+        public void GetEdustajaData_ReturnsBothRows_WhenSkipEvenFalse()
         {
-            // AanestysId=13301 is odd; skipEven=false keeps even token[1] values → no rows added.
-            // ReadData only throws when the API rowCount is 0, not when the filter removes all rows.
+            // SaliDBAanestysEdustaja has no KieliId column — voting=true bypasses the parity
+            // filter so all rows are returned regardless of skipEven.
             TestHelpers.SetMockHttpClient(SampleJson.SaliDBAanestysEdustaja_TwoRows);
 
             var result = OpenDataRetriever.GetEdustajaData("13301", skipEven: false);
 
             Assert.IsNotNull(result);
-            Assert.AreEqual(0, result!.Rows.Count, "All rows should be filtered out for skipEven=false with odd AanestysId");
+            Assert.AreEqual(2, result!.Rows.Count, "All rows returned: no language filter on this table");
         }
 
         [TestMethod]
