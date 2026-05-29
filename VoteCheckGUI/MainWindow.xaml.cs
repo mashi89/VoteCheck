@@ -326,6 +326,28 @@ namespace VoteCheckGUI {
             // Don't set e.Handled — let Avalonia update the column header sort indicator.
         }
 
+        // ── Reset button ─────────────────────────────────────────────────────
+
+        private void btnReset_Click( object? sender, RoutedEventArgs e ) {
+            tbDate.Text    = "";
+            tbSurname.Text = "";
+
+            _navHistory.Clear();
+            _breadcrumb.Clear();
+            lblBreadcrumb.Text = "—";
+
+            newDataTable = null;
+            dgStatus     = null;
+            _sortColumn  = null;
+            _sortAscending = true;
+
+            dataGrid.ItemsSource = null;
+            dataGrid.Columns.Clear();
+
+            lblHasMore.IsVisible = false;
+            Title = "VoteCheck (with Avalonia)";
+        }
+
         // ── Back button ─────────────────────────────────────────────────────
 
         private void btnBack_Click( object? sender, RoutedEventArgs e ) {
@@ -520,6 +542,7 @@ namespace VoteCheckGUI {
             btnFindSurname.IsEnabled = !busy;
             btnCurrentMPs.IsEnabled  = !busy;
             btnBack.IsEnabled        = !busy;
+            btnReset.IsEnabled       = !busy;
         }
 
         private static string RowLabel( DataRow row ) {
