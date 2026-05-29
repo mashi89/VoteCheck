@@ -92,10 +92,13 @@ namespace MaSHi {
                 var sw = Stopwatch.StartNew();
                 try {
                     var response = await base.SendAsync( request, cancellationToken ).ConfigureAwait( false );
+                    string body = await response.Content.ReadAsStringAsync().ConfigureAwait( false );
+                    response.Content = new StringContent( body, Encoding.UTF8,
+                        response.Content.Headers.ContentType?.MediaType ?? "application/json" );
                     if ( response.IsSuccessStatusCode )
                         Logger.Info( $"HTTP {(int)response.StatusCode} OK ({sw.ElapsedMilliseconds}ms)" );
                     else
-                        Logger.Warn( $"HTTP {(int)response.StatusCode} {response.StatusCode} ({sw.ElapsedMilliseconds}ms)" );
+                        Logger.Warn( $"HTTP {(int)response.StatusCode} {response.StatusCode} ({sw.ElapsedMilliseconds}ms) — body: {body}" );
                     return response;
                 } catch ( Exception ex ) {
                     Logger.Error( $"HTTP request failed after {sw.ElapsedMilliseconds}ms: {request.RequestUri}", ex );
@@ -127,10 +130,15 @@ namespace MaSHi {
                 votingTable = ReadData(baseUrl, skipEven, false);
 
             }
+            catch (Exception ex) when (ex.Message == "No rows found.")
+            {
+                // Legitimate empty result — votingTable remains null
+            }
             catch (Exception ex)
             {
 
                 Logger.Error( "GetVotingData failed", ex );
+                throw;
 
             }
 
@@ -227,7 +235,13 @@ namespace MaSHi {
                     string url = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName +
                                  "/rows?perPage=" + perPage + "&page=" + page;
 
-                    string pageJson = GetDataAsync( url ).GetAwaiter().GetResult();
+                    string pageJson;
+                    try {
+                        pageJson = GetDataAsync( url ).GetAwaiter().GetResult();
+                    } catch ( Exception ex ) {
+                        Logger.Error( $"GetCurrentMPs failed fetching page {page}", ex );
+                        throw;
+                    }
 
                     if ( string.IsNullOrEmpty( pageJson ) )
                         throw new Exception( "JSON data is empty." );
@@ -399,7 +413,6 @@ namespace MaSHi {
         private static DataTable FetchAllPages( string dbName, string columnName, string columnValue,
                                                 int perPage, bool skipEven, bool voting )
         {
-            var sw = Stopwatch.StartNew();
             DataTable result = null;
             int page = 0;
             bool more = true;
@@ -446,7 +459,7 @@ namespace MaSHi {
                 page++;
             }
 
-            Logger.Info( $"FetchAllPages {dbName} complete in {sw.ElapsedMilliseconds}ms, pages={page}, total rows={result?.Rows.Count}" );
+            Logger.Info( $"FetchAllPages {dbName} complete: pages={page}, total rows={result?.Rows.Count}" );
             return result;
         }
 
