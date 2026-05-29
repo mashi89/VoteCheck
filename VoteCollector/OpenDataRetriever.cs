@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -92,6 +93,7 @@ namespace MaSHi {
         public static DataTable GetVotingData(string year, bool skipEven, int count, string type)
         {
             Logger.Info( $"GetVotingData year={year} type={type} count={count} skipEven={skipEven}" );
+            var sw = Stopwatch.StartNew();
             DataTable votingTable = null;
             string dbName = "SaliDBAanestys";
 
@@ -141,8 +143,9 @@ namespace MaSHi {
                 votingTable.Columns[votingTable.Columns.IndexOf("AanestysId")].SetOrdinal(votingTable.Columns.Count - 1);
                 votingTable.Columns[votingTable.Columns.IndexOf("AanestysMitatoity")].SetOrdinal(votingTable.Columns.Count - 1);
                 votingTable.Columns[votingTable.Columns.IndexOf("KohtaOtsikko")].SetOrdinal(2);
-            }          
+            }
 
+            Logger.Info( $"GetVotingData complete in {sw.ElapsedMilliseconds}ms, rows={votingTable?.Rows.Count}" );
             return votingTable;
         }
 
@@ -155,6 +158,7 @@ namespace MaSHi {
         // to rows whose IstuntoPvm value starts with the requested date prefix.
         public static DataTable GetVotingDataByDate(string date, bool skipEven, int count)
         {
+            var sw = Stopwatch.StartNew();
             string year = date.Length >= 4 ? date.Substring(0, 4) : date;
 
             DataTable yearTable = GetVotingData(year, skipEven, count, "IstuntoVPVuosi");
@@ -168,7 +172,9 @@ namespace MaSHi {
                 .Where(r => r["IstuntoPvm"]?.ToString()?.StartsWith(date) == true)
                 .ToList();
 
-            return matching.Count > 0 ? matching.CopyToDataTable() : yearTable.Clone();
+            var result = matching.Count > 0 ? matching.CopyToDataTable() : yearTable.Clone();
+            Logger.Info( $"GetVotingDataByDate complete in {sw.ElapsedMilliseconds}ms, rows={result.Rows.Count}" );
+            return result;
         }
 
         // GetSubjectData method should seek for certain phrases
@@ -186,6 +192,7 @@ namespace MaSHi {
         public static DataTable GetPartyDistData(string votingId, bool skipEven, string type)
         {
             Logger.Info( $"GetPartyDistData votingId={votingId} skipEven={skipEven}" );
+            var sw = Stopwatch.StartNew();
             // Get voting data
             try
             {
@@ -206,6 +213,7 @@ namespace MaSHi {
             finalTable.Columns.Remove("Imported");
             finalTable.Columns.Remove("Tyyppi");
 
+            Logger.Info( $"GetPartyDistData complete in {sw.ElapsedMilliseconds}ms, rows={finalTable?.Rows.Count}" );
             return finalTable;
         }
 
@@ -214,6 +222,7 @@ namespace MaSHi {
         public static DataTable GetCurrentMPs()
         {
             Logger.Info( "GetCurrentMPs started" );
+            var sw = Stopwatch.StartNew();
             const int perPage = MaxPerPage;
             string dbName = "SeatingOfParliament";
             DataTable result = null;
@@ -268,7 +277,7 @@ namespace MaSHi {
             }
 
             hasMore = false; // All pages have been fetched
-            Logger.Info( $"GetCurrentMPs complete, total rows: {result?.Rows.Count}" );
+            Logger.Info( $"GetCurrentMPs complete in {sw.ElapsedMilliseconds}ms, total rows={result?.Rows.Count}" );
             return result;
         }
 
@@ -278,6 +287,7 @@ namespace MaSHi {
         public static DataTable GetEdustajaData(string votingId, bool skipEven, string partyFilter = null)
         {
             Logger.Info( $"GetEdustajaData votingId={votingId} partyFilter={partyFilter ?? "(none)"} skipEven={skipEven}" );
+            var sw = Stopwatch.StartNew();
             DataTable edustajaTable = null;
             string dbName = "SaliDBAanestysEdustaja";
 
@@ -309,6 +319,7 @@ namespace MaSHi {
                     : edustajaTable.Clone();
             }
 
+            Logger.Info( $"GetEdustajaData complete in {sw.ElapsedMilliseconds}ms, rows={edustajaTable?.Rows.Count}" );
             return edustajaTable;
         }
 
@@ -317,6 +328,7 @@ namespace MaSHi {
         public static DataTable GetCombinedData(string inputName, bool skipEven, int count, string type)
         {
             Logger.Info( $"GetCombinedData inputName={inputName} type={type} count={count} skipEven={skipEven}" );
+            var sw = Stopwatch.StartNew();
             DataRow votingDataRow = null;
 
             // Use a local reference — the static finalTable field gets overwritten by
@@ -363,6 +375,7 @@ namespace MaSHi {
             finalTable.Columns.Remove("Imported");
             finalTable.Columns[finalTable.Columns.IndexOf("AanestysId")].SetOrdinal(10);
             finalTable.Columns[finalTable.Columns.IndexOf("EdustajaHenkiloNumero")].SetOrdinal(10);
+            Logger.Info( $"GetCombinedData complete in {sw.ElapsedMilliseconds}ms, rows={finalTable?.Rows.Count}" );
             return finalTable;
         }
         // GetCombinedDataWithDateFilter fetches all pages of surname results and all pages of
@@ -374,6 +387,7 @@ namespace MaSHi {
             string inputName, string dateFilter, bool skipEven, int perPage)
         {
             Logger.Info( $"GetCombinedDataWithDateFilter inputName={inputName} dateFilter={dateFilter}" );
+            var sw = Stopwatch.StartNew();
 
             string year = dateFilter.Length >= 4 ? dateFilter.Substring( 0, 4 ) : dateFilter;
 
@@ -456,6 +470,7 @@ namespace MaSHi {
             result.Columns[result.Columns.IndexOf( "EdustajaHenkiloNumero" )].SetOrdinal( result.Columns.Count - 1 );
 
             hasMore = false;
+            Logger.Info( $"GetCombinedDataWithDateFilter complete in {sw.ElapsedMilliseconds}ms, rows={result.Rows.Count}" );
             return result;
         }
         #endregion Public methods
@@ -467,6 +482,7 @@ namespace MaSHi {
         private static DataTable FetchAllPages( string dbName, string columnName, string columnValue,
                                                 int perPage, bool skipEven, bool voting )
         {
+            var sw = Stopwatch.StartNew();
             DataTable result = null;
             int page = 0;
             bool more = true;
@@ -513,6 +529,7 @@ namespace MaSHi {
                 page++;
             }
 
+            Logger.Info( $"FetchAllPages {dbName} complete in {sw.ElapsedMilliseconds}ms, pages={page}, total rows={result?.Rows.Count}" );
             return result;
         }
 

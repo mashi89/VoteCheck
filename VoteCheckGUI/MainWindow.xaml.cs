@@ -36,13 +36,17 @@ namespace VoteCheckGUI {
         public MainWindow() {
             InitializeComponent();
 
+            MaSHi.Logger.Info( "[UI] Session started" );
+
+            cbLanguage.SelectedIndex = 0;
+            cbLanguage.SelectionChanged += ( _, _ ) =>
+                MaSHi.Logger.Info( $"[UI] Language changed to: {( cbLanguage.SelectedIndex == 1 ? "Swedish" : "Finnish" )}" );
+
             // Restrict tbQueryCount to digits only
             tbQueryCount.AddHandler(
                 InputElement.TextInputEvent,
                 new EventHandler<TextInputEventArgs>( tbQueryCount_TextInput ),
                 handledEventsToo: false );
-
-            cbLanguage.SelectedIndex = 0;
 
             // Wire sorting in code-behind as belt-and-suspenders over the XAML binding.
             dataGrid.Sorting += dataGrid_Sorting;
@@ -107,6 +111,7 @@ namespace VoteCheckGUI {
             RenameColumn( result, "KohtaOtsikko",           "Kohta" );
             RenameColumn( result, "AanestysOtsikko",        "Äänestysaihe" );
 
+            MaSHi.Logger.Info( $"[UI] FindBySurname result: {result.Rows.Count} rows" );
             SetBreadcrumb( dateFilter.Length > 0
                 ? $"Sukunimihaku: {inputName} / {dateFilter}"
                 : $"Sukunimihaku: {inputName}" );
@@ -174,6 +179,7 @@ namespace VoteCheckGUI {
             RenameColumn( result, "KohtaOtsikko",         "Kohta" );
             RenameColumn( result, "AanestysOtsikko",      "Äänestysaihe" );
 
+            MaSHi.Logger.Info( $"[UI] FindByDate result: {result.Rows.Count} rows" );
             MarkWinningVotes( result );
 
             SetBreadcrumb( $"Päivähaku: {inputDate}" );
@@ -222,6 +228,7 @@ namespace VoteCheckGUI {
                 return;
             }
 
+            MaSHi.Logger.Info( $"[UI] FindCurrentMPs result: {result.Rows.Count} rows" );
             RenameColumn( result, "hetekaId",    "HetekaId" );
             RenameColumn( result, "seatNumber",  "Paikka" );
             RenameColumn( result, "lastname",    "Sukunimi" );
@@ -280,7 +287,7 @@ namespace VoteCheckGUI {
                 RenameColumn( result, "EdustajaRyhmaLyhenne", "Puolue" );
                 RenameColumn( result, "EdustajaAanestys",     "Ääni" );
 
-                MaSHi.Logger.Info( $"[UI] DrillDown → Edustajahaku votingId={votingId} party={partyLabel}" );
+                MaSHi.Logger.Info( $"[UI] DrillDown → Edustajahaku votingId={votingId} party={partyLabel}, rows={result.Rows.Count}" );
                 ShowData( result, "Edustajahaku", sortColumnIndex: 3, sortDirection: ListSortDirection.Ascending );
                 PushBreadcrumb( partyLabel );
             } else {
@@ -298,7 +305,7 @@ namespace VoteCheckGUI {
 
                 RenameColumn( result, "Ryhma", "Ryhmä" );
 
-                MaSHi.Logger.Info( $"[UI] DrillDown → Puoluejakaumahaku votingId={votingId} topic=\"{votingLabel}\"" );
+                MaSHi.Logger.Info( $"[UI] DrillDown → Puoluejakaumahaku votingId={votingId} topic=\"{votingLabel}\", rows={result.Rows.Count}" );
                 ShowData( result, "Puoluejakaumahaku", sortColumnIndex: 1, sortDirection: ListSortDirection.Descending );
                 PushBreadcrumb( votingLabel );
             }
