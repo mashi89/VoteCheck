@@ -42,6 +42,8 @@ namespace VoteCheckGUI {
                 new EventHandler<TextInputEventArgs>( tbQueryCount_TextInput ),
                 handledEventsToo: false );
 
+            cbLanguage.SelectedIndex = 0;
+
             // Wire sorting in code-behind as belt-and-suspenders over the XAML binding.
             dataGrid.Sorting += dataGrid_Sorting;
         }
