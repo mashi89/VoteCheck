@@ -76,8 +76,11 @@
                     Padding="4,2" Margin="0,0,0,20" DockPanel.Dock="Top"
                     Click="btnCurrentMPs_Click"/>
 
-            <!-- Amount of queries and Swedish checkbox at the bottom -->
-            <CheckBox x:Name="cbSwedish" Content="Swedish?" Margin="0,0,0,8" DockPanel.Dock="Bottom"/>
+            <!-- Language selector and query count at the bottom -->
+            <ComboBox x:Name="cbLanguage" Margin="0,0,0,8" DockPanel.Dock="Bottom" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Finnish" IsSelected="True"/>
+                <ComboBoxItem Content="Swedish"/>
+            </ComboBox>
             <TextBlock x:Name="lblHasMore" Text="Scroll down to find more"
                        Foreground="DarkRed" Margin="0,0,0,4"
                        IsVisible="False" DockPanel.Dock="Bottom"/>

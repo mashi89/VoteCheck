@@ -73,7 +73,7 @@ namespace VoteCheckGUI {
             dataGrid.ItemsSource = null;
 
             int queryCount = GetQueryCount();
-            bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
+            bool isSwedish = cbLanguage.SelectedIndex == 1;
             DataTable? result = null;
 
             if ( dateFilter.Length > 0 ) {
@@ -151,7 +151,7 @@ namespace VoteCheckGUI {
             dataGrid.ItemsSource = null;
 
             int queryCount = GetQueryCount();
-            bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
+            bool isSwedish = cbLanguage.SelectedIndex == 1;
 
             DataTable? result = null;
             try {
@@ -250,7 +250,7 @@ namespace VoteCheckGUI {
             string? votingId = row["AanestysId"]?.ToString();
             if ( string.IsNullOrEmpty( votingId ) ) return;
 
-            bool isSwedish = cbSwedish.IsChecked.GetValueOrDefault();
+            bool isSwedish = cbLanguage.SelectedIndex == 1;
             DataTable? result = null;
 
             if ( dgStatus == "Puoluejakaumahaku" ) {
