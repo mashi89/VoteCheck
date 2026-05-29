@@ -130,6 +130,7 @@ namespace VoteCheckGUI {
 
         private void btnToday_Click( object? sender, RoutedEventArgs e ) {
             tbDate.Text = DateTime.Today.ToString( "yyyy-MM-dd" );
+            MaSHi.Logger.Info( $"[UI] Today clicked, date set to {tbDate.Text}" );
         }
 
         private async Task FindByDateAsync() {
@@ -338,6 +339,7 @@ namespace VoteCheckGUI {
         // ── Reset button ─────────────────────────────────────────────────────
 
         private void btnReset_Click( object? sender, RoutedEventArgs e ) {
+            MaSHi.Logger.Info( "[UI] Reset clicked" );
             tbDate.Text    = "";
             tbSurname.Text = "";
 
