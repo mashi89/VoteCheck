@@ -120,15 +120,9 @@ namespace MaSHi {
             DataTable votingTable = null;
             string dbName = "SaliDBAanestys";
 
-            // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(year);
-
-            // Read data and form finalTable
             try
             {
-
-                votingTable = ReadData(baseUrl, skipEven, false);
-
+                votingTable = FetchAllPages( dbName, type, year, MaxPerPage, skipEven, false );
             }
             catch (Exception ex) when (ex.Message == "No rows found.")
             {
@@ -136,10 +130,8 @@ namespace MaSHi {
             }
             catch (Exception ex)
             {
-
                 Logger.Error( "GetVotingData failed", ex );
                 throw;
-
             }
 
             if ( votingTable != null )

@@ -220,6 +220,34 @@ namespace VoteCollectorTests
 }";
 
 
+        // One Finnish row on page 1, hasMore=false, date 1996-11-15 (used for pagination test).
+        public const string SaliDBAanestys_OneRow_HasMoreFalse_Nov15 = @"{
+  ""page"": 1, ""perPage"": 1, ""hasMore"": false,
+  ""tableName"": ""SaliDBAanestys"",
+  ""columnNames"": [""AanestysId"",""KieliId"",""IstuntoVPVuosi"",""IstuntoNumero"",""IstuntoPvm"",
+    ""IstuntoIlmoitettuAlkuaika"",""IstuntoAlkuaika"",""PJOtsikko"",""AanestysNumero"",
+    ""AanestysAlkuaika"",""AanestysLoppuaika"",""AanestysMitatoity"",""AanestysOtsikko"",
+    ""AanestysLisaOtsikko"",""PaaKohtaTunniste"",""PaaKohtaOtsikko"",""PaaKohtaHuomautus"",
+    ""KohtaKasittelyOtsikko"",""KohtaKasittelyVaihe"",""KohtaJarjestys"",""KohtaTunniste"",
+    ""KohtaOtsikko"",""KohtaHuomautus"",""AanestysTulosJaa"",""AanestysTulosEi"",
+    ""AanestysTulosTyhjia"",""AanestysTulosPoissa"",""AanestysTulosYhteensa"",""Url"",
+    ""AanestysPoytakirja"",""AanestysPoytakirjaUrl"",""AanestysValtiopaivaasia"",
+    ""AanestysValtiopaivaasiaUrl"",""AliKohtaTunniste"",""Imported""],
+  ""rowData"": [
+    [""13261"",""1"",""1996"",""115"",""1996-11-15 00:00:00"",""1996-11-15 13:00:00"",
+     ""1996-11-15 13:05:00"",null,""2"",""1996-11-15 13:10:00"",""1996-11-15 13:10:00"",
+     ""0"",""Päätös 2"",null,null,null,null,
+     ""Ensimmäinen käsittely"",""Ensimmäinen käsittely"",
+     ""1"",""1"",""Lakialoite laiksi Y"",null,
+     ""80"",""70"",""2"",""47"",""199"",
+     ""/aanestystulos/2/115/1996"",""PTK 115/1996 vp"",
+     ""/valtiopaivaasiakirjat/PTK+115/1996"","" / vp"",""/valtiopaivaasiat/+/"",
+     null,""2018-06-02 10:14:00""]
+  ],
+  ""columnCount"": 35, ""rowCount"": 1,
+  ""pkName"": ""AanestysId"", ""pkStartValue"": null, ""pkLastValue"": null
+}";
+
         //
         // AanestysId is at index 1 (value "13301", odd).
         // skipEven=true keeps odd AanestysId rows → both rows included.
@@ -775,6 +803,24 @@ namespace VoteCollectorTests
 
             Assert.IsNotNull(result);
             Assert.AreEqual(0, result!.Rows.Count, "No rows should match a month not in the data");
+        }
+
+        [TestMethod]
+        public void GetVotingDataByDate_ReturnsRow_WhenTargetDateIsOnSecondPage()
+        {
+            // Page 0 has hasMore=true with a row from 1996-10-01.
+            // Page 1 has hasMore=false with a row from 1996-11-15.
+            // Searching "1996-11-15" must return the page-1 row, not 0 rows.
+            TestHelpers.SetSequentialMockHttpClient(
+                SampleJson.SaliDBAanestys_OneRow_HasMoreTrue,
+                SampleJson.SaliDBAanestys_OneRow_HasMoreFalse_Nov15);
+
+            var result = OpenDataRetriever.GetVotingDataByDate("1996-11-15", skipEven: true, count: 1);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result!.Rows.Count, "Row on page 1 must be returned");
+            Assert.IsTrue(result.Rows[0]["IstuntoPvm"].ToString()!.StartsWith("1996-11-15"),
+                "Returned row must be from 1996-11-15");
         }
     }
 
