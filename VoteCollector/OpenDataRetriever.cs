@@ -66,7 +66,12 @@ namespace MaSHi {
         // Initialize variables
         public static bool hasMore = false;
 
-        private static string baseUrl = "";        
+        // Override with VOTECHECK_API_BASE_URL env var to point at a local mock server.
+        private static readonly string _apiBase =
+            System.Environment.GetEnvironmentVariable("VOTECHECK_API_BASE_URL")
+            ?? "https://avoindata.eduskunta.fi";
+
+        private static string baseUrl = "";
         private static string json = "";
         private static ManualResetEvent _quitEvent = new ManualResetEvent( false );
         private static DataTable finalTable;
@@ -224,7 +229,7 @@ namespace MaSHi {
                 bool more = true;
 
                 while ( more ) {
-                    string url = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName +
+                    string url = _apiBase + "/api/v1/tables/" + dbName +
                                  "/rows?perPage=" + perPage + "&page=" + page;
 
                     string pageJson;
@@ -271,7 +276,7 @@ namespace MaSHi {
         public static DataTable GetEdustajaData(string votingId, bool skipEven, string partyFilter = null) =>
             Timed( $"GetEdustajaData votingId={votingId} partyFilter={partyFilter ?? "(none)"} skipEven={skipEven}", () => {
                 string dbName = "SaliDBAanestysEdustaja";
-                baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName +
+                baseUrl = _apiBase + "/api/v1/tables/" + dbName +
                           "/rows?perPage=" + MaxPerPage + "&page=0&columnName=" +
                           Uri.EscapeDataString( "AanestysId" ) + "&columnValue=" + Uri.EscapeDataString( votingId );
 
@@ -411,7 +416,7 @@ namespace MaSHi {
 
             while (more)
             {
-                string url = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName +
+                string url = _apiBase + "/api/v1/tables/" + dbName +
                              "/rows?perPage=" + perPage + "&page=" + page +
                              "&columnName=" + Uri.EscapeDataString( columnName ) +
                              "&columnValue=" + Uri.EscapeDataString( columnValue );
@@ -461,7 +466,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysJakauma";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
+            baseUrl = _apiBase + "/api/v1/tables/" + dbName + "/rows?perPage=10&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingId);
 
             // Read data and form finalTable
             try
@@ -488,7 +493,7 @@ namespace MaSHi {
             string dbName = "SaliDBAanestysEdustaja";
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
+            baseUrl = _apiBase + "/api/v1/tables/" + dbName + "/rows?perPage=" + count + "&page=0&columnName=" + Uri.EscapeDataString(type) + "&columnValue=" + Uri.EscapeDataString(inputName);
 
             // Read data and form finalTable
             try {
@@ -528,7 +533,7 @@ namespace MaSHi {
             DataTable votingTable = null;
 
             // Create url structure
-            baseUrl = "https://avoindata.eduskunta.fi/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingNbr);
+            baseUrl = _apiBase + "/api/v1/tables/SaliDBAanestys/rows?perPage=1&page=0&columnName=" + Uri.EscapeDataString("AanestysId") + "&columnValue=" + Uri.EscapeDataString(votingNbr);
 
             // Read data and form finalTable
             try

@@ -1,0 +1,38 @@
+{
+  "tableName": "SeatingOfParliament",
+  "columnNames": [
+    "hetekaId",
+    "seatNumber",
+    "lastname",
+    "firstname",
+    "party",
+    "minister"
+  ],
+  "pkName": "seatNumber",
+  "rows": [
+    [
+      "1109",
+      "0",
+      "Halla-aho",
+      "Jussi",
+      "ps",
+      "f"
+    ],
+    [
+      "1155",
+      "1",
+      "Kontula",
+      "Anna",
+      "vas",
+      "f"
+    ],
+    [
+      "511",
+      "2",
+      "Viitanen",
+      "Pia",
+      "sd",
+      "f"
+    ]
+  ]
+}

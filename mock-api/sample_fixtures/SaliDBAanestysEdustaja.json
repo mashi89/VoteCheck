@@ -1,0 +1,36 @@
+{
+  "tableName": "SaliDBAanestysEdustaja",
+  "columnNames": [
+    "EdustajaId",
+    "AanestysId",
+    "EdustajaEtunimi",
+    "EdustajaSukunimi",
+    "EdustajaHenkiloNumero",
+    "EdustajaRyhmaLyhenne",
+    "EdustajaAanestys",
+    "Imported"
+  ],
+  "pkName": "EdustajaId",
+  "rows": [
+    [
+      "2745050",
+      "13259",
+      "Markus",
+      "Aaltonen",
+      "102",
+      "sd",
+      "Poissa",
+      "2018-02-05 11:49:36"
+    ],
+    [
+      "2745051",
+      "13259",
+      "Esko",
+      "Aho",
+      "104",
+      "kesk",
+      "Ei",
+      "2018-02-05 11:49:36"
+    ]
+  ]
+}

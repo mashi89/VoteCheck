@@ -1,0 +1,42 @@
+{
+  "tableName": "SaliDBAanestysJakauma",
+  "columnNames": [
+    "JakaumaId",
+    "AanestysId",
+    "Tyyppi",
+    "Ryhma",
+    "Jaa",
+    "Ei",
+    "Tyhja",
+    "Poissa",
+    "YhteensaAanestaneet",
+    "Imported"
+  ],
+  "pkName": "JakaumaId",
+  "rows": [
+    [
+      "1",
+      "13260",
+      "A",
+      "Keskustan eduskuntaryhm\u00e4",
+      "50",
+      "10",
+      "2",
+      "5",
+      "67",
+      "2018-06-02 10:14:00"
+    ],
+    [
+      "2",
+      "13260",
+      "A",
+      "Kansallisen kokoomuksen eduskuntaryhm\u00e4",
+      "40",
+      "20",
+      "3",
+      "4",
+      "67",
+      "2018-06-02 10:14:00"
+    ]
+  ]
+}
