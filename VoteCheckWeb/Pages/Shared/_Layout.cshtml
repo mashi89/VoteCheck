@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] != null ? ViewData["Title"] + " — VoteCheck" : "VoteCheck — Eduskunnan äänestykset")</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 0 auto; padding: 0 1rem; line-height: 1.5; }
+        header { padding: 1rem 0; border-bottom: 1px solid #8884; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+        header a.brand { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: inherit; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid #8883; vertical-align: top; }
+        .vote-Jaa { color: #1a7f37; font-weight: 600; }
+        .vote-Ei { color: #c62828; font-weight: 600; }
+        .vote-Tyhjä, .vote-Poissa { color: #888; }
+        form.search { display: flex; gap: .5rem; }
+        form.search input[type=search] { flex: 1; padding: .4rem .6rem; }
+        .muted { color: #888; font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">VoteCheck</a>
+        <a href="/mps">Kansanedustajat</a>
+        <a href="/search">Haku</a>
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

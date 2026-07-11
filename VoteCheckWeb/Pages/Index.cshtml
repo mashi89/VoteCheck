@@ -1,0 +1,28 @@
+@page
+@model IndexModel
+
+<h1>Viimeisimmät äänestykset</h1>
+<form class="search" action="/search" method="get">
+    <input type="search" name="query" placeholder="Hae äänestyksiä aiheella…" />
+    <button type="submit">Hae</button>
+</form>
+
+@if ( Model.Sessions.Count == 0 ) {
+    <p class="muted">Tietokanta on tyhjä — synkronointi eduskunnan avoimen datan rajapinnasta on käynnissä. Päivitä sivu hetken kuluttua.</p>
+}
+
+<table>
+    <thead><tr><th>Pvm</th><th>Aihe</th><th>Jaa</th><th>Ei</th><th>Tyhjä</th><th>Poissa</th></tr></thead>
+    <tbody>
+    @foreach ( var s in Model.Sessions ) {
+        <tr>
+            <td>@s.Date[..Math.Min( 10, s.Date.Length )]</td>
+            <td><a href="/vote/@s.Id">@s.Title</a><br /><span class="muted">@s.Subject</span></td>
+            <td class="vote-Jaa">@s.Yes</td>
+            <td class="vote-Ei">@s.No</td>
+            <td>@s.Blank</td>
+            <td>@s.Absent</td>
+        </tr>
+    }
+    </tbody>
+</table>

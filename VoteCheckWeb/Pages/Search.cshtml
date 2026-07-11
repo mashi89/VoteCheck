@@ -1,0 +1,25 @@
+@page "/search"
+@model SearchModel
+
+<h1>Haku</h1>
+<form class="search" method="get">
+    <input type="search" name="query" value="@Model.Query" placeholder="Hae äänestyksiä aiheella…" />
+    <button type="submit">Hae</button>
+</form>
+
+@if ( !string.IsNullOrWhiteSpace( Model.Query ) ) {
+    <p class="muted">@Model.Sessions.Count tulosta haulle ”@Model.Query”</p>
+    <table>
+        <thead><tr><th>Pvm</th><th>Aihe</th><th>Jaa</th><th>Ei</th></tr></thead>
+        <tbody>
+        @foreach ( var s in Model.Sessions ) {
+            <tr>
+                <td>@s.Date[..Math.Min( 10, s.Date.Length )]</td>
+                <td><a href="/vote/@s.Id">@s.Title</a><br /><span class="muted">@s.Subject</span></td>
+                <td class="vote-Jaa">@s.Yes</td>
+                <td class="vote-Ei">@s.No</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

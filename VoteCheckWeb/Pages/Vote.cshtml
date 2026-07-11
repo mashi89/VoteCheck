@@ -1,0 +1,50 @@
+@page "/vote/{id:int}/{party?}"
+@model VoteModel
+
+@if ( Model.Session == null ) {
+    <h1>Äänestystä ei löytynyt</h1>
+    return;
+}
+
+@{ ViewData["Title"] = Model.Session.Title; }
+
+<h1>@Model.Session.Title</h1>
+<p class="muted">@Model.Session.Subject · @Model.Session.Date[..Math.Min( 10, Model.Session.Date.Length )]</p>
+
+<p>
+    <strong class="vote-Jaa">Jaa @Model.Session.Yes</strong> ·
+    <strong class="vote-Ei">Ei @Model.Session.No</strong> ·
+    Tyhjä @Model.Session.Blank · Poissa @Model.Session.Absent
+</p>
+
+<h2>Eduskuntaryhmittäin</h2>
+<table>
+    <thead><tr><th>Ryhmä</th><th>Jaa</th><th>Ei</th><th>Tyhjä</th><th>Poissa</th></tr></thead>
+    <tbody>
+    @foreach ( var p in Model.Parties ) {
+        <tr>
+            <td><a href="/vote/@Model.Session.Id/@p.Party">@p.Party</a></td>
+            <td class="vote-Jaa">@p.Yes</td>
+            <td class="vote-Ei">@p.No</td>
+            <td>@p.Blank</td>
+            <td>@p.Absent</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if ( Model.Votes.Count > 0 ) {
+    <h2>Edustajien äänet@(Model.Party != null ? $" — {Model.Party}" : "")</h2>
+    <table>
+        <thead><tr><th>Edustaja</th><th>Ryhmä</th><th>Ääni</th></tr></thead>
+        <tbody>
+        @foreach ( var v in Model.Votes ) {
+            <tr>
+                <td><a href="/mp/@v.PersonNumber">@v.LastName, @v.FirstName</a></td>
+                <td>@v.Party</td>
+                <td class="vote-@v.Vote">@v.Vote</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

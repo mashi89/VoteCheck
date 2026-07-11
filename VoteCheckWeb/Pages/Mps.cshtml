@@ -1,0 +1,20 @@
+@page "/mps"
+@model MpsModel
+
+<h1>Kansanedustajat</h1>
+<form class="search" method="get">
+    <input type="search" name="name" value="@Model.Name" placeholder="Sukunimi…" />
+    <button type="submit">Hae</button>
+</form>
+
+<table>
+    <thead><tr><th>Nimi</th><th>Ryhmä</th></tr></thead>
+    <tbody>
+    @foreach ( var mp in Model.Mps ) {
+        <tr>
+            <td><a href="/mp/@mp.PersonNumber">@mp.LastName, @mp.FirstName</a></td>
+            <td>@mp.Party</td>
+        </tr>
+    }
+    </tbody>
+</table>
