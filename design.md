@@ -1,6 +1,17 @@
 # VoteCheck — Design & Technical Roadmap
 
-*Last updated: 2026-07-19*
+*Last updated: 2026-07-20*
+
+> ⚠️ **Upstream API migration deadline.** Eduskunta is replacing the open data service this
+> project depends on. The current REST API (`avoindata.eduskunta.fi/api/v1/tables/...`) is
+> scheduled for **discontinuation at the end of 2026**; from early 2027 `avoindata.eduskunta.fi`
+> will redirect into the new service's open-data section. The new API is described as exposing
+> dataset schemas and example queries, opening up reference/code lists, and updating closer to
+> real-time — called out specifically as an improvement for voting-data reuse. A dataset-level
+> bulk-download view is planned by end of June 2026. See §6 for how this affects sequencing.
+> *(Source: [eduskunta.fi/avoin-data](https://www.eduskunta.fi/avoin-data) — the actual new base
+> URL and endpoint docs weren't accessible to automated fetch as of this writing and should be
+> re-checked manually.)*
 
 ## 1. Purpose
 
@@ -90,7 +101,9 @@ Principles:
 
 - Convert `OpenDataRetriever` from a static class with shared state into an instance-based
   `EduskuntaClient` taking `HttpClient` via constructor injection (enables `IHttpClientFactory`
-  and clean test mocks — no more reflection hacks).
+  and clean test mocks — no more reflection hacks). Design the interface around the domain
+  models, not the current table/column shape, so the concrete HTTP calls can be swapped for the
+  new Eduskunta API (replacing the old one by end of 2026, see §6) without touching callers.
 - Replace `DataTable` returns with typed records (`Mp`, `VotingSession`, `Vote`,
   `PartyDistribution`); keep thin `DataTable` adapters temporarily so the Avalonia GUI keeps
   working during the transition.
@@ -149,6 +162,7 @@ can be found on a phone in under three taps.
 
 | Risk | Mitigation |
 |------|------------|
+| **Upstream API is being retired (end of 2026)** — the old table-based REST API this project uses is scheduled for shutdown, with `avoindata.eduskunta.fi` redirecting to the new service from 2027 | Isolate all upstream access behind `VoteCheck.Core`/`EduskuntaClient` in Step 1 (already the plan) so swapping the request/response shape is a contained change; treat "port to the new API" as a required Step ~2–3 task, not a "later" item — building `VoteCheck.Api` against an API that disappears the same year is a real risk to sequencing. Re-check `eduskunta.fi/avoin-data` manually once the new API's docs/base URL are published (automated fetch returned HTTP 403 as of 2026-07-20), and prototype against it before committing to final `VoteCheck.Core` models. |
 | Upstream API rate limits / availability | Cache immutable history aggressively; consider nightly snapshot into SQLite if limits bite |
 | Upstream schema changes (undocumented tables) | Keep JSON samples in `JSONSamples/`, contract tests against live API in CI (allowed to warn, not fail builds) |
 | MP identity across terms (`EdustajaHenkiloNumero` vs `EdustajaId`) | Decide canonical ID in Step 1 model design |
