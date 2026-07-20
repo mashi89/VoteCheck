@@ -150,6 +150,13 @@ Notable shape details that affect our design:
 *Goal: a thread-safe, async, typed core library targeting the **new** API from day one — no
 detour through the legacy table shape, since it has only months of runway left (§banner, §3.1).*
 
+> **Status: scaffolding started.** `VoteCheck.Core`/`EduskuntaClient` and its MSTest project
+> exist, covering `kansanedustajat` and the `taysistunnot/*aanestykset*` endpoints, with the
+> whole solution building and all tests (9 new + 71 legacy) passing. Model field names are
+> still based on the research in §3.1, not a captured live response — see the caveat in
+> `EduskuntaClient.cs` — so validating them against a real payload is the next concrete task,
+> along with resolving the per-MP-votes open question below.
+
 - New `EduskuntaClient` (instance-based, `HttpClient` via constructor injection — enables
   `IHttpClientFactory` and clean test mocks, no reflection hacks) wrapping the `api.eduskunta.fi`
   endpoints in §3.1: `kansanedustajat`, the `taysistunnot/*aanestykset*` family, and the
