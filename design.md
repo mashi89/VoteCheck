@@ -113,31 +113,44 @@ Endpoint map (all relative to the base URL):
 | Search | `POST /search`, `GET /search?q=`, `POST /search/count`, `POST /search/dataset` (async bulk export job) |
 | Reference data | `/reference-data/eduskuntaryhmat`, `/vaalipiirit`, `/sukupuolet`, `/valiokunnat`, `/asiatyypit`, `/valtiopaivat`, `/vaalikaudet`, `/kansanedustajat`, etc. |
 
-Notable shape details that affect our design:
+Notable shape details that affect our design — **confirmed against real captured responses**
+(kept as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by the tests there):
 
-- A vote (`Aanestys`) already comes back with `aanestystulos` (jaa/ei/tyhjia/poissa/yhteensä
-  tally), plus **pre-computed breakdowns** — `eduskuntaryhmaJakaumat` (by party),
-  `hallitusoppositioJakaumat` (government/opposition), `vaalipiiriJakaumat` (by electoral
-  district) — and `aanestystapahtumat` (every individual MP's ballot). This means our "party
-  distribution" and "government vs. opposition" views can largely be a thin reshaping of upstream
-  data rather than custom aggregation.
-- MP objects (`Kansanedustaja`) are rich (party/committee/cabinet history, terms of office,
-  declared interests) but **no endpoint returns "this MP's votes" directly** — votes are keyed by
-  session/matter/vote ID, not by MP. Building the "MP activity" feature (attendance %, vote-type
-  breakdown over time) will need either filtering `aanestystapahtumat` client-side across the
-  recent-votes/session endpoints, or confirming whether `/search` can filter votes by
-  `henkilonumero` — **open question to resolve early in Step 1**, since it affects whether that
-  feature is cheap or requires our own indexing.
-- Titles and some fields are already bilingual (fi/sv) objects in the API responses — the
-  Swedish-language toggle in today's desktop app can likely be replaced by just picking the
-  language key, rather than a custom name-mapping table.
+- A vote (`Aanestys`) comes back with `aanestystulos` (jaa/ei/tyhjia/poissa/yhteensä tally),
+  plus **pre-computed breakdowns** — `eduskuntaryhmaJakaumat` (by party),
+  `hallitusoppositioJakaumat` (government/opposition, as "Hallitusryhmät"/"Oppositioryhmät"),
+  `vaalipiiriJakaumat` (by electoral district) — so our "party distribution" and
+  "government vs. opposition" views are a thin reshaping of upstream data, not custom aggregation.
+- **Every vote payload embeds the complete ballot list** (`aanestystapahtumat`, one entry per
+  seat — 199 in the captured sample), and `uusimmat-aanestykset` returns those full objects too.
+  **This resolves the earlier open question:** per-MP vote history and activity summaries can be
+  derived by filtering ballots by `henkilonumero`, with no dedicated per-MP endpoint and no
+  indexing needed for the recent-votes window. Only *deep historical* per-MP queries would need
+  our own index, since walking every past session would be expensive.
+- **Many fields are bilingual objects, not strings** — including ones that look scalar:
+  `kayttaytyminen` (the vote itself) is `{fi:"Jaa", sv:"Ja"}`, and so are `edkryhmalyhenne`
+  (`{fi:"kok", sv:"saml"}`), `eduskuntaryhma`, `vaalipiiri`, `sukupuoli`, and every jakauma
+  `nimi`. MP payloads add an `en` key on some fields. The desktop app's Swedish toggle therefore
+  becomes "pick the language key" rather than a name-mapping table.
+- `aanestysotsikko` describes the *ballot options* ("proposal X JAA / proposal Y EI"), not the
+  subject. The human-readable subject of the vote is **`kohta.otsikko`**, with the originating
+  document id in `kohta.asiakirjat.paaasiakirjaEduskuntatunnus` (e.g. "HE 32/2026 vp") — that id
+  is the key for `/valtiopaivaasiat` and `/taysistunnot/asian-aanestykset`.
+- **`uusimmat-aanestykset` returns a nested array** (`[[vote], [vote], …]`), unlike the other
+  vote endpoints; `EduskuntaClient` flattens it.
+- Numeric ids (`henkilonro`, `henkilonumero`) and `istuntovpvuosi`/`istuntonumero`/
+  `aanestysnumero` arrive as JSON **strings**. Timestamps are ISO 8601 with offset, except
+  `istuntopvm`, which is a date with offset (`"2026-06-03+03:00"`) and does not parse as a
+  `DateTimeOffset` — kept as a string in the models.
+- The Speaker (`puhemies`) does not vote and is absent from `aanestystapahtumat` — presiding
+  must not be counted as an absence when computing attendance.
 
 ### Candidate API surface (v1) — our own API, backed by the above
 
 | Endpoint | Purpose | Backed by upstream |
 |----------|---------|---------------------|
 | `GET /api/mps` | Current MPs (name, party, constituency) | `GET /kansanedustajat` |
-| `GET /api/mps/{id}/votes?count=50` | An MP's recent votes with issue titles | recent/session vote endpoints, filtered by `henkilonumero` (see open question above) |
+| `GET /api/mps/{id}/votes?count=50` | An MP's recent votes with issue titles | `uusimmat-aanestykset` / session vote endpoints, filtering the embedded `aanestystapahtumat` by `henkilonumero`; titles from `kohta.otsikko` |
 | `GET /api/mps/{id}/activity` | Computed summary: attendance %, Jaa/Ei/Tyhjä/Poissa breakdown | derived from the above |
 | `GET /api/votes?date=yyyy-MM-dd` | Voting sessions by date | `GET /taysistunnot/uusimmat-aanestykset` / session lookups |
 | `GET /api/votes/{id}/distribution` | Party-level result for a session | `aanestystulos` + `eduskuntaryhmaJakaumat` on `GET /taysistunnot/aanestykset/{aanestystunnus}` |
@@ -150,12 +163,17 @@ Notable shape details that affect our design:
 *Goal: a thread-safe, async, typed core library targeting the **new** API from day one — no
 detour through the legacy table shape, since it has only months of runway left (§banner, §3.1).*
 
-> **Status: scaffolding started.** `VoteCheck.Core`/`EduskuntaClient` and its MSTest project
-> exist, covering `kansanedustajat` and the `taysistunnot/*aanestykset*` endpoints, with the
-> whole solution building and all tests (9 new + 71 legacy) passing. Model field names are
-> still based on the research in §3.1, not a captured live response — see the caveat in
-> `EduskuntaClient.cs` — so validating them against a real payload is the next concrete task,
-> along with resolving the per-MP-votes open question below.
+> **Status: client + models done and validated against live payloads.**
+> `VoteCheck.Core`/`EduskuntaClient` covers `kansanedustajat` and the
+> `taysistunnot/*aanestykset*` endpoints, with typed models replacing `DataTable`. Real
+> captured responses are committed as fixtures under `VoteCheck.Core.Tests/Fixtures/` and the
+> shape tests assert against them, which caught two things the documented research missed: most
+> "scalar" ballot fields are actually bilingual objects, and `uusimmat-aanestykset` is a nested
+> array. The per-MP-votes open question is **resolved** (ballots are embedded in every vote —
+> see §3.1). Whole solution builds; all tests pass (28 new + 71 legacy).
+>
+> Remaining for Step 1: `IMemoryCache` layer, and endpoints not yet wrapped or verified
+> (matters, documents, `/search`, reference data).
 
 - New `EduskuntaClient` (instance-based, `HttpClient` via constructor injection — enables
   `IHttpClientFactory` and clean test mocks, no reflection hacks) wrapping the `api.eduskunta.fi`
@@ -165,9 +183,9 @@ detour through the legacy table shape, since it has only months of runway left (
   `PartyDistribution`) — no `DataTable` at all; retire that concept rather than adapting it.
   `OpenDataRetriever`/`VoteCollector` (legacy table API) can stay as-is behind a feature flag only
   as a fallback until the new client is verified, then be deleted — not maintained long-term.
-- Resolve the open question from §3.1 early: confirm whether `/search` (or another endpoint)
-  supports filtering votes by `henkilonumero`; this determines whether "an MP's recent votes" is
-  a single upstream call or requires fetching+filtering recent/session vote data ourselves.
+- ~~Resolve the open question from §3.1: how to get "an MP's recent votes".~~ **Done** — every
+  vote payload embeds the full ballot list, so this is a filter over `aanestystapahtumat`, not a
+  separate lookup or index.
 - All I/O `async`/`await` end-to-end.
 - In-memory cache (`IMemoryCache`): long TTLs for historical (immutable) votes/matters, short TTLs
   for "current MPs" and `uusimmat-aanestykset`; keep well under the 450 req/3000s rate limit
@@ -229,8 +247,9 @@ can be found on a phone in under three taps.
 | Risk | Mitigation |
 |------|------------|
 | **Legacy API shutdown (end of 2026, already redirecting since 30 Mar 2026)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency |
-| **No confirmed endpoint for "all votes by one MP"** — votes are keyed by session/matter/vote ID in the new API, not by `henkilonumero` | Verify against the OpenAPI spec / `/search` early in Step 1 (flagged there); worst case, build our own per-MP index by ingesting `uusimmat-aanestykset` and session/matter vote endpoints over time |
+| ~~No confirmed endpoint for "all votes by one MP"~~ — **resolved**: ballots are embedded in every vote payload (§3.1) | Recent-window per-MP history is a client-side filter. Still open at larger scale: *deep historical* per-MP queries would mean walking every past session, so a per-MP index becomes worthwhile if we go beyond recent votes |
+| **Payload size** — each vote carries ~199 ballots plus three breakdown sets (~75 KB per vote); `uusimmat-aanestykset` returned ~750 KB for 10 votes | Our API should project down to what each view needs rather than proxying upstream objects; cache parsed results, and avoid fetching full vote objects when only tallies are shown |
 | Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec; cache immutable history aggressively; consider a nightly snapshot into SQLite if limits bite elsewhere |
-| Upstream schema changes | New API is OpenAPI-documented (`api.eduskunta.fi/openapi.json`) — validate `VoteCheck.Core` models against the spec in CI; keep the old `JSONSamples/` for reference during the Step 1 rewrite |
+| Upstream schema changes | Real captured responses are committed as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by shape tests, so a breaking change surfaces as a test failure; refresh fixtures periodically since they're a point-in-time snapshot |
 | MP identity across terms (`henkilonumero` continuity, legacy `EdustajaId`/`EdustajaHenkiloNumero`) | Decide canonical ID (`henkilonumero`, per the new API) in Step 1 model design |
 | Hosting cost for a hobby project | Free tiers + output caching keep compute minimal; static PWA assets are nearly free to serve |

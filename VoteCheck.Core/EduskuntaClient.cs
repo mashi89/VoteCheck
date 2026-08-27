@@ -13,10 +13,10 @@ namespace VoteCheck.Core
     // replaces the legacy avoindata.eduskunta.fi table API — see design.md for the migration
     // context and the endpoint map (§3.1) this class implements.
     //
-    // Model field names come from local research against the published OpenAPI spec
-    // (https://api.eduskunta.fi/openapi.json), not a captured live response, so exact casing
-    // and nesting should be validated against real API output before this client is relied on
-    // in production.
+    // Model shapes are validated against real captured responses, kept as fixtures in
+    // VoteCheck.Core.Tests/Fixtures/ and asserted by the round-trip tests there. The
+    // endpoints not yet covered here (matters, documents, search, reference data) have not
+    // been checked against live output.
     public sealed class EduskuntaClient
     {
         public const string DefaultBaseUrl = "https://api.eduskunta.fi/api/v1/";
@@ -60,12 +60,26 @@ namespace VoteCheck.Core
             return votes ?? new List<Aanestys>();
         }
 
+        // Note: unlike the other vote endpoints, uusimmat-aanestykset returns a *nested*
+        // array — a list of single-element lists, each wrapping one Aanestys. Confirmed
+        // against a live response; we flatten it so callers see a flat list like elsewhere.
         public async Task<IReadOnlyList<Aanestys>> GetRecentVotesAsync(
             CancellationToken cancellationToken = default)
         {
-            var votes = await GetAsync<List<Aanestys>>(
+            var groups = await GetAsync<List<List<Aanestys>>>(
                 "taysistunnot/uusimmat-aanestykset", cancellationToken).ConfigureAwait(false);
-            return votes ?? new List<Aanestys>();
+
+            if (groups is null)
+                return new List<Aanestys>();
+
+            var flattened = new List<Aanestys>();
+            foreach (var group in groups)
+            {
+                if (group is not null)
+                    flattened.AddRange(group);
+            }
+
+            return flattened;
         }
 
         private async Task<T?> GetAsync<T>(string relativeUrl, CancellationToken cancellationToken)

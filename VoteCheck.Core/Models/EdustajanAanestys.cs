@@ -1,18 +1,26 @@
 namespace VoteCheck.Core.Models
 {
-    // A single MP's ballot within an Aanestys.aanestystapahtumat list. See design.md §3.1.
+    // A single MP's ballot within Aanestys.aanestystapahtumat.
+    // Confirmed against a live response: vaalipiiri, eduskuntaryhma, sukupuoli,
+    // kayttaytyminen and edkryhmalyhenne are all bilingual objects upstream, NOT plain
+    // strings — hence LocalizedText rather than string.
     public sealed class EdustajanAanestys
     {
+        // Upstream sends this as a JSON string ("1504"); Newtonsoft coerces it to int.
         public int Henkilonumero { get; set; }
+
         public string? Sukunimi { get; set; }
         public string? Etunimi { get; set; }
-        public string? Edkryhmalyhenne { get; set; }
-        public string? Vaalipiiri { get; set; }
-        public string? Eduskuntaryhma { get; set; }
-        public string? Sukupuoli { get; set; }
 
-        // The vote itself: "Jaa" | "Ei" | "Tyhjä" | "Poissa" (per the legacy API's vocabulary;
-        // unconfirmed whether the new API uses the same literal strings).
-        public string? Kayttaytyminen { get; set; }
+        // Party abbreviation, localized: { "fi": "kok", "sv": "saml" }.
+        public LocalizedText? Edkryhmalyhenne { get; set; }
+
+        public LocalizedText? Vaalipiiri { get; set; }
+        public LocalizedText? Eduskuntaryhma { get; set; }
+        public LocalizedText? Sukupuoli { get; set; }
+
+        // How the MP voted. Observed Finnish values: "Jaa", "Ei", "Poissa"
+        // (and "Tyhjä" where an abstention occurs).
+        public LocalizedText? Kayttaytyminen { get; set; }
     }
 }
