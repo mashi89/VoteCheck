@@ -154,9 +154,14 @@ Notable shape details that affect our design — **confirmed against real captur
 | `GET /api/mps` | Current MPs (name, party, constituency) | `GET /kansanedustajat` |
 | `GET /api/mps/{id}/votes?count=50` | An MP's recent votes with issue titles | `uusimmat-aanestykset` / session vote endpoints, filtering the embedded `aanestystapahtumat` by `henkilonumero`; titles from `kohta.otsikko` |
 | `GET /api/mps/{id}/activity` | Computed summary: attendance %, Jaa/Ei/Tyhjä/Poissa breakdown | derived from the above |
-| `GET /api/votes?date=yyyy-MM-dd` | Voting sessions by date | `GET /taysistunnot/uusimmat-aanestykset` / session lookups |
-| `GET /api/votes/{id}/distribution` | Party-level result for a session | `aanestystulos` + `eduskuntaryhmaJakaumat` on `GET /taysistunnot/aanestykset/{aanestystunnus}` |
-| `GET /api/votes/{id}/ballots?party=ps` | Individual MP votes for a session | `aanestystapahtumat` on the same endpoint, filtered |
+| `GET /api/votes?date=yyyy-MM-dd` | Voting sessions by date prefix | `GET /taysistunnot/uusimmat-aanestykset` / session lookups |
+| `GET /api/votes/{id}` | One division with its tally | `GET /taysistunnot/aanestykset/{aanestystunnus}` |
+| `GET /api/votes/{id}/distribution` | Party, government/opposition and district breakdowns | the three `*Jakaumat` arrays on the same endpoint |
+| `GET /api/votes/{id}/ballots?party=kok` | Individual MP votes for a division | `aanestystapahtumat` on the same endpoint, filtered |
+| `GET /api/sessions/{id}/votes` | All divisions in one plenary session | `GET /taysistunnot/istunnon-aanestykset/{istuntotunnus}` |
+
+All of the above are implemented and take `?lang=fi|sv|en`. Ballots are deliberately a separate
+call from `distribution`, so a client showing only the party split never pays for 199 rows.
 
 ## 4. Roadmap — Next 3 Steps
 
@@ -213,17 +218,40 @@ breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passin
 
 *Goal: the data is reachable from any browser via clean JSON endpoints.*
 
+> **Status: built and running locally.** `VoteCheck.Api` serves all nine v1 routes, with
+> Swagger UI at `/swagger` and a `/health` probe. `EduskuntaClient` is registered via
+> `IHttpClientFactory` and wrapped in `CachingEduskuntaClient`; output caching sits in front
+> with matching immutable/volatile policies. Verified by booting the app, not only by tests.
+>
+> Two things worth knowing:
+> - **Language is a query parameter** (`?lang=fi|sv|en`, default `fi`). Since upstream returns
+>   bilingual objects everywhere, resolving them server-side keeps payloads small and replaces
+>   the desktop app's Swedish toggle. An unsupported value is a 400, not a silent fallback.
+> - **Upstream failures map to 502/504**, not 500. Everything here comes from
+>   api.eduskunta.fi, so that service being unreachable is a normal condition and shouldn't
+>   read as a fault in VoteCheck.
+>
+> Not done: actually deploying it. The Dockerfile and CI workflow are in place, but choosing a
+> host and pushing an image needs credentials, so a public URL is still outstanding.
+
 - New project `VoteCheck.Api` referencing `VoteCheck.Core`; implement the v1 endpoints above.
 - Add the first *computed* endpoint, `GET /api/mps/{id}/activity`, aggregating attendance and
   vote-type distribution across an MP's votes — this is the "activity checker" differentiator
   over raw open data (note: per-vote party/government-opposition breakdowns are already provided
   upstream, so this endpoint's real work is the *cross-vote, per-MP* rollup, not per-vote tallying).
 - Response caching + output caching middleware; CORS enabled for the future frontend origin;
-  OpenAPI/Swagger UI for discoverability.
+  OpenAPI/Swagger UI for discoverability. **Done** — output caching uses the same
+  immutable/volatile split as the client cache. CORS origins come from configuration
+  (`VoteCheck:AllowedOrigins`) and default to *none* rather than `*`, so a deployment has to
+  name the PWA's origin deliberately.
 - Containerize (Dockerfile) and deploy a public instance (Azure App Service free tier, Fly.io, or
-  similar); add a GitHub Actions workflow for build + test + deploy.
+  similar); add a GitHub Actions workflow for build + test + deploy. **Partly done** —
+  Dockerfile (multi-stage, non-root) and a CI workflow that builds, tests and verifies the image
+  both exist. CI runs entirely against committed fixtures, so it never calls upstream and can't
+  be broken by it. Choosing a host and pushing an image needs credentials and is left open.
 
 *Done when:* `curl https://<host>/api/mps` returns live data and Swagger UI documents the API.
+*Currently:* both work locally; the public `<host>` is the remaining piece.
 
 ### Step 3 — Ship the browser/PWA frontend
 
