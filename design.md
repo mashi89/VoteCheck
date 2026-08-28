@@ -137,7 +137,9 @@ Notable shape details that affect our design — **confirmed against real captur
   document id in `kohta.asiakirjat.paaasiakirjaEduskuntatunnus` (e.g. "HE 32/2026 vp") — that id
   is the key for `/valtiopaivaasiat` and `/taysistunnot/asian-aanestykset`.
 - **`uusimmat-aanestykset` returns a nested array** (`[[vote], [vote], …]`), unlike the other
-  vote endpoints; `EduskuntaClient` flattens it.
+  vote endpoints; `EduskuntaClient` flattens it. It is also **not chronologically ordered** —
+  the captured sample runs sessions 60, 65, 69, 71, 71, 71, 71, 58, 69, 71 — so anything
+  presenting "latest votes" must sort explicitly rather than trusting upstream order.
 - Numeric ids (`henkilonro`, `henkilonumero`) and `istuntovpvuosi`/`istuntonumero`/
   `aanestysnumero` arrive as JSON **strings**. Timestamps are ISO 8601 with offset, except
   `istuntopvm`, which is a date with offset (`"2026-06-03+03:00"`) and does not parse as a
@@ -163,17 +165,19 @@ Notable shape details that affect our design — **confirmed against real captur
 *Goal: a thread-safe, async, typed core library targeting the **new** API from day one — no
 detour through the legacy table shape, since it has only months of runway left (§banner, §3.1).*
 
-> **Status: client + models done and validated against live payloads.**
-> `VoteCheck.Core`/`EduskuntaClient` covers `kansanedustajat` and the
-> `taysistunnot/*aanestykset*` endpoints, with typed models replacing `DataTable`. Real
-> captured responses are committed as fixtures under `VoteCheck.Core.Tests/Fixtures/` and the
-> shape tests assert against them, which caught two things the documented research missed: most
-> "scalar" ballot fields are actually bilingual objects, and `uusimmat-aanestykset` is a nested
-> array. The per-MP-votes open question is **resolved** (ballots are embedded in every vote —
-> see §3.1). Whole solution builds; all tests pass (28 new + 71 legacy).
+> **Status: essentially complete.** `VoteCheck.Core` now contains:
+> `IEduskuntaClient`/`EduskuntaClient` over `kansanedustajat` and the
+> `taysistunnot/*aanestykset*` endpoints; typed models replacing `DataTable`;
+> `CachingEduskuntaClient`, an `IMemoryCache` decorator with split TTLs and single-flight
+> de-duplication; and `MpActivityService`, which derives per-MP vote history and activity
+> summaries from the embedded ballots. Real captured responses are committed as fixtures under
+> `VoteCheck.Core.Tests/Fixtures/` and asserted against, which caught two things the documented
+> research missed: most "scalar" ballot fields are bilingual objects, and `uusimmat-aanestykset`
+> is a nested array. Whole solution builds; all tests pass (55 new + 71 legacy).
 >
-> Remaining for Step 1: `IMemoryCache` layer, and endpoints not yet wrapped or verified
-> (matters, documents, `/search`, reference data).
+> **Deferred, deliberately:** the endpoints still unwrapped (matters, documents, `/search`,
+> reference data). Having already shipped two wrong shapes from documentation alone, these
+> should not be modeled until a live response for each has been captured — see §6.
 
 - New `EduskuntaClient` (instance-based, `HttpClient` via constructor injection — enables
   `IHttpClientFactory` and clean test mocks, no reflection hacks) wrapping the `api.eduskunta.fi`
@@ -187,9 +191,17 @@ detour through the legacy table shape, since it has only months of runway left (
   vote payload embeds the full ballot list, so this is a filter over `aanestystapahtumat`, not a
   separate lookup or index.
 - All I/O `async`/`await` end-to-end.
-- In-memory cache (`IMemoryCache`): long TTLs for historical (immutable) votes/matters, short TTLs
-  for "current MPs" and `uusimmat-aanestykset`; keep well under the 450 req/3000s rate limit
-  documented for `/search*`.
+- In-memory cache (`IMemoryCache`) — **done**, as `CachingEduskuntaClient`, a decorator rather
+  than logic baked into the client. Completed votes and session votes get a long TTL (12 h) since
+  they're immutable; MPs, matter votes and `uusimmat-aanestykset` get a short one (10 min).
+  Concurrent callers for the same uncached key collapse onto one upstream fetch, so a traffic
+  burst can't fan out into duplicate requests. Null results are not cached — a 404 today may be
+  a real record tomorrow.
+- Per-MP derivation — **done**, as `MpActivityService`: `ExtractVotesFor` pulls an MP's ballot
+  out of each division (subject from `kohta.otsikko`, not `aanestysotsikko`), and `Summarize`
+  produces the Jaa/Ei/Tyhjä/Poissa counts and attendance rate behind the Step 2 activity
+  endpoint. Annulled divisions are excluded; an empty window reports a null attendance rate
+  rather than 0%, so "no data" stays distinguishable from "never showed up".
 - New MSTest coverage against the new client (mocked `HttpClient`, no reflection); port over the
   useful existing test cases (pagination-style behavior, party-code mapping) adapted to the new
   shapes.
@@ -249,7 +261,8 @@ can be found on a phone in under three taps.
 | **Legacy API shutdown (end of 2026, already redirecting since 30 Mar 2026)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency |
 | ~~No confirmed endpoint for "all votes by one MP"~~ — **resolved**: ballots are embedded in every vote payload (§3.1) | Recent-window per-MP history is a client-side filter. Still open at larger scale: *deep historical* per-MP queries would mean walking every past session, so a per-MP index becomes worthwhile if we go beyond recent votes |
 | **Payload size** — each vote carries ~199 ballots plus three breakdown sets (~75 KB per vote); `uusimmat-aanestykset` returned ~750 KB for 10 votes | Our API should project down to what each view needs rather than proxying upstream objects; cache parsed results, and avoid fetching full vote objects when only tallies are shown |
-| Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec; cache immutable history aggressively; consider a nightly snapshot into SQLite if limits bite elsewhere |
+| Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec. `CachingEduskuntaClient` now covers this: immutable data cached 12 h, volatile 10 min, and concurrent callers for one key share a single fetch |
+| **Remaining endpoints modeled from documentation alone would likely be wrong again** — two of the shapes derived that way (bilingual ballot fields, nested recent-votes array) turned out incorrect when checked | Capture a live response for each of `/valtiopaivaasiat`, `/asiakirjat`, `/search` and `/reference-data/*` before modeling them, and commit it as a fixture like the existing three |
 | Upstream schema changes | Real captured responses are committed as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by shape tests, so a breaking change surfaces as a test failure; refresh fixtures periodically since they're a point-in-time snapshot |
 | MP identity across terms (`henkilonumero` continuity, legacy `EdustajaId`/`EdustajaHenkiloNumero`) | Decide canonical ID (`henkilonumero`, per the new API) in Step 1 model design |
 | Hosting cost for a hobby project | Free tiers + output caching keep compute minimal; static PWA assets are nearly free to serve |

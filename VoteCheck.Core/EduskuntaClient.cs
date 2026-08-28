@@ -17,7 +17,7 @@ namespace VoteCheck.Core
     // VoteCheck.Core.Tests/Fixtures/ and asserted by the round-trip tests there. The
     // endpoints not yet covered here (matters, documents, search, reference data) have not
     // been checked against live output.
-    public sealed class EduskuntaClient
+    public sealed class EduskuntaClient : IEduskuntaClient
     {
         public const string DefaultBaseUrl = "https://api.eduskunta.fi/api/v1/";
 
