@@ -1,332 +1,390 @@
-# VoteCheck — Design Document
+# VoteCheck — Design & Technical Roadmap
 
-## 1. Purpose & Vision
+*Last updated: 2026-08-29*
 
-VoteCheck gives the general public a fast, on-the-go tool to fact-check Finnish
-politicians: did a representative actually vote the way they claim, and do they
-keep their word? It does this by surfacing the official voting records of the
-Finnish Parliament (Eduskunta) from the [Open Data API](https://avoindata.eduskunta.fi/)
-in a form an ordinary citizen can navigate in seconds — no SQL, no CSV dumps,
-no reading plenary minutes.
+> ⚠️ **Upstream API migration is already underway — target the new API now, not later.**
+> The legacy table API this project uses (`avoindata.eduskunta.fi/api/v1/tables/...`) is being
+> retired: `avoindata.eduskunta.fi` has been redirecting to the new service's open data since
+> **30 March 2026**, and the legacy service is scheduled for full **discontinuation at the end of
+> 2026** — about five months out as of this writing. Its replacement is live today at
+> **`api.eduskunta.fi`**: a modern, documented, unauthenticated JSON API with a published
+> [OpenAPI 3.0 spec](https://api.eduskunta.fi/openapi.json). Full endpoint map in §3.1.
+>
+> **This changes the roadmap:** there is no longer a reason to build `VoteCheck.Core` against the
+> legacy table/`DataTable` shape and swap later — build directly against `api.eduskunta.fi` from
+> Step 1. Sections below have been updated accordingly.
 
-### Target users
+## 1. Purpose
 
-- **Citizens / voters** — "How did my MP vote on X?" during a news cycle or
-  before an election.
-- **Journalists & fact-checkers** — quick verification of claims made in
-  interviews or on social media.
-- **Researchers / activists** — drill-down from a topic to party positions to
-  individual votes.
+VoteCheck lets anyone check what Finnish MPs (kansanedustajat) have been voting on, using the
+Finnish Parliament Open Data API — currently the legacy
+[avoindata.eduskunta.fi](https://avoindata.eduskunta.fi/) table API, migrating to the new
+[api.eduskunta.fi](https://api.eduskunta.fi/) (see banner above and §3.1). The long-term goal is
+an **easy-to-use activity checker for Finnish political representatives, usable from a browser
+and as a mobile-installable app** — not just a desktop program.
 
-### Core use cases
+Typical user questions the product should answer in a few taps:
 
-1. Check the result of a vote on a given issue.
-2. See what a specific representative has been voting recently.
-3. See a vote's distribution by party.
-4. Drill-down: topic → party distribution → individual MP votes within a party.
+- *What has my MP been voting on lately?*
+- *How did the parliament / each party vote on issue X?*
+- *How active is an MP?* (attendance, absences, blank votes)
+- *Who inside a party broke ranks on a vote?*
 
-## 2. Current Architecture
+## 2. Current State (as-is)
 
 ```
-┌───────────────────────────────────────────────┐
-│ VoteCheckGUI (Avalonia 11, .NET 8)            │
-│  MainWindow: search UI, DataGrid, drill-down  │
-│  navigation with back-stack                   │
-└───────────────┬───────────────────────────────┘
-                │ static method calls, DataTable results
-┌───────────────▼───────────────────────────────┐
-│ VoteCollector (class library)                 │
-│  OpenDataRetriever (static): URL building,    │
-│  HTTP GET, JSON → DataTable, column cleanup,  │
-│  client-side filtering                        │
-└───────────────┬───────────────────────────────┘
-                │ HTTPS (System.Net.Http.HttpClient)
-┌───────────────▼───────────────────────────────┐
-│ avoindata.eduskunta.fi  REST API              │
-│  /api/v1/tables/{table}/rows                  │
-└───────────────────────────────────────────────┘
+┌────────────────────┐      ┌─────────────────────┐      ┌─────────────────────────┐
+│  WPFGUI (Avalonia) │ ───▶ │  VoteCollector      │ ───▶ │ avoindata.eduskunta.fi  │
+│  desktop XAML app  │      │  static class,      │      │ REST API (JSON tables)  │
+│  code-behind UI    │      │  DataTable results  │      │                         │
+└────────────────────┘      └─────────────────────┘      └─────────────────────────┘
 ```
 
-### Projects
+| Component | Notes |
+|-----------|-------|
+| `VoteCollector` | Single static class `OpenDataRetriever` (~660 lines). Synchronous wrappers over `HttpClient`, returns `System.Data.DataTable`, shared mutable static state (`hasMore`, `baseUrl`, `finalTable`), party mapping hard-coded from `Parties.txt`. |
+| `WPFGUI` (`VoteCheckGUI`) | Avalonia 11 desktop app, logic in code-behind (`MainWindow.xaml.cs`), drill-down navigation vote → party distribution → individual MPs. |
+| `VoteCollectorTests` | MSTest tests; mock `HttpClient` injected via reflection. |
 
-| Project | Role |
+### Constraints of the current design
+
+1. **Desktop-only reach.** Users must install .NET and run a desktop binary; there is no URL to share.
+2. **Data layer is not reusable as-is.** Static state and `DataTable` returns make it hard to host
+   behind a web server (no thread safety, no async, no typed contracts for JSON serialization).
+3. **Every query hits the upstream API live.** No caching layer; historical voting data is
+   immutable and ideal for caching, but nothing exploits that.
+4. **Finnish-only column names and raw table semantics leak to the UI** (e.g. `SaliDBAanestys`
+   column names shown directly in grids).
+5. **Built against the legacy API**, which is already being redirected away from and will be shut
+   down by end of 2026 (see banner above) — reason enough to target the replacement directly
+   rather than invest further in the current shape.
+
+## 3. Target Architecture (to-be)
+
+```
+api.eduskunta.fi ────▶ VoteCheck.Core ────▶ sync ────▶ votecheck.db
+/api/v1/... (new,      EduskuntaClient +    (Background    (SQLite + FTS5
+unauthenticated JSON)  typed models +        Service)       mirror; disposable,
+                       caching decorator                    rebuildable)
+                              │                                   │
+                              ▼                                   ▼
+                     VoteCheck.Api                        VoteCheckWeb
+                     minimal JSON API                     Razor SSR pages +
+                     (mobile/PWA later;                   /api/v1 JSON
+                      fate decided in §7)                 shareable permalinks
+                                                                  │
+                                                                  ▼
+                                                          Browser (crawlable,
+                                                          no JS required)
+```
+
+Principles:
+
+- **One core library, many frontends.** `VoteCheck.Core` (evolved from `VoteCollector`) holds all
+  Eduskunta API access, typed domain models (`Mp`, `VotingSession`, `Vote`, `PartyDistribution`,
+  `MpActivitySummary`) and business logic. The web API, the browser UI, and the existing desktop
+  app all consume it.
+- **API in the middle.** The browser talks to *our* API, never to api.eduskunta.fi directly. This
+  lets us cache aggressively (immutable historical votes), shape friendly JSON, add computed
+  endpoints (activity summaries), and stay comfortably within upstream's rate limit (see §3.1).
+- **SSR first, installable app later** *(decision 2026-08-29, revised from "PWA instead of
+  separate native apps")*. Server-rendered Razor pages give crawlable, instantly-rendering
+  permalinks — the atomic unit of fact-checking that gets shared, and the product's distribution
+  mechanism. A PWA/mobile client can still come later over `VoteCheck.Api`'s JSON without
+  re-architecting.
+- **Mirror, don't proxy, for the web frontend.** Upstream payloads are heavy (~75 KB per vote,
+  ~750 KB for ten recent votes) and `/search*` is rate-capped (450 POST/3000s/IP), so
+  `VoteCheckWeb` serves from a local SQLite + FTS5 mirror fed by a sync service, projecting each
+  page down to what it needs. The mirror is disposable — gitignored and rebuildable from the API.
+- **Public data, no accounts.** No authentication needed for v1 — matches upstream, which is
+  itself fully open (no API key or token).
+
+### 3.1 New upstream API — `api.eduskunta.fi`
+
+Confirmed live and documented (via local research against the published spec):
+
+| | |
 |---|---|
-| `VoteCollector` | Data-access layer. Queries the Open Data REST API, parses JSON with Newtonsoft.Json, returns `System.Data.DataTable`. |
-| `WPFGUI` (assembly `VoteCheckGUI`) | Avalonia desktop UI. Code-behind pattern; all logic in `MainWindow.xaml.cs`. |
-| `VoteCollectorTests` | MSTest unit tests for `VoteCollector` (HttpClient substituted via reflection). |
+| Base URL | `https://api.eduskunta.fi/api/v1/` |
+| OpenAPI spec | [`https://api.eduskunta.fi/openapi.json`](https://api.eduskunta.fi/openapi.json) (OpenAPI 3.0.0) |
+| Interactive docs | [`https://api.eduskunta.fi/`](https://api.eduskunta.fi/) (JS-rendered explorer) |
+| Auth | None — no API key or token in the spec |
+| Rate limit | 450 POST requests / 3000 seconds / IP (per spec description; applies to `/search*`) |
+| Formats | JSON (primary); `.../xml` variants return raw XML; `/search/dataset` bulk export returns NDJSON; document/attachment endpoints `302`-redirect to the file |
 
-### Data source tables
+Endpoint map (all relative to the base URL):
 
-| Table | Contents | Used by |
-|---|---|---|
-| `SaliDBAanestys` | Voting sessions (subject, date, result) | `GetVotingData`, `GetVotingDataByDate`, `GetVotingDataOfOne` |
-| `SaliDBAanestysEdustaja` | Individual MP votes per session | `GetEdustajaData`, `GetCombinedData` |
-| `SaliDBAanestysJakauma` | Party-level distribution per session | `GetPartyDistData` |
-| `SeatingOfParliament` | Currently seated MPs | `GetCurrentMPs` |
+| Area | Endpoints |
+|------|-----------|
+| MPs | `GET /kansanedustajat`, `GET /kansanedustajat/{id}` (by `henkilonumero`) |
+| Votes | `GET /taysistunnot/aanestykset/{aanestystunnus}` (single vote), `GET /taysistunnot/istunnon-aanestykset/{istuntotunnus}` (all votes in a plenary session), `GET /taysistunnot/asian-aanestykset/{eduskuntatunnus}` (all votes on a matter), `GET /taysistunnot/uusimmat-aanestykset` (recent votes) |
+| Matters / documents | `GET /valtiopaivaasiat/{eduskuntatunnus}` (+ `/xml`), `GET /asiakirjat/edktunnus/{edktunnus}` (+ `/html`, `/pdf`, `/xml`) |
+| Plenary sessions | `GET /taysistunnot/poytakirja-asiakohdat/{eduskuntatunnus}/html` |
+| Search | `POST /search`, `GET /search?q=`, `POST /search/count`, `POST /search/dataset` (async bulk export job) |
+| Reference data | `/reference-data/eduskuntaryhmat`, `/vaalipiirit`, `/sukupuolet`, `/valiokunnat`, `/asiatyypit`, `/valtiopaivat`, `/vaalikaudet`, `/kansanedustajat`, etc. |
 
-Vote values: `Jaa` (Yes), `Ei` (No), `Tyhjä` (Abstain), `Poissa` (Absent).
+Notable shape details that affect our design — **confirmed against real captured responses**
+(kept as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by the tests there):
 
-### Key design decisions (as-built)
+- A vote (`Aanestys`) comes back with `aanestystulos` (jaa/ei/tyhjia/poissa/yhteensä tally),
+  plus **pre-computed breakdowns** — `eduskuntaryhmaJakaumat` (by party),
+  `hallitusoppositioJakaumat` (government/opposition, as "Hallitusryhmät"/"Oppositioryhmät"),
+  `vaalipiiriJakaumat` (by electoral district) — so our "party distribution" and
+  "government vs. opposition" views are a thin reshaping of upstream data, not custom aggregation.
+- **Every vote payload embeds the complete ballot list** (`aanestystapahtumat`, one entry per
+  seat — 199 in the captured sample), and `uusimmat-aanestykset` returns those full objects too.
+  **This resolves the earlier open question:** per-MP vote history and activity summaries can be
+  derived by filtering ballots by `henkilonumero`, with no dedicated per-MP endpoint and no
+  indexing needed for the recent-votes window. Only *deep historical* per-MP queries would need
+  our own index, since walking every past session would be expensive.
+- **Many fields are bilingual objects, not strings** — including ones that look scalar:
+  `kayttaytyminen` (the vote itself) is `{fi:"Jaa", sv:"Ja"}`, and so are `edkryhmalyhenne`
+  (`{fi:"kok", sv:"saml"}`), `eduskuntaryhma`, `vaalipiiri`, `sukupuoli`, and every jakauma
+  `nimi`. MP payloads add an `en` key on some fields. The desktop app's Swedish toggle therefore
+  becomes "pick the language key" rather than a name-mapping table.
+- `aanestysotsikko` describes the *ballot options* ("proposal X JAA / proposal Y EI"), not the
+  subject. The human-readable subject of the vote is **`kohta.otsikko`**, with the originating
+  document id in `kohta.asiakirjat.paaasiakirjaEduskuntatunnus` (e.g. "HE 32/2026 vp") — that id
+  is the key for `/valtiopaivaasiat` and `/taysistunnot/asian-aanestykset`.
+- **`uusimmat-aanestykset` returns a nested array** (`[[vote], [vote], …]`), unlike the other
+  vote endpoints; `EduskuntaClient` flattens it. It is also **not chronologically ordered** —
+  the captured sample runs sessions 60, 65, 69, 71, 71, 71, 71, 58, 69, 71 — so anything
+  presenting "latest votes" must sort explicitly rather than trusting upstream order.
+- Numeric ids (`henkilonro`, `henkilonumero`) and `istuntovpvuosi`/`istuntonumero`/
+  `aanestysnumero` arrive as JSON **strings**. Timestamps are ISO 8601 with offset, except
+  `istuntopvm`, which is a date with offset (`"2026-06-03+03:00"`) and does not parse as a
+  `DateTimeOffset` — kept as a string in the models.
+- The Speaker (`puhemies`) does not vote and is absent from `aanestystapahtumat` — presiding
+  must not be counted as an absence when computing attendance.
 
-- **`DataTable` as the universal data contract.** Chosen for direct DataGrid
-  binding and schema flexibility (the API defines columns dynamically). Trade-off:
-  no compile-time typing; column indices are hard-coded in `GetCombinedData`.
-- **Static data-access class.** `OpenDataRetriever` is static with shared
-  mutable state (`hasMore`, `finalTable`, `baseUrl`). Simple, but not
-  thread-safe and awkward to test (reflection needed to inject `HttpClient`).
-- **Sync-over-async.** Public methods block on `GetDataAsync(...).GetAwaiter().GetResult()`;
-  the GUI wraps calls in `Task.Run` to stay responsive.
-- **Client-side filtering** where the API can't filter server-side
-  (e.g. `IstuntoPvm` is typed `OTHER`, so date search filters a year query
-  locally; party filter on MP votes is also local).
-- **No persistence or caching.** Every view is a live API round-trip.
-- **Column curation in the data layer.** `GetVotingData` removes ~20 raw
-  columns and reorders the rest so the GUI can bind the table as-is.
+### Candidate API surface (v1) — our own API, backed by the above
 
-## 3. UI Flow
+| Endpoint | Purpose | Backed by upstream |
+|----------|---------|---------------------|
+| `GET /api/mps` | Current MPs (name, party, constituency) | `GET /kansanedustajat` |
+| `GET /api/mps/{id}/votes?count=50` | An MP's recent votes with issue titles | `uusimmat-aanestykset` / session vote endpoints, filtering the embedded `aanestystapahtumat` by `henkilonumero`; titles from `kohta.otsikko` |
+| `GET /api/mps/{id}/activity` | Computed summary: attendance %, Jaa/Ei/Tyhjä/Poissa breakdown | derived from the above |
+| `GET /api/votes?date=yyyy-MM-dd` | Voting sessions by date prefix | `GET /taysistunnot/uusimmat-aanestykset` / session lookups |
+| `GET /api/votes/{id}` | One division with its tally | `GET /taysistunnot/aanestykset/{aanestystunnus}` |
+| `GET /api/votes/{id}/distribution` | Party, government/opposition and district breakdowns | the three `*Jakaumat` arrays on the same endpoint |
+| `GET /api/votes/{id}/ballots?party=kok` | Individual MP votes for a division | `aanestystapahtumat` on the same endpoint, filtered |
+| `GET /api/sessions/{id}/votes` | All divisions in one plenary session | `GET /taysistunnot/istunnon-aanestykset/{istuntotunnus}` |
 
-```
-Search (surname | date | current MPs)
-   └─ vote/session list  ── double-tap row ──▶ party distribution
-                                                 └─ double-tap party ──▶ MP votes in party
-   ◀───────────────────────── Back button (navigation history stack)
-```
+All of the above are implemented and take `?lang=fi|sv|en`. Ballots are deliberately a separate
+call from `distribution`, so a client showing only the party split never pays for 199 rows.
 
-Supporting features: query-count limit (default 50), "Today" shortcut,
-Swedish party-name toggle, winning-vote bolding, "scroll down for more" status
-when `hasMore` is set.
+## 4. Roadmap — Next 3 Steps
 
-## 4. Known Limitations
+### Step 1 — Build `VoteCheck.Core` directly against `api.eduskunta.fi` (foundation)
 
-These shape the roadmap below.
+*Goal: a thread-safe, async, typed core library targeting the **new** API from day one — no
+detour through the legacy table shape, since it has only months of runway left (§banner, §3.1).*
 
-1. **No promise-vs-vote linkage.** The app shows *votes*, but fact-checking
-   "do they keep their word" requires connecting votes to statements/promises.
-   Today the user must do that mentally.
-2. **Search is exact-prefix / exact-match.** Surname search requires the exact
-   surname; there is no topic/keyword search over vote subjects
-   (`GetSubjectData` is a stub).
-3. **Not "on-the-go."** A desktop app doesn't serve the stated mobile,
-   spur-of-the-moment audience. No web or mobile presence.
-4. **Performance / API load.** `GetCombinedData` issues one HTTP request per
-   result row (N+1); no caching layer; date search over-fetches a whole year.
-5. **Fragile data contracts.** Hard-coded column ordinals (`row[7] = votingDataRow[12]`)
-   break silently if the API adds/moves columns.
-6. **Static shared state** in `OpenDataRetriever` prevents concurrent queries
-   and complicates testing.
-7. **Finnish-only UX** aside from the Swedish party-name toggle; no English.
+> **Status: essentially complete.** `VoteCheck.Core` now contains:
+> `IEduskuntaClient`/`EduskuntaClient` over `kansanedustajat` and the
+> `taysistunnot/*aanestykset*` endpoints; typed models replacing `DataTable`;
+> `CachingEduskuntaClient`, an `IMemoryCache` decorator with split TTLs and single-flight
+> de-duplication; and `MpActivityService`, which derives per-MP vote history and activity
+> summaries from the embedded ballots. Real captured responses are committed as fixtures under
+> `VoteCheck.Core.Tests/Fixtures/` and asserted against, which caught two things the documented
+> research missed: most "scalar" ballot fields are bilingual objects, and `uusimmat-aanestykset`
+> is a nested array. Whole solution builds; all tests pass (55 new + 71 legacy).
+>
+> **Deferred, deliberately:** the endpoints still unwrapped (matters, documents, `/search`,
+> reference data). Having already shipped two wrong shapes from documentation alone, these
+> should not be modeled until a live response for each has been captured — see §6.
 
-## 5. Roadmap
+- New `EduskuntaClient` (instance-based, `HttpClient` via constructor injection — enables
+  `IHttpClientFactory` and clean test mocks, no reflection hacks) wrapping the `api.eduskunta.fi`
+  endpoints in §3.1: `kansanedustajat`, the `taysistunnot/*aanestykset*` family, and the
+  `reference-data` lookups needed for party/electoral-district names.
+- Model the JSON responses directly as typed records (`Mp`, `VotingSession`/`Aanestys`, `Vote`,
+  `PartyDistribution`) — no `DataTable` at all; retire that concept rather than adapting it.
+  `OpenDataRetriever`/`VoteCollector` (legacy table API) can stay as-is behind a feature flag only
+  as a fallback until the new client is verified, then be deleted — not maintained long-term.
+- ~~Resolve the open question from §3.1: how to get "an MP's recent votes".~~ **Done** — every
+  vote payload embeds the full ballot list, so this is a filter over `aanestystapahtumat`, not a
+  separate lookup or index.
+- All I/O `async`/`await` end-to-end.
+- In-memory cache (`IMemoryCache`) — **done**, as `CachingEduskuntaClient`, a decorator rather
+  than logic baked into the client. Completed votes and session votes get a long TTL (12 h) since
+  they're immutable; MPs, matter votes and `uusimmat-aanestykset` get a short one (10 min).
+  Concurrent callers for the same uncached key collapse onto one upstream fetch, so a traffic
+  burst can't fan out into duplicate requests. Null results are not cached — a 404 today may be
+  a real record tomorrow.
+- Per-MP derivation — **done**, as `MpActivityService`: `ExtractVotesFor` pulls an MP's ballot
+  out of each division (subject from `kohta.otsikko`, not `aanestysotsikko`), and `Summarize`
+  produces the Jaa/Ei/Tyhjä/Poissa counts and attendance rate behind the Step 2 activity
+  endpoint. Annulled divisions are excluded; an empty window reports a null attendance rate
+  rather than 0%, so "no data" stays distinguishable from "never showed up".
+- New MSTest coverage against the new client (mocked `HttpClient`, no reflection); port over the
+  useful existing test cases (pagination-style behavior, party-code mapping) adapted to the new
+  shapes.
 
-### Near-term (foundation)
+*Done when:* `EduskuntaClient` can fetch an MP, a vote with its party/government-opposition
+breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passing on mocked HTTP.
 
-- Introduce a typed model layer (records for Vote, VotingSession, MP,
-  PartyDistribution) mapped by column *name*, replacing ordinal indexing.
-- Make `OpenDataRetriever` an instance class with injected `HttpClient`
-  (`IHttpClientFactory`-ready), truly async public API (`Task<T>`), no static
-  mutable state.
-- Add a local cache (SQLite or file-based) for immutable historical votes —
-  past votes never change, so they cache forever. See §5.1 for measured sizing.
+### Step 2 — Stand up `VoteCheck.Api` (ASP.NET Core minimal API)
 
-### Mid-term (product)
+*Goal: the data is reachable from any browser via clean JSON endpoints.*
 
-- Topic/keyword search over vote subjects (`KohtaOtsikko` etc.), fuzzy surname
-  matching, and an MP profile view (photo, party, attendance rate, recent votes).
-- Batch/parallelize the N+1 queries in `GetCombinedData`.
+> **Status: built and running locally.** `VoteCheck.Api` serves all nine v1 routes, with
+> Swagger UI at `/swagger` and a `/health` probe. `EduskuntaClient` is registered via
+> `IHttpClientFactory` and wrapped in `CachingEduskuntaClient`; output caching sits in front
+> with matching immutable/volatile policies. Verified by booting the app, not only by tests.
+>
+> Two things worth knowing:
+> - **Language is a query parameter** (`?lang=fi|sv|en`, default `fi`). Since upstream returns
+>   bilingual objects everywhere, resolving them server-side keeps payloads small and replaces
+>   the desktop app's Swedish toggle. An unsupported value is a 400, not a silent fallback.
+> - **Upstream failures map to 502/504**, not 500. Everything here comes from
+>   api.eduskunta.fi, so that service being unreachable is a normal condition and shouldn't
+>   read as a fault in VoteCheck.
+>
+> Not done: actually deploying it. The Dockerfile and CI workflow are in place, but choosing a
+> host and pushing an image needs credentials, so a public URL is still outstanding.
 
-### 5.1 Vote-cache sizing (measured 2026-07)
+- New project `VoteCheck.Api` referencing `VoteCheck.Core`; implement the v1 endpoints above.
+- Add the first *computed* endpoint, `GET /api/mps/{id}/activity`, aggregating attendance and
+  vote-type distribution across an MP's votes — this is the "activity checker" differentiator
+  over raw open data (note: per-vote party/government-opposition breakdowns are already provided
+  upstream, so this endpoint's real work is the *cross-vote, per-MP* rollup, not per-vote tallying).
+- Response caching + output caching middleware; CORS enabled for the future frontend origin;
+  OpenAPI/Swagger UI for discoverability. **Done** — output caching uses the same
+  immutable/volatile split as the client cache. CORS origins come from configuration
+  (`VoteCheck:AllowedOrigins`) and default to *none* rather than `*`, so a deployment has to
+  name the PWA's origin deliberately.
+- Containerize (Dockerfile) and deploy a public instance (Azure App Service free tier, Fly.io, or
+  similar); add a GitHub Actions workflow for build + test + deploy. **Partly done** —
+  Dockerfile (multi-stage, non-root) and a CI workflow that builds, tests and verifies the image
+  both exist. CI runs entirely against committed fixtures, so it never calls upstream and can't
+  be broken by it. Choosing a host and pushing an image needs credentials and is left open.
 
-Probed directly against the live API: the dataset contains **~43,500 voting
-sessions** (`SaliDBAanestys`) and **~8.66 million individual MP votes**
-(`SaliDBAanestysEdustaja`, ≈ 43.5k sessions × ~199 voters). Since a vote is
-one of four values (Jaa/Ei/Tyhjä/Poissa), it packs into 2 bits:
+*Done when:* `curl https://<host>/api/mps` returns live data and Swagger UI documents the API.
+*Currently:* both work locally; the public `<host>` is the remaining piece.
 
-| Layer | Naive SQLite | Packed |
-|---|---|---|
-| 8.66M individual votes | ~150–200 MB | ~2–5 MB (2-bit codes in a per-session blob + MP-roster mapping per parliamentary term) |
-| 43.5k session records (Finnish titles dominate) | ~40–50 MB | same; compresses ~4–5× for transfer |
-| FTS5 full-text index on titles (enables topic search) | — | ~40–60 MB on disk |
-| MP roster | negligible | negligible |
+### Step 3 — Ship the web frontend (revised: SSR over the mirror, not WASM)
 
-Result: **~15–25 MB compressed download, ~60–100 MB on disk** including a
-full-text search index. Optionally bundle only the current + previous
-parliamentary term and lazy-load older history to shrink further.
+*Goal: a shareable URL that works on phone and desktop.*
 
-Cache properties:
+> **Status: built on `feature/web`, pending convergence (§7).** A Razor Pages SSR app,
+> `VoteCheckWeb`, exists with the v1 screens working against live data: latest votes,
+> vote drill-down to party distribution and individual ballots, MP search, MP profile,
+> and FTS5 topic search — plus its own `/api/v1` JSON surface. It ingests from the
+> **legacy** API, which is what §7 fixes.
 
-- **Immutable + append-only.** Past votes never change; the snapshot never
-  invalidates. Delta sync fetches only sessions newer than the local maximum —
-  a plenary day adds a few dozen votes (kilobytes).
-- **Eliminates the N+1 problem** in `GetCombinedData` and enables instant
-  topic search and offline browsing.
-- **Dual-purpose:** the same packed SQLite snapshot is the server-side cache
-  for the website and the bundled database for the mobile app.
+**Decision (2026-08-29): SSR + SQLite mirror, not the Blazor-WASM PWA sketched earlier.**
+Reasons, in order of weight:
 
-### 5.2 Client strategy: web first, then mobile
+1. Permalinks (`/vote/{id}`, `/mp/{id}`) must render instantly and be crawlable/SEO-visible —
+   a WASM app can do neither without a prerendering layer that is itself SSR.
+2. Payload economics: fetching ~75 KB per vote into the browser to show a tally is waste;
+   the mirror projects server-side (see §3 principles).
+3. Upstream `/search*` rate caps make a local FTS5 index the safer search backend.
 
-Fact-checking is a *sharing* activity — the moment of value is posting a
-permalink ("here's the receipt") that opens instantly for people who will
-never install an app. An app-store install is exactly the friction that kills
-spur-of-the-moment use. Therefore:
+The WASM/PWA route is *deferred, not rejected* — `VoteCheck.Api` remains the JSON surface a
+future installable client would consume (§5, §7 step 6).
 
-1. **Web first** — reach, shareable permalinks, SEO (MP profile pages should
-   rank for "how did [MP] vote"). See §7.
-2. **Mobile app second** — for the engaged users the website attracts. Wins
-   what the web can't: bundled offline cache (§5.1), push notifications
-   ("your MP just voted on X"), home-screen retention. Avalonia 11 targets
-   iOS and Android, so the existing UI stack and `VoteCollector` core carry
-   over without a rewrite.
-3. The desktop app remains a third client of the same core.
+Still to do on the frontend itself (§7 steps 5–7): tests, OpenGraph/canonical tags for link
+unfurling, `wwwroot` static assets (currently missing — pages render unstyled), localization
+scaffold (Finnish first; the bilingual `LocalizedText` fields make Swedish nearly free).
 
-### Long-term (vision)
+*Done when:* a public URL serves the SSR pages from a database synced via `VoteCheck.Core`,
+and an MP's recent votes can be found on a phone in under three taps.
 
-- **Web spinoff** with politician profile pages — latest votes, attendance,
-  party-loyalty score, shareable permalinks to individual votes. Detailed in §7.
-- Promise tracking: curated or crowd-sourced database of public statements
-  linked to relevant votes ("said X on date Y — voted Z on date W").
+## 5. Later (beyond the next 3 steps)
 
-## 6. Testing Strategy
+- **Topic search:** the new API's `/search` (fuzzy, cross-entity: MPs, matters, docs, speeches,
+  votes) may cover this natively — evaluate before building a custom indexed store.
+- **Notifications:** "follow an MP" with web push when they vote (requires a scheduled fetcher
+  and a persistence layer — first real database need).
+- **Charts:** party-line cohesion, MP attendance trends over an electoral term.
+- **Historical MP data:** extend beyond `SeatingOfParliament` (current term) to past terms.
+- **Retire or slim the desktop app** once the PWA reaches feature parity; Avalonia project can
+  remain as a thin shell over the same core.
 
-- Unit tests (MSTest) for the data layer with mocked HTTP responses
-  (`JSONSamples/` holds real API response samples).
-- Gap: no GUI tests; no integration tests against the live API (worth one
-  smoke test since the API schema can drift — see Limitation 5).
+## 6. Risks & Open Questions
 
-## 7. Web Version — Planned Architecture
+| Risk | Mitigation |
+|------|------------|
+| **Legacy API shutdown (end of 2026, already redirecting since 30 Mar 2026)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency; **note `VoteCheckWeb`'s sync still ingests from the legacy API** until §7 step 4 lands — that is the single most time-sensitive item in the repo |
+| ~~No confirmed endpoint for "all votes by one MP"~~ — **resolved**: ballots are embedded in every vote payload (§3.1) | Recent-window per-MP history is a client-side filter. Still open at larger scale: *deep historical* per-MP queries would mean walking every past session, so a per-MP index becomes worthwhile if we go beyond recent votes |
+| **Payload size** — each vote carries ~199 ballots plus three breakdown sets (~75 KB per vote); `uusimmat-aanestykset` returned ~750 KB for 10 votes | Our API should project down to what each view needs rather than proxying upstream objects; cache parsed results, and avoid fetching full vote objects when only tallies are shown |
+| Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec. `CachingEduskuntaClient` now covers this: immutable data cached 12 h, volatile 10 min, and concurrent callers for one key share a single fetch |
+| **Remaining endpoints modeled from documentation alone would likely be wrong again** — two of the shapes derived that way (bilingual ballot fields, nested recent-votes array) turned out incorrect when checked | Capture a live response for each of `/valtiopaivaasiat`, `/asiakirjat`, `/search` and `/reference-data/*` before modeling them, and commit it as a fixture like the existing three |
+| Upstream schema changes | Real captured responses are committed as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by shape tests, so a breaking change surfaces as a test failure; refresh fixtures periodically since they're a point-in-time snapshot |
+| MP identity across terms (`henkilonumero` continuity, legacy `EdustajaId`/`EdustajaHenkiloNumero`) | Decide canonical ID (`henkilonumero`, per the new API) in Step 1 model design |
+| Hosting cost for a hobby project | Free tiers + output caching keep compute minimal; static PWA assets are nearly free to serve |
+## 7. Convergence Plan — `VoteCheckWeb` onto `VoteCheck.Core`
 
-### Goals
-
-- Shareable, fast-loading permalinks: `/mp/{id}`, `/vote/{id}`,
-  `/vote/{id}/party/{abbr}` — the atomic units of fact-checking.
-- MP profile pages: photo, party, latest votes, attendance rate,
-  party-loyalty score.
-- Topic search over vote subjects.
-- Near-zero operating cost; one-person maintainable.
-
-### Recommended stack
-
-| Concern | Choice | Rationale |
-|---|---|---|
-| Backend | ASP.NET Core Minimal API (.NET 8) | Reuses `VoteCollector` core and existing C# skills; one runtime across all clients |
-| Pages | Server-side rendered (Razor Pages or Blazor SSR, no WebAssembly) | Permalinks must render instantly and be crawlable/SEO-visible; no SPA needed for read-mostly content |
-| Storage | Single SQLite file + FTS5 (§5.1) | Read-heavy with exactly one writer (the sync job) — SQLite's ideal case; no DB server to operate |
-| Ingest | `BackgroundService` polling avoindata.eduskunta.fi for new sessions (delta sync) | Data changes only on plenary days; append-only |
-| Caching | ASP.NET output caching; historical pages effectively immutable | Past votes never change → cache aggressively, CDN-friendly |
-| Deployment | One container on a small VPS or Azure App Service | Whole product is one process + one file; scale is bounded by Finland's population of politics-followers |
-
-### Shape
-
-```
-avoindata.eduskunta.fi ──▶ Sync BackgroundService ──▶ votecheck.db (SQLite + FTS5)
-                                                          │
-                        Razor/Blazor SSR pages ◀── Minimal API (ASP.NET Core)
-                        /mp/{id}, /vote/{id},             ▲
-                        /search?q=...                     │
-                        + /api/v1/... (JSON)  ◀── mobile & desktop clients later
-```
-
-The JSON API is the same surface the future mobile app consumes, so the web
-version *is* the backend extraction step — no throwaway work.
-
-### Non-goals (v1)
-
-- User accounts, comments, or crowd-sourcing (moderation cost; add only with
-  promise-tracking later).
-- Real-time updates during a plenary session (poll interval of minutes is fine).
-
-### Status (2026-07-12)
-
-Scaffolded and smoke-tested against live data: sync imports Finnish-only
-sessions (`KieliId = 1` — the API stores a Swedish duplicate of every vote
-under the adjacent `AanestysId`), vote values are trimmed and normalized to
-`Jaa | Ei | Tyhjä | Poissa` (source data says `Tyhjää`), and search uses
-per-word FTS5 prefix matching to handle Finnish compound words.
-
-## 8. Next Steps
-
-*Revised 2026-08-28.* The previous list assumed `VoteCheckWeb` would keep
-ingesting from `avoindata.eduskunta.fi`. That API is scheduled for
-discontinuation at the end of 2026, and a parallel branch already carries
-`VoteCheck.Core` + `VoteCheck.Api` built against its replacement,
-`api.eduskunta.fi`. The two lines are complementary — `VoteCheckWeb` has the
-UI, permalinks and SQLite mirror but a doomed ingest path; `VoteCheck.Core`
-has the new-API client, typed models, caching decorator, tests and a
-Dockerfile, but no pages and no persistence.
-
-The plan below converges them: `VoteCheckWeb` keeps its Razor UI and SQLite
-mirror, `VoteCheck.Core` becomes the single upstream boundary, and the
-duplicate old-API client is deleted.
+*Written 2026-08-28, revised 2026-08-29 after Step 1 landed.* `VoteCheckWeb` (§4 Step 3) and
+`VoteCheck.Core`/`VoteCheck.Api` grew on parallel branches. They are complementary, not
+redundant: `VoteCheckWeb` has the UI, permalinks and SQLite mirror but ingests from the
+retiring legacy API; `VoteCheck.Core` has the new-API client, typed models, caching and tests,
+but no pages and no persistence. This section converges them: `VoteCheckWeb` keeps its Razor UI
+and SQLite mirror, `VoteCheck.Core` becomes the single upstream boundary, and the duplicate
+legacy client in `VoteCheckWeb/Sync/` is deleted.
 
 ### Blockers to resolve on the way
 
-- **String vote identifiers break the FTS5 index.** The schema keys on
-  `session.id INTEGER PRIMARY KEY` (`AanestysId`, e.g. `51221`); the new API's
-  identifier is a string (`Aanestys.Id`, e.g. `"2026-60-1"`). Moving
-  `session.id` and `vote.session_id` to `TEXT` invalidates
-  `content_rowid='id'`, because FTS5 external-content tables require an
-  INTEGER rowid. The search index must keep a surrogate integer rowid beside
+- **String vote identifiers break the FTS5 index.** The mirror schema keys on
+  `session.id INTEGER PRIMARY KEY` (legacy `AanestysId`, e.g. `51221`); the new API's
+  identifier is a string (`Aanestys.Id`, e.g. `"2026-60-1"`). Moving `session.id` and
+  `vote.session_id` to `TEXT` invalidates `content_rowid='id'`, because FTS5 external-content
+  tables require an INTEGER rowid. The search index must keep a surrogate integer rowid beside
   the text tunnus, or abandon external-content mode.
 
-- **`IEduskuntaClient` cannot enumerate history.** It exposes recent votes, a
-  vote by tunnus, votes in a session, votes for a matter, and the two MP
-  methods — nothing that walks the archive. The current sync pages through
-  `SaliDBAanestys` from 2023 onward and has no equivalent. Either the
-  interface gains an enumeration method or backfill synthesises session
-  identifiers (`{year}-{number}`) and walks `GetVotesInSessionAsync` until
-  exhaustion. This is unverified against the live API.
+- **`IEduskuntaClient` cannot enumerate history.** It exposes recent votes, a vote by tunnus,
+  votes in a session, votes for a matter, and the MP endpoints — nothing that walks the
+  archive. The current sync pages through legacy `SaliDBAanestys` from 2023 onward and has no
+  equivalent. Either the interface gains an enumeration method or backfill synthesises session
+  identifiers (`{year}-{number}`) and walks `GetVotesInSessionAsync` until exhaustion. Check
+  the OpenAPI spec (§3.1) first — this may already be answered there.
 
-- **The `KieliId` filter becomes obsolete.** The old API stored a Swedish
-  duplicate of every vote under the adjacent `AanestysId`; the new one returns
-  a single record with `fi`/`sv` inline as `LocalizedText`. Delete that filter
-  and the test that was to pin it, rather than porting either. The `Tyhjää`
-  normalisation still applies but moves to
+- **The `KieliId` filter becomes obsolete.** The legacy API stored a Swedish duplicate of every
+  vote under the adjacent `AanestysId`; the new one returns a single record with `fi`/`sv`
+  inline as `LocalizedText`. Delete that filter and the test that was to pin it, rather than
+  porting either. The `Tyhjää` → `Tyhjä` normalisation still applies but moves to
   `EdustajanAanestys.Kayttaytyminen`.
 
 ### Steps
 
 In priority order; each step is independently landable.
 
-1. **Land `VoteCheck.Core` on master.** Merge the roadmap branch
-   (`VoteCheck.Core`, `VoteCheck.Core.Tests`, `VoteCheck.Api`,
-   `VoteCheck.Api.Tests`) so there is one trunk. Both branches carry a
-   divergent `design.md` — resolve toward the version holding the upstream
-   migration note. Acceptance: master builds; all test projects green.
+1. ~~**Land `VoteCheck.Core` on master.**~~ **Done 2026-08-29** (PR #25): `VoteCheck.Core`,
+   `VoteCheck.Core.Tests`, `VoteCheck.Api`, `VoteCheck.Api.Tests` merged; solution builds,
+   153 tests green (71 legacy + 55 Core + 27 Api).
 
-2. **Close the backfill gap.** Verify against the live API whether sessions
-   can be enumerated, then add the method to `IEduskuntaClient` and both
-   implementations. This is the only step with genuine unknowns, so it runs
-   early: if enumeration proves impossible the SQLite-mirror design needs
-   rethinking, and that must surface now rather than in month three. Timebox
-   it.
+2. **Close the backfill gap.** Verify against the OpenAPI spec / live API whether sessions can
+   be enumerated, then add the method to `IEduskuntaClient` and both implementations. This is
+   the only step with genuine unknowns, so it runs early: if enumeration proves impossible the
+   mirror design needs rethinking, and that must surface now. Timebox it.
 
-3. **Migrate the schema to string identifiers.** `session.id` and
-   `vote.session_id` to `TEXT`; rebuild the FTS5 index per the blocker above.
-   The database is disposable — gitignored and rebuildable from the API — so
-   this is a drop-and-rebackfill, not a migration script.
+3. **Migrate the mirror schema to string identifiers.** `session.id` and `vote.session_id` to
+   `TEXT`; rebuild the FTS5 index per the blocker above. The database is disposable, so this is
+   a drop-and-rebackfill, not a migration script.
 
-4. **Repoint the sync.** Rewrite `VoteSyncService` against `IEduskuntaClient`
-   and delete `VoteCheckWeb/Sync/EduskuntaApiClient.cs`. Move vote
-   normalisation to `Kayttaytyminen`, drop the `KieliId` filter, and flatten
-   `LocalizedText` party abbreviations at the boundary. Acceptance: a fresh
-   database backfills 2023+ unattended and resumes after restart without
-   duplicates or gaps.
+4. **Repoint the sync.** Rewrite `VoteSyncService` against `IEduskuntaClient` and delete
+   `VoteCheckWeb/Sync/EduskuntaApiClient.cs`. Move vote normalisation to `Kayttaytyminen`,
+   drop the `KieliId` filter, flatten `LocalizedText` party abbreviations at the boundary.
+   Acceptance: a fresh database backfills 2023+ unattended and resumes after restart without
+   duplicates or gaps. **This is the deadline-critical step** — the legacy API has been
+   redirecting since 30 Mar 2026 and shuts down at year end.
 
-5. **Tests for VoteCheckWeb.** `Queries` against an in-memory SQLite database
-   seeded with known rows (party sums, attendance %, search), vote
-   normalisation, and FTS query building.
+5. **Tests for `VoteCheckWeb`.** `Queries` against an in-memory SQLite database seeded with
+   known rows (party sums, attendance %, search), vote normalisation, FTS query building.
 
-6. **Decide `VoteCheck.Api`'s fate.** It and `VoteCheckWeb` both expose
-   `/api/v1`, with different architectures — passthrough plus `IMemoryCache`
-   versus SQLite mirror. Either fold it into `VoteCheckWeb` as one deployable
-   or keep it as the mobile-facing surface reading the same database. Cheap
-   to decide once steps 1–4 land; expensive to defer past deployment.
+6. **Decide `VoteCheck.Api`'s fate.** It and `VoteCheckWeb` both expose `/api/v1`, with
+   different architectures — live passthrough plus `IMemoryCache` versus SQLite mirror. Either
+   fold it into `VoteCheckWeb` as one deployable or keep it as the mobile-facing surface
+   (per §3, it stays the JSON surface a future PWA would consume — but it could read the mirror
+   instead of upstream). Cheap to decide once steps 2–4 land; expensive to defer past
+   deployment.
 
-7. **Ship it.** OpenGraph/Twitter-card meta tags on `/vote/{id}` and `/mp/{id}`
-   (title = vote subject + result, e.g. "Jaa 107 – Ei 81"), canonical URLs,
-   per-page `<title>` and meta description — the product's core distribution
-   mechanism, so it precedes any traffic. Create `wwwroot`, which is missing
-   and leaves pages unstyled (`The WebRootPath was not found`). Then deploy
-   from `VoteCheck.Api/Dockerfile` as the starting point, onto a small VPS or
-   Azure App Service behind HTTPS, with `votecheck.db` on a persistent volume
-   to avoid re-backfilling. Acceptance: a shared `/vote/{id}` link opens
+7. **Ship it.** OpenGraph/Twitter-card meta tags on `/vote/{id}` and `/mp/{id}` (title = vote
+   subject + result, e.g. "Jaa 107 – Ei 81"), canonical URLs, per-page `<title>` and meta
+   description — the product's core distribution mechanism, so it precedes any traffic. Create
+   `wwwroot` (missing; pages render unstyled). Then deploy from `VoteCheck.Api/Dockerfile` as
+   the starting point, onto a small VPS or Azure App Service behind HTTPS, with `votecheck.db`
+   on a persistent volume to avoid re-backfilling. Acceptance: a shared `/vote/{id}` link opens
    publicly in under a second.
