@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore VoteCheck.sln
+
+      - name: Build
+        run: dotnet build VoteCheck.sln --configuration Release --no-restore
+
+      # Tests run entirely against committed fixtures, so CI never calls
+      # api.eduskunta.fi and cannot be broken by upstream being slow or down.
+      - name: Test
+        run: dotnet test VoteCheck.sln --configuration Release --no-build --verbosity normal
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Verifies the image builds; publishing to a registry is left to whoever
+      # sets up deployment (design.md §4, Step 2).
+      - name: Build API image
+        run: docker build -f VoteCheck.Api/Dockerfile -t votecheck-api .
