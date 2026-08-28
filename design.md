@@ -244,36 +244,89 @@ per-word FTS5 prefix matching to handle Finnish compound words.
 
 ## 8. Next Steps
 
-In priority order; each step is independently shippable.
+*Revised 2026-08-28.* The previous list assumed `VoteCheckWeb` would keep
+ingesting from `avoindata.eduskunta.fi`. That API is scheduled for
+discontinuation at the end of 2026, and a parallel branch already carries
+`VoteCheck.Core` + `VoteCheck.Api` built against its replacement,
+`api.eduskunta.fi`. The two lines are complementary — `VoteCheckWeb` has the
+UI, permalinks and SQLite mirror but a doomed ingest path; `VoteCheck.Core`
+has the new-API client, typed models, caching decorator, tests and a
+Dockerfile, but no pages and no persistence.
 
-1. **Commit the scaffold and update the README.** Branch + PR with
-   `VoteCheckWeb/`, `design.md`, and the `.gitignore` entry. Document the
-   web project in the README (run instructions, config keys `VoteCheck:DbPath`,
-   `SyncMinYear`, `SyncPollMinutes`) and correct the vote-value note
-   (`Tyhjää`, not `Tyhjä`, in the raw API).
+The plan below converges them: `VoteCheckWeb` keeps its Razor UI and SQLite
+mirror, `VoteCheck.Core` becomes the single upstream boundary, and the
+duplicate old-API client is deleted.
 
-2. **Complete and verify the full backfill.** Let the sync run to the end of
-   the 2023+ range and cross-check session/vote counts against the API.
-   Harden the sync while watching it: retry with backoff on transient HTTP
-   failures, small delay between requests (be a polite API citizen), and log
-   a clear "backfill complete" marker. Acceptance: fresh database reaches
-   steady state unattended; restart resumes from the page cursor without
+### Blockers to resolve on the way
+
+- **String vote identifiers break the FTS5 index.** The schema keys on
+  `session.id INTEGER PRIMARY KEY` (`AanestysId`, e.g. `51221`); the new API's
+  identifier is a string (`Aanestys.Id`, e.g. `"2026-60-1"`). Moving
+  `session.id` and `vote.session_id` to `TEXT` invalidates
+  `content_rowid='id'`, because FTS5 external-content tables require an
+  INTEGER rowid. The search index must keep a surrogate integer rowid beside
+  the text tunnus, or abandon external-content mode.
+
+- **`IEduskuntaClient` cannot enumerate history.** It exposes recent votes, a
+  vote by tunnus, votes in a session, votes for a matter, and the two MP
+  methods — nothing that walks the archive. The current sync pages through
+  `SaliDBAanestys` from 2023 onward and has no equivalent. Either the
+  interface gains an enumeration method or backfill synthesises session
+  identifiers (`{year}-{number}`) and walks `GetVotesInSessionAsync` until
+  exhaustion. This is unverified against the live API.
+
+- **The `KieliId` filter becomes obsolete.** The old API stored a Swedish
+  duplicate of every vote under the adjacent `AanestysId`; the new one returns
+  a single record with `fi`/`sv` inline as `LocalizedText`. Delete that filter
+  and the test that was to pin it, rather than porting either. The `Tyhjää`
+  normalisation still applies but moves to
+  `EdustajanAanestys.Kayttaytyminen`.
+
+### Steps
+
+In priority order; each step is independently landable.
+
+1. **Land `VoteCheck.Core` on master.** Merge the roadmap branch
+   (`VoteCheck.Core`, `VoteCheck.Core.Tests`, `VoteCheck.Api`,
+   `VoteCheck.Api.Tests`) so there is one trunk. Both branches carry a
+   divergent `design.md` — resolve toward the version holding the upstream
+   migration note. Acceptance: master builds; all test projects green.
+
+2. **Close the backfill gap.** Verify against the live API whether sessions
+   can be enumerated, then add the method to `IEduskuntaClient` and both
+   implementations. This is the only step with genuine unknowns, so it runs
+   early: if enumeration proves impossible the SQLite-mirror design needs
+   rethinking, and that must surface now rather than in month three. Timebox
+   it.
+
+3. **Migrate the schema to string identifiers.** `session.id` and
+   `vote.session_id` to `TEXT`; rebuild the FTS5 index per the blocker above.
+   The database is disposable — gitignored and rebuildable from the API — so
+   this is a drop-and-rebackfill, not a migration script.
+
+4. **Repoint the sync.** Rewrite `VoteSyncService` against `IEduskuntaClient`
+   and delete `VoteCheckWeb/Sync/EduskuntaApiClient.cs`. Move vote
+   normalisation to `Kayttaytyminen`, drop the `KieliId` filter, and flatten
+   `LocalizedText` party abbreviations at the boundary. Acceptance: a fresh
+   database backfills 2023+ unattended and resumes after restart without
    duplicates or gaps.
 
-3. **Tests for VoteCheckWeb.** Unit tests for the pieces that guard
-   correctness: `NormalizeVote`, the `KieliId` filter, FTS query building,
-   and `Queries` against an in-memory SQLite database seeded with known rows
-   (party sums, attendance %, search). These encode the two data bugs found
-   in smoke testing so they can't regress.
+5. **Tests for VoteCheckWeb.** `Queries` against an in-memory SQLite database
+   seeded with known rows (party sums, attendance %, search), vote
+   normalisation, and FTS query building.
 
-4. **Make permalinks shareable-grade.** OpenGraph/Twitter-card meta tags on
-   `/vote/{id}` and `/mp/{id}` (title = vote subject + result, e.g.
-   "Jaa 107 – Ei 81") so links unfurl correctly in social feeds; canonical
-   URLs; `<title>`/meta description per page. This is the product's core
-   distribution mechanism — do it before driving any traffic.
+6. **Decide `VoteCheck.Api`'s fate.** It and `VoteCheckWeb` both expose
+   `/api/v1`, with different architectures — passthrough plus `IMemoryCache`
+   versus SQLite mirror. Either fold it into `VoteCheckWeb` as one deployable
+   or keep it as the mobile-facing surface reading the same database. Cheap
+   to decide once steps 1–4 land; expensive to defer past deployment.
 
-5. **Deploy.** Dockerfile (multi-stage build, volume for `votecheck.db`),
-   a small VPS or Azure App Service behind HTTPS (Caddy or App Service TLS),
-   and a domain. Database needs no backup discipline — it can be rebuilt
-   from the API — but persist it across restarts to avoid re-backfilling.
-   Acceptance: a shared `/vote/{id}` link opens publicly in under a second.
+7. **Ship it.** OpenGraph/Twitter-card meta tags on `/vote/{id}` and `/mp/{id}`
+   (title = vote subject + result, e.g. "Jaa 107 – Ei 81"), canonical URLs,
+   per-page `<title>` and meta description — the product's core distribution
+   mechanism, so it precedes any traffic. Create `wwwroot`, which is missing
+   and leaves pages unstyled (`The WebRootPath was not found`). Then deploy
+   from `VoteCheck.Api/Dockerfile` as the starting point, onto a small VPS or
+   Azure App Service behind HTTPS, with `votecheck.db` on a persistent volume
+   to avoid re-backfilling. Acceptance: a shared `/vote/{id}` link opens
+   publicly in under a second.
