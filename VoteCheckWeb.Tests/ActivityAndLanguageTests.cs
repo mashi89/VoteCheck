@@ -78,6 +78,25 @@ public class ActivityAndLanguageTests {
         Assert.IsNull( _db.Queries.GetMpActivity( 999 ) );
 
     [TestMethod]
+    public void GetMpProfile_AndGetMpActivity_AgreeOnAttendance() {
+        // These are two views of one fact and are rendered on the same site — the MP page
+        // from the profile, /api/v1/mps/{id}/activity from the rollup. If one counts
+        // annulled divisions and the other does not, the site contradicts itself.
+        var profile = _db.Queries.GetMpProfile( 1, 50 );
+        var activity = _db.Queries.GetMpActivity( 1 );
+
+        Assert.AreEqual( activity!.TotalVotes, profile!.TotalVotes );
+        Assert.AreEqual( activity.Present, profile.Present );
+    }
+
+    [TestMethod]
+    public void GetMpProfile_OmitsAnnulledDivisionsFromHistory() {
+        var profile = _db.Queries.GetMpProfile( 1, 50 );
+
+        Assert.IsFalse( profile!.LatestVotes.Any( v => v.SessionId == "2024-9-9" ) );
+    }
+
+    [TestMethod]
     public void GetSession_ResolvesSwedish_WhenAsked() {
         Assert.AreEqual( "Första", _db.Queries.GetSession( "2024-1-1", "sv" )!.Title );
         Assert.AreEqual( "Lagförslag", _db.Queries.GetSession( "2024-1-1", "sv" )!.Subject );

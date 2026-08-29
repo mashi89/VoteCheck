@@ -293,7 +293,7 @@ JSON surface a future installable client would consume (§5), documented at `/sw
 CORS-capable for a separate origin.
 
 Still to do on the frontend itself (§7 steps 5–7): tests, OpenGraph/canonical tags for link
-unfurling, `wwwroot` static assets (currently missing — pages render unstyled), localization
+unfurling, a `wwwroot` for a favicon and robots.txt, localization
 scaffold (Finnish first; the bilingual `LocalizedText` fields make Swedish nearly free).
 
 *Done when:* a public URL serves the SSR pages from a database synced via `VoteCheck.Core`,
@@ -400,9 +400,21 @@ In priority order; each step is independently landable.
    values stay canonical Finnish: they are identifiers, not prose. Search still matches the
    Finnish FTS index whatever language the results render in.
 
-7. **Ship it.** OpenGraph/Twitter-card meta tags on `/vote/{id}` and `/mp/{id}` (title = vote
-   subject + result, e.g. "Jaa 107 – Ei 81"), canonical URLs, per-page `<title>` and meta
-   description — the product's core distribution mechanism, so it precedes any traffic. Create
-   `wwwroot` (missing; pages render unstyled). Then deploy from `VoteCheckWeb/Dockerfile`, onto a small VPS or Azure App Service behind HTTPS, with `votecheck.db`
-   on a persistent volume to avoid re-backfilling. Acceptance: a shared `/vote/{id}` link opens
-   publicly in under a second.
+7. **Ship it.** *Metadata and crawlability done 2026-08-29; deployment outstanding.*
+
+   Done: OpenGraph and Twitter-card tags on every page, with `/vote/{id}` leading its card
+   with the tally (`Jaa 101 – Ei 90 · …`) because feeds truncate the tail and the numbers
+   are the fact being checked; per-page `<title>`, meta description and absolute
+   `<link rel=canonical>`; a `wwwroot` with a favicon; and `/robots.txt` and `/sitemap.xml`
+   served as endpoints rather than files, since both need the deployment's own origin.
+   Search result pages are `Disallow`ed — they are generated per query and add nothing to
+   an index. Card text is truncated on a word boundary: a subject can be a full sentence,
+   and a card cut mid-word reads as broken.
+
+   **Still to do — deployment.** `VoteCheckWeb/Dockerfile` builds the whole product and CI
+   builds that image, but choosing a host and pushing needs credentials. Requirements when
+   it happens: HTTPS, `votecheck.db` on a persistent volume (the mirror is rebuildable but
+   re-backfilling on every restart is slow and rude to upstream), and one unattended full
+   backfill of the 2023+ window (~2,771 divisions, ~56 requests) before traffic arrives.
+   Acceptance: a shared `/vote/{id}` link opens publicly in under a second and unfurls with
+   its tally.

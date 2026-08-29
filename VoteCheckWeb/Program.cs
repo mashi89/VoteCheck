@@ -53,6 +53,39 @@ app.UseSwaggerUI( options => options.SwaggerEndpoint( "/swagger/v1/swagger.json"
 
 app.MapGet( "/health", () => Results.Ok( new { status = "ok" } ) ).ExcludeFromDescription();
 
+// robots.txt and the sitemap are served rather than static files because both need the
+// deployment's own absolute origin, which a file in wwwroot cannot know.
+app.MapGet( "/robots.txt", ( HttpContext ctx ) => {
+    var origin = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    return Results.Text( $"""
+        # Votes and MP profiles are meant to be indexed — permalinks are the point.
+        User-agent: *
+        Allow: /
+
+        # Search pages are generated per query and add nothing to an index.
+        Disallow: /search
+
+        Sitemap: {origin}/sitemap.xml
+        """, "text/plain" );
+} ).ExcludeFromDescription();
+
+app.MapGet( "/sitemap.xml", ( Queries q, HttpContext ctx ) => {
+    var origin = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    var sb = new System.Text.StringBuilder()
+        .AppendLine( """<?xml version="1.0" encoding="UTF-8"?>""" )
+        .AppendLine( """<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">""" )
+        .AppendLine( $"<url><loc>{origin}/</loc></url>" )
+        .AppendLine( $"<url><loc>{origin}/mps</loc></url>" );
+    foreach ( var (loc, lastModified) in q.GetSitemapEntries() ) {
+        sb.Append( $"<url><loc>{origin}{loc}</loc>" );
+        if ( lastModified.Length >= 10 )
+            sb.Append( $"<lastmod>{lastModified[..10]}</lastmod>" );
+        sb.AppendLine( "</url>" );
+    }
+    sb.AppendLine( "</urlset>" );
+    return Results.Text( sb.ToString(), "application/xml" );
+} ).ExcludeFromDescription();
+
 // JSON API — the same surface the future mobile app consumes.
 var api = app.MapGroup( "/api/v1" ).CacheOutput();
 

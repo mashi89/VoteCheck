@@ -1,6 +1,16 @@
 @page "/search"
 @model SearchModel
 
+@{
+    if ( !string.IsNullOrWhiteSpace( Model.Query ) ) {
+        ViewData["Title"] = $"Haku: {Model.Query}";
+        ViewData["Description"] = $"Hakutulokset haulle \"{Model.Query}\" eduskunnan äänestyksistä.";
+    } else {
+        ViewData["Title"] = "Haku";
+        ViewData["Description"] = "Hae eduskunnan täysistuntoäänestyksiä aiheen tai asian mukaan.";
+    }
+}
+
 <h1>Haku</h1>
 <form class="search" method="get">
     <input type="search" name="query" value="@Model.Query" placeholder="Hae äänestyksiä aiheella…" />

@@ -137,7 +137,7 @@ public class QueriesTests {
 
     [TestMethod]
     public void GetMpProfile_CountsAttendanceAcrossDivisions() {
-        // Bertta voted in two divisions and was absent from one of them.
+        // Bertta voted in two live divisions and was absent from one of them.
         var profile = _db.Queries.GetMpProfile( 2, 10 );
 
         Assert.IsNotNull( profile );
@@ -147,10 +147,12 @@ public class QueriesTests {
 
     [TestMethod]
     public void GetMpProfile_ListsVotesNewestFirst() {
+        // 2009-200-1 is annulled and so absent: a struck vote is not part of a member's
+        // record, and counting it here would contradict GetMpActivity.
         var profile = _db.Queries.GetMpProfile( 1, 10 );
 
         CollectionAssert.AreEqual(
-            new[] { "2009-200-1", "2009-114-5", "2009-114-4", "2009-24-1" },
+            new[] { "2009-114-5", "2009-114-4", "2009-24-1" },
             profile!.LatestVotes.Select( v => v.SessionId ).ToArray() );
     }
 

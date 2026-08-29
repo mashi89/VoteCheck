@@ -160,7 +160,13 @@ public sealed class Queries {
 
         int total, present;
         using ( var cmd = conn.CreateCommand() ) {
-            cmd.CommandText = "SELECT COUNT(*), SUM( vote != 'Poissa' ) FROM vote WHERE person_number = $pn";
+            // Annulled divisions are excluded here for the same reason as in GetMpActivity,
+            // and so the two never disagree about one member's attendance.
+            cmd.CommandText = """
+                SELECT COUNT(*), SUM( v.vote != 'Poissa' )
+                FROM vote v JOIN session s ON s.id = v.session_id
+                WHERE v.person_number = $pn AND s.cancelled = 0
+                """;
             cmd.Parameters.AddWithValue( "$pn", personNumber );
             using var r = cmd.ExecuteReader();
             r.Read();
@@ -173,7 +179,7 @@ public sealed class Queries {
             cmd.CommandText = $"""
                 SELECT s.id, s.date, {LocalizedTitle}, v.vote
                 FROM vote v JOIN session s ON s.id = v.session_id
-                WHERE v.person_number = $pn
+                WHERE v.person_number = $pn AND s.cancelled = 0
                 ORDER BY s.vp_year DESC, s.session_number DESC, s.vote_number DESC LIMIT $count
                 """;
             cmd.Parameters.AddWithValue( "$pn", personNumber );
@@ -220,6 +226,40 @@ public sealed class Queries {
                 : new MpActivity( mp, total, r.GetInt32( 1 ), r.GetInt32( 2 ),
                     r.GetInt32( 3 ), r.GetInt32( 4 ), r.GetInt32( 5 ) );
         }
+    }
+
+    // Every indexable permalink, for the sitemap. Annulled divisions are excluded: they
+    // resolve, but pointing crawlers at a struck vote is not useful.
+    public IReadOnlyList<(string Loc, string LastModified)> GetSitemapEntries( int limit = 40000 ) {
+        using var conn = _db.Open();
+        var entries = new List<(string, string)>();
+
+        using ( var cmd = conn.CreateCommand() ) {
+            cmd.CommandText = """
+                SELECT id, date FROM session WHERE cancelled = 0
+                ORDER BY vp_year DESC, session_number DESC, vote_number DESC LIMIT $limit
+                """;
+            cmd.Parameters.AddWithValue( "$limit", limit );
+            using var r = cmd.ExecuteReader();
+            while ( r.Read() )
+                entries.Add( ( $"/vote/{r.GetString( 0 )}", r.GetString( 1 ) ) );
+        }
+
+        using ( var cmd = conn.CreateCommand() ) {
+            // An MP page changes whenever they vote, so date it by their latest division.
+            cmd.CommandText = """
+                SELECT m.person_number, COALESCE( MAX( s.date ), '' )
+                FROM mp m
+                LEFT JOIN vote v ON v.person_number = m.person_number
+                LEFT JOIN session s ON s.id = v.session_id
+                GROUP BY m.person_number
+                """;
+            using var r = cmd.ExecuteReader();
+            while ( r.Read() )
+                entries.Add( ( $"/mp/{r.GetInt32( 0 )}", r.GetString( 1 ) ) );
+        }
+
+        return entries;
     }
 
     private static IReadOnlyList<SessionSummary> ReadSessions( SqliteCommand cmd ) {

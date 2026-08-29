@@ -1,6 +1,11 @@
 @page "/mps"
 @model MpsModel
 
+@{
+    ViewData["Title"] = "Kansanedustajat";
+    ViewData["Description"] = "Hae kansanedustajaa sukunimellä ja katso hänen äänestyskäyttäytymisensä.";
+}
+
 <h1>Kansanedustajat</h1>
 <form class="search" method="get">
     <input type="search" name="name" value="@Model.Name" placeholder="Sukunimi…" />
