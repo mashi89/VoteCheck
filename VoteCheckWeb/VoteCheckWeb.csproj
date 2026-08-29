@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\VoteCollector\VoteCollector.csproj" />
+    <ProjectReference Include="..\VoteCheck.Core\VoteCheck.Core.csproj" />
   </ItemGroup>
 
 </Project>

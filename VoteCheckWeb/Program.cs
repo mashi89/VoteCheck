@@ -1,3 +1,4 @@
+using VoteCheck.Core;
 using VoteCheckWeb.Data;
 using VoteCheckWeb.Sync;
 
@@ -12,13 +13,11 @@ builder.Services.AddOutputCache( options => {
 
 builder.Services.AddSingleton<Db>();
 builder.Services.AddSingleton<Queries>();
-// Sync is deliberately unregistered between §7 steps 3 and 4: the legacy client
-// writes integer AanestysId values that the migrated TEXT schema cannot accept,
-// and it targets an API already redirecting ahead of its end-of-2026 shutdown.
-// Step 4 replaces it with an IEduskuntaClient-backed sync. Until then the app
-// serves whatever the database already holds — see tools/ for a seeded sample.
-// builder.Services.AddHttpClient<EduskuntaApiClient>();
-// builder.Services.AddHostedService<VoteSyncService>();
+// Upstream access goes through VoteCheck.Core, the single boundary to api.eduskunta.fi.
+// No caching decorator here: the sync reads each page exactly once, and the pages are
+// far too large to be worth retaining.
+builder.Services.AddHttpClient<IEduskuntaClient, EduskuntaClient>();
+builder.Services.AddHostedService<VoteSyncService>();
 
 var app = builder.Build();
 

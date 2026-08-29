@@ -65,6 +65,13 @@ internal sealed class StubEduskuntaClient : IEduskuntaClient
     public Task<Aanestys?> GetVoteAsync(string aanestystunnus, CancellationToken cancellationToken = default) =>
         Task.FromResult(VotesById.TryGetValue(aanestystunnus, out var vote) ? vote : null);
 
+    // The API surface does not enumerate the archive; only the mirror sync does, so this
+    // stub has nothing meaningful to return.
+    public Task<VotePage> GetVotePageAsync(
+        int fromVpYear, int startFromIndex, int maxResults,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new VotePage { StartIndex = startFromIndex });
+
     public Task<IReadOnlyList<Aanestys>> GetVotesInSessionAsync(
         string istuntotunnus, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<Aanestys>>(SessionVotes);

@@ -1,29 +1,40 @@
 using Microsoft.Data.Sqlite;
+using VoteCheck.Core;
+using VoteCheck.Core.Models;
 using VoteCheckWeb.Data;
 
 namespace VoteCheckWeb.Sync;
 
-// Delta-syncs voting data from the Eduskunta open data API into the local SQLite cache.
-// SaliDBAanestys is append-only, so a page cursor stored in sync_state is enough:
-// on each cycle we resume from the last (possibly partial) page, insert any sessions
-// we don't have yet, and fetch the individual MP votes for each new session.
+// Fills the local SQLite mirror from api.eduskunta.fi, then tails it.
+//
+// The archive is walked oldest-first through IEduskuntaClient.GetVotePageAsync, storing the
+// index reached in sync_state. Because that enumeration sorts ascending, an index keeps
+// pointing at the same division between cycles: new votes append past the cursor, so
+// resuming is just "carry on from where we stopped" with no risk of skipping or repeating.
+//
+// Everything a division needs is in one payload — tallies, party breakdowns and all ~199
+// ballots — so there is no per-vote follow-up call. One page is one transaction.
 public sealed class VoteSyncService : BackgroundService {
 
-    private const int PerPage = 100;
-
     private readonly Db _db;
-    private readonly EduskuntaApiClient _api;
+    private readonly IEduskuntaClient _api;
     private readonly ILogger<VoteSyncService> _log;
     private readonly int _minYear;
+    private readonly int _pageSize;
     private readonly TimeSpan _pollInterval;
+    private readonly TimeSpan _requestDelay;
 
-    public VoteSyncService( Db db, EduskuntaApiClient api, IConfiguration config, ILogger<VoteSyncService> log ) {
+    public VoteSyncService( Db db, IEduskuntaClient api, IConfiguration config, ILogger<VoteSyncService> log ) {
         _db = db;
         _api = api;
         _log = log;
-        // Backfill floor: sessions from earlier parliamentary years are skipped.
+        // Backfill floor, as a parliamentary year (istuntovpvuosi) — which is not the calendar
+        // year: filtering 2023+ by year yields ~2,771 divisions, by sitting date only ~1,875.
         _minYear = config.GetValue( "VoteCheck:SyncMinYear", 2023 );
+        // Each division carries its full ballot list (~76 KB), so a page of 50 is already ~4 MB.
+        _pageSize = Math.Clamp( config.GetValue( "VoteCheck:SyncPageSize", 50 ), 1, 200 );
         _pollInterval = TimeSpan.FromMinutes( config.GetValue( "VoteCheck:SyncPollMinutes", 15 ) );
+        _requestDelay = TimeSpan.FromMilliseconds( config.GetValue( "VoteCheck:SyncRequestDelayMs", 500 ) );
     }
 
     protected override async Task ExecuteAsync( CancellationToken ct ) {
@@ -33,108 +44,125 @@ public sealed class VoteSyncService : BackgroundService {
             } catch ( Exception ex ) when ( ex is not OperationCanceledException ) {
                 _log.LogError( ex, "Sync cycle failed; retrying after poll interval" );
             }
-            await Task.Delay( _pollInterval, ct );
+            try {
+                await Task.Delay( _pollInterval, ct );
+            } catch ( OperationCanceledException ) {
+                return;
+            }
         }
     }
 
     private async Task SyncAsync( CancellationToken ct ) {
         using var conn = _db.Open();
 
-        var page = int.Parse( GetState( conn, "aanestys_page" ) ?? "0" );
-        var hasMore = true;
+        var cursor = int.TryParse( GetState( conn, "vote_cursor" ), out var stored ) ? stored : 0;
         var imported = 0;
+        var total = 0;
 
-        while ( hasMore && !ct.IsCancellationRequested ) {
-            var result = await _api.GetPageAsync( "SaliDBAanestys", page, PerPage, ct: ct );
-            hasMore = result.HasMore;
-
-            foreach ( var row in result.Rows ) {
-                if ( !int.TryParse( row.GetValueOrDefault( "AanestysId" ), out var sessionId ) )
-                    continue;
-                // Every vote is stored twice: KieliId 1 = Finnish, 2 = Swedish duplicate
-                // under the adjacent AanestysId. Import only the Finnish rows.
-                if ( row.GetValueOrDefault( "KieliId" )?.Trim() != "1" )
-                    continue;
-                if ( int.TryParse( row.GetValueOrDefault( "IstuntoVPVuosi" ), out var year ) && year < _minYear )
-                    continue;
-                if ( SessionExists( conn, sessionId ) )
-                    continue;
-
-                await ImportSessionAsync( conn, sessionId, row, ct );
-                imported++;
+        while ( !ct.IsCancellationRequested ) {
+            if ( cursor + _pageSize > EduskuntaClient.MaxSearchWindow ) {
+                // Upstream refuses to page deeper than this. Only reachable with a low
+                // SyncMinYear; the full archive needs the async dataset export instead.
+                _log.LogError(
+                    "Backfill window exhausted at {Cursor}: upstream caps paging at {Cap}. " +
+                    "Raise VoteCheck:SyncMinYear (currently {MinYear}) or switch to a dataset export.",
+                    cursor, EduskuntaClient.MaxSearchWindow, _minYear );
+                return;
             }
 
-            if ( hasMore ) {
-                page++;
-                SetState( conn, "aanestys_page", page.ToString() );
-            }
+            var page = await _api.GetVotePageAsync( _minYear, cursor, _pageSize, ct );
+            total = page.TotalCount;
+
+            if ( page.Votes.Count == 0 )
+                break;
+
+            imported += ImportPage( conn, page );
+            cursor += page.Votes.Count;
+            SetState( conn, "vote_cursor", cursor.ToString() );
+
+            if ( !page.HasMore )
+                break;
+
+            // Be a polite client: upstream caps search at 450 requests per 3000s per IP.
+            await Task.Delay( _requestDelay, ct );
         }
 
-        // The last page was partial; resume from it next cycle to pick up appended rows.
-        SetState( conn, "aanestys_page", page.ToString() );
         if ( imported > 0 )
-            _log.LogInformation( "Sync complete: {Count} new voting sessions imported", imported );
+            _log.LogInformation(
+                "Imported {Count} divisions; cursor at {Cursor} of {Total}", imported, cursor, total );
+
+        if ( total > 0 && cursor >= total && GetState( conn, "backfill_complete" ) == null ) {
+            SetState( conn, "backfill_complete", DateTimeOffset.UtcNow.ToString( "o" ) );
+            _log.LogInformation( "Backfill complete: {Total} divisions from {MinYear} onward", total, _minYear );
+        }
     }
 
-    private async Task ImportSessionAsync( SqliteConnection conn, int sessionId, Dictionary<string, string> s, CancellationToken ct ) {
+    // One page, one transaction: a crash mid-page leaves the cursor where it was, and the
+    // page is re-imported harmlessly because every write is an upsert.
+    private static int ImportPage( SqliteConnection conn, VotePage page ) {
         using var tx = conn.BeginTransaction();
+        var count = 0;
 
-        Exec( conn, tx, """
-            INSERT OR IGNORE INTO session ( id, date, title, subject, result_yes, result_no, result_blank, result_absent, cancelled )
-            VALUES ( $id, $date, $title, $subject, $yes, $no, $blank, $absent, $cancelled )
-            """,
-            ( "$id", sessionId ),
-            ( "$date", s.GetValueOrDefault( "IstuntoPvm", "" ) ),
-            ( "$title", s.GetValueOrDefault( "AanestysOtsikko", "" ) ),
-            ( "$subject", s.GetValueOrDefault( "KohtaOtsikko", "" ) ),
-            ( "$yes", ParseInt( s, "AanestysTulosJaa" ) ),
-            ( "$no", ParseInt( s, "AanestysTulosEi" ) ),
-            ( "$blank", ParseInt( s, "AanestysTulosTyhjia" ) ),
-            ( "$absent", ParseInt( s, "AanestysTulosPoissa" ) ),
-            ( "$cancelled", s.GetValueOrDefault( "AanestysMitatoity" ) == "1" ? 1 : 0 ) );
+        foreach ( var vote in page.Votes ) {
+            if ( string.IsNullOrWhiteSpace( vote.Id ) )
+                continue;
 
-        // Individual MP votes for this session; also refreshes the MP roster.
-        var page = 0;
-        var hasMore = true;
-        while ( hasMore && !ct.IsCancellationRequested ) {
-            var result = await _api.GetPageAsync( "SaliDBAanestysEdustaja", page, PerPage,
-                "AanestysId", sessionId.ToString(), ct );
-            hasMore = result.HasMore;
-            page++;
+            var tulos = vote.Aanestystulos;
+            Exec( conn, tx, """
+                INSERT INTO session ( id, date, title, subject, vp_year, session_number, vote_number,
+                                      result_yes, result_no, result_blank, result_absent, cancelled )
+                VALUES ( $id, $date, $title, $subject, $year, $session, $number,
+                         $yes, $no, $blank, $absent, $cancelled )
+                ON CONFLICT ( id ) DO NOTHING
+                """,
+                ( "$id", vote.Id ),
+                // istuntopvm carries a UTC offset ("2026-06-03+03:00") and does not parse as
+                // a plain date, so keep the leading ISO day and drop the rest.
+                ( "$date", Left( vote.Istuntopvm, 10 ) ),
+                ( "$title", vote.Aanestysotsikko?.Fi ?? "" ),
+                ( "$subject", vote.Kohta?.Otsikko?.Fi ?? "" ),
+                ( "$year", ParseInt( vote.Istuntovpvuosi ) ),
+                ( "$session", ParseInt( vote.Istuntonumero ) ),
+                ( "$number", ParseInt( vote.Aanestysnumero ) ),
+                ( "$yes", tulos?.Jaa ?? 0 ),
+                ( "$no", tulos?.Ei ?? 0 ),
+                ( "$blank", tulos?.Tyhjia ?? 0 ),
+                ( "$absent", tulos?.Poissa ?? 0 ),
+                ( "$cancelled", vote.Aanestysmitatoity ? 1 : 0 ) );
 
-            foreach ( var v in result.Rows ) {
-                if ( !int.TryParse( v.GetValueOrDefault( "EdustajaHenkiloNumero" ), out var personNumber ) )
-                    continue;
-                var party = v.GetValueOrDefault( "EdustajaRyhmaLyhenne", "" ).Trim();
-                var vote = NormalizeVote( v.GetValueOrDefault( "EdustajaAanestys", "" ) );
+            foreach ( var ballot in vote.Aanestystapahtumat ) {
+                var party = ballot.Edkryhmalyhenne?.Fi?.Trim() ?? "";
+                var choice = NormalizeVote( ballot.Kayttaytyminen?.Fi );
 
                 Exec( conn, tx, """
                     INSERT INTO mp ( person_number, first_name, last_name, party )
                     VALUES ( $pn, $first, $last, $party )
                     ON CONFLICT ( person_number ) DO UPDATE SET party = $party
                     """,
-                    ( "$pn", personNumber ),
-                    ( "$first", v.GetValueOrDefault( "EdustajaEtunimi", "" ).Trim() ),
-                    ( "$last", v.GetValueOrDefault( "EdustajaSukunimi", "" ).Trim() ),
+                    ( "$pn", ballot.Henkilonumero ),
+                    ( "$first", ballot.Etunimi?.Trim() ?? "" ),
+                    ( "$last", ballot.Sukunimi?.Trim() ?? "" ),
                     ( "$party", party ) );
 
                 Exec( conn, tx, """
                     INSERT OR IGNORE INTO vote ( session_id, person_number, party, vote )
                     VALUES ( $sid, $pn, $party, $vote )
                     """,
-                    ( "$sid", sessionId ),
-                    ( "$pn", personNumber ),
+                    ( "$sid", vote.Id ),
+                    ( "$pn", ballot.Henkilonumero ),
                     ( "$party", party ),
-                    ( "$vote", vote ) );
+                    ( "$vote", choice ) );
             }
+
+            count++;
         }
 
         tx.Commit();
+        return count;
     }
 
-    // API vote values are space-padded, and the source data uses "Tyhjää";
-    // canonical form in the cache is Jaa | Ei | Tyhjä | Poissa.
-    private static string NormalizeVote( string raw ) => raw.Trim() switch {
+    // The API says "Tyhjää"; the canonical value in the mirror is "Tyhjä".
+    private static string NormalizeVote( string? raw ) => ( raw ?? "" ).Trim() switch {
         "Jaa" => "Jaa",
         "Ei" => "Ei",
         "Tyhjää" or "Tyhjä" => "Tyhjä",
@@ -142,15 +170,10 @@ public sealed class VoteSyncService : BackgroundService {
         var other => other,
     };
 
-    private static bool SessionExists( SqliteConnection conn, int sessionId ) {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM session WHERE id = $id";
-        cmd.Parameters.AddWithValue( "$id", sessionId );
-        return cmd.ExecuteScalar() != null;
-    }
+    private static string Left( string? value, int length ) =>
+        string.IsNullOrEmpty( value ) ? "" : value[..Math.Min( length, value.Length )];
 
-    private static int ParseInt( Dictionary<string, string> row, string key ) =>
-        int.TryParse( row.GetValueOrDefault( key ), out var value ) ? value : 0;
+    private static int ParseInt( string? value ) => int.TryParse( value, out var n ) ? n : 0;
 
     private static void Exec( SqliteConnection conn, SqliteTransaction tx, string sql, params (string Name, object Value)[] args ) {
         using var cmd = conn.CreateCommand();

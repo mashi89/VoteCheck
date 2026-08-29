@@ -13,6 +13,8 @@ namespace VoteCheck.Core.Tests
         private readonly HttpStatusCode _statusCode;
 
         public string? RequestedUrl { get; private set; }
+        public string? RequestBody { get; private set; }
+        public string? RequestUserAgent { get; private set; }
 
         public StubHttpMessageHandler(string responseBody, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
@@ -24,6 +26,10 @@ namespace VoteCheck.Core.Tests
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestedUrl = request.RequestUri?.ToString();
+            RequestBody = request.Content?.ReadAsStringAsync(cancellationToken).Result;
+            RequestUserAgent = request.Headers.UserAgent.Count > 0
+                ? request.Headers.UserAgent.ToString()
+                : null;
             return Task.FromResult(new HttpResponseMessage(_statusCode)
             {
                 Content = new StringContent(_responseBody)

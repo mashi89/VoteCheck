@@ -45,6 +45,16 @@ namespace VoteCheck.Core
             _volatileTtl = volatileTtl ?? DefaultVolatileTtl;
         }
 
+        // Deliberately not cached. Enumeration is a bulk, one-pass operation owned by the
+        // sync job: pages are large (~76 KB per vote), each key would be hit exactly once,
+        // and retaining them would evict the small, hot entries this cache exists for.
+        public Task<VotePage> GetVotePageAsync(
+            int fromVpYear,
+            int startFromIndex,
+            int maxResults,
+            CancellationToken cancellationToken = default) =>
+            _inner.GetVotePageAsync(fromVpYear, startFromIndex, maxResults, cancellationToken);
+
         public Task<IReadOnlyList<Mp>> GetMpsAsync(CancellationToken cancellationToken = default) =>
             GetOrCreateAsync("mps", _volatileTtl, ct => _inner.GetMpsAsync(ct), cancellationToken);
 
