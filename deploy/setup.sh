@@ -61,6 +61,25 @@ APT::Periodic::Unattended-Upgrade "1";
 CONF
 systemctl enable --now unattended-upgrades
 
+log "Adding swap if memory is tight"
+# Building the app compiles .NET (and, with the Cloudflare overlay, Caddy from Go source)
+# on this machine. Both want more than 1 GB. Swap makes a 1 GB server survive the build;
+# it is slow but it finishes, and it is never touched at runtime.
+mem_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+if (( mem_mb < 2048 )) && [[ ! -f /swapfile ]]; then
+	echo "  ${mem_mb} MB RAM detected — creating a 2G swapfile"
+	fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+	chmod 600 /swapfile
+	mkswap /swapfile >/dev/null
+	swapon /swapfile
+	grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >>/etc/fstab
+	# Prefer RAM; this exists for build spikes, not steady-state paging.
+	sysctl -qw vm.swappiness=10
+	grep -q '^vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' >>/etc/sysctl.conf
+else
+	echo "  ${mem_mb} MB RAM — no swapfile needed (or one already exists)"
+fi
+
 log "Capping Docker log growth"
 # Without this, container logs grow until the disk is full — the most common way a small
 # box like this falls over months after anyone last looked at it.

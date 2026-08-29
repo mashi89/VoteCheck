@@ -4,18 +4,48 @@ Target: a single UpCloud Cloud Server in **Helsinki (`fi-hel1` / `fi-hel2`)**, r
 app behind Caddy. One container, one volume, automatic TLS.
 
 Helsinki is chosen because essentially every user is in Finland, and because the mirror is
-SQLite — which wants **local** disk. UpCloud's MaxIOPS storage is local NVMe, which is what
-makes this work; SQLite over a network filesystem (SMB/NFS) risks corruption and is why
-Azure App Service, despite being named in early drafts of `design.md`, is not used here.
+SQLite — which wants **local block storage**. Both UpCloud tiers provide that (Starter uses
+standard SSD, Premium MaxIOPS); either is fine here, since this is a read-mostly workload of
+a few hundred MB. What matters is that it is *not* a network filesystem: SQLite over SMB or
+NFS risks corruption, which is why Azure App Service, named in early drafts of `design.md`,
+is not used.
 
 ## Sizing
 
-The app is small: one .NET process, an in-memory cache, and a SQLite file. The full
-2023-onward mirror is a few hundred MB. The smallest general-purpose plan (1 vCPU, 1–2 GB
-RAM, 25 GB disk) is enough; the constraint is disk, not CPU.
+At runtime the app is small — one .NET process, an in-memory cache and a SQLite file, call
+it 300–400 MB. **The constraint is not running it but building it.**
 
-Do **not** run two instances. The sync is the single writer, and a second replica would
-mean two processes writing one SQLite file.
+`docker compose up --build` compiles the app with the .NET SDK on the server, and the
+Cloudflare overlay additionally compiles Caddy from Go source. Both are memory-hungry, and
+**a 1 GB server will likely fail or crawl during the build** while being perfectly adequate
+afterwards.
+
+So pick one of:
+
+| Approach | Plan |
+|---|---|
+| Simplest — build on the box | **Starter, 1 vCPU / 2 GB** |
+| Cheapest — 1 GB plus swap | Starter 1 vCPU / 1 GB; `setup.sh` adds swap automatically when RAM < 2 GB |
+| Best long-term | 1 GB, and pull pre-built images instead of building (CI already builds one) |
+
+Do **not** run two instances. The sync is the single writer, and a second replica would mean
+two processes writing one SQLite file.
+
+## Creating the server
+
+In the UpCloud control panel, *Deploy a server*:
+
+- **Location:** Helsinki
+- **Plan:** Starter, 1 vCPU / 2 GB (see sizing above)
+- **Operating system:** Ubuntu LTS
+- **Storage:** the plan default is plenty — the full mirror is a few hundred MB
+- **SSH keys:** add your public key here. Linux servers are key-only; do this at deploy
+  time rather than fixing it afterwards through the console
+- **Backups:** take the free *Day* tier. The mirror itself is rebuildable and not worth
+  backing up, but this snapshots the whole server, which protects against deleting the
+  wrong thing — at no cost
+- **Firewall:** included in the plan. Leave it off for now; see the Cloudflare section,
+  where it becomes the better place for the origin lockdown
 
 ## Steps
 
@@ -104,6 +134,14 @@ get cached away from your server entirely.
    ```
    sudo bash deploy/cloudflare-firewall.sh
    ```
+
+   This uses `ufw`, on the host. **UpCloud's own firewall is the better place for it** —
+   it sits before the network interface, so unwanted traffic never reaches the server or
+   consumes its bandwidth, whereas `ufw` drops packets that have already arrived. Applying
+   the same Cloudflare ranges there (control panel → server → Firewall, or `upctl`) and
+   keeping `ufw` as an inner layer is the stronger arrangement. Note that UpCloud's firewall
+   is **stateless**: restrict inbound only, and leave outbound open, or the sync silently
+   stops reaching api.eduskunta.fi and certificate renewal fails.
 
    Without it the origin IP leaks eventually (certificate transparency logs, historical
    DNS, any outbound connection) and an attacker just bypasses Cloudflare. Re-run it when
