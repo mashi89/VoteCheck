@@ -2,12 +2,12 @@ using Microsoft.Data.Sqlite;
 
 namespace VoteCheckWeb.Data;
 
-public sealed record SessionSummary( int Id, string Date, string Title, string Subject,
+public sealed record SessionSummary( string Id, string Date, string Title, string Subject,
     int Yes, int No, int Blank, int Absent );
 
 public sealed record MpSummary( int PersonNumber, string FirstName, string LastName, string Party );
 
-public sealed record MpVote( int SessionId, string Date, string Title, string Vote );
+public sealed record MpVote( string SessionId, string Date, string Title, string Vote );
 
 public sealed record PartyDistribution( string Party, int Yes, int No, int Blank, int Absent );
 
@@ -28,7 +28,8 @@ public sealed class Queries {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, date, title, subject, result_yes, result_no, result_blank, result_absent
-            FROM session WHERE cancelled = 0 ORDER BY id DESC LIMIT $count
+            FROM session WHERE cancelled = 0
+            ORDER BY vp_year DESC, session_number DESC, vote_number DESC LIMIT $count
             """;
         cmd.Parameters.AddWithValue( "$count", count );
         return ReadSessions( cmd );
@@ -39,7 +40,7 @@ public sealed class Queries {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT s.id, s.date, s.title, s.subject, s.result_yes, s.result_no, s.result_blank, s.result_absent
-            FROM session_fts f JOIN session s ON s.id = f.rowid
+            FROM session_fts f JOIN session s ON s.seq = f.rowid
             WHERE session_fts MATCH $query AND s.cancelled = 0
             ORDER BY rank LIMIT $count
             """;
@@ -52,7 +53,7 @@ public sealed class Queries {
         return ReadSessions( cmd );
     }
 
-    public SessionSummary? GetSession( int id ) {
+    public SessionSummary? GetSession( string id ) {
         using var conn = _db.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -63,7 +64,7 @@ public sealed class Queries {
         return ReadSessions( cmd ).FirstOrDefault();
     }
 
-    public IReadOnlyList<PartyDistribution> GetPartyDistribution( int sessionId ) {
+    public IReadOnlyList<PartyDistribution> GetPartyDistribution( string sessionId ) {
         using var conn = _db.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -81,7 +82,7 @@ public sealed class Queries {
         return result;
     }
 
-    public IReadOnlyList<IndividualVote> GetIndividualVotes( int sessionId, string? party = null ) {
+    public IReadOnlyList<IndividualVote> GetIndividualVotes( string sessionId, string? party = null ) {
         using var conn = _db.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -142,13 +143,14 @@ public sealed class Queries {
             cmd.CommandText = """
                 SELECT s.id, s.date, s.title, v.vote
                 FROM vote v JOIN session s ON s.id = v.session_id
-                WHERE v.person_number = $pn ORDER BY s.id DESC LIMIT $count
+                WHERE v.person_number = $pn
+                ORDER BY s.vp_year DESC, s.session_number DESC, s.vote_number DESC LIMIT $count
                 """;
             cmd.Parameters.AddWithValue( "$pn", personNumber );
             cmd.Parameters.AddWithValue( "$count", latestCount );
             using var r = cmd.ExecuteReader();
             while ( r.Read() )
-                latest.Add( new MpVote( r.GetInt32( 0 ), r.GetString( 1 ), r.GetString( 2 ), r.GetString( 3 ) ) );
+                latest.Add( new MpVote( r.GetString( 0 ), r.GetString( 1 ), r.GetString( 2 ), r.GetString( 3 ) ) );
         }
 
         return new MpProfile( mp, total, present, latest );
@@ -158,7 +160,7 @@ public sealed class Queries {
         var result = new List<SessionSummary>();
         using var r = cmd.ExecuteReader();
         while ( r.Read() )
-            result.Add( new SessionSummary( r.GetInt32( 0 ), r.GetString( 1 ), r.GetString( 2 ), r.GetString( 3 ),
+            result.Add( new SessionSummary( r.GetString( 0 ), r.GetString( 1 ), r.GetString( 2 ), r.GetString( 3 ),
                 r.GetInt32( 4 ), r.GetInt32( 5 ), r.GetInt32( 6 ), r.GetInt32( 7 ) ) );
         return result;
     }

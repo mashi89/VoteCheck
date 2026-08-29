@@ -12,8 +12,13 @@ builder.Services.AddOutputCache( options => {
 
 builder.Services.AddSingleton<Db>();
 builder.Services.AddSingleton<Queries>();
-builder.Services.AddHttpClient<EduskuntaApiClient>();
-builder.Services.AddHostedService<VoteSyncService>();
+// Sync is deliberately unregistered between §7 steps 3 and 4: the legacy client
+// writes integer AanestysId values that the migrated TEXT schema cannot accept,
+// and it targets an API already redirecting ahead of its end-of-2026 shutdown.
+// Step 4 replaces it with an IEduskuntaClient-backed sync. Until then the app
+// serves whatever the database already holds — see tools/ for a seeded sample.
+// builder.Services.AddHttpClient<EduskuntaApiClient>();
+// builder.Services.AddHostedService<VoteSyncService>();
 
 var app = builder.Build();
 
@@ -29,12 +34,12 @@ var api = app.MapGroup( "/api/v1" ).CacheOutput();
 api.MapGet( "/sessions", ( Queries q, int count = 50 ) =>
     q.LatestSessions( Math.Clamp( count, 1, 200 ) ) );
 
-api.MapGet( "/sessions/{id:int}", ( Queries q, int id ) =>
+api.MapGet( "/sessions/{id}", ( Queries q, string id ) =>
     q.GetSession( id ) is { } session
         ? Results.Ok( new { session, parties = q.GetPartyDistribution( id ) } )
         : Results.NotFound() );
 
-api.MapGet( "/sessions/{id:int}/votes", ( Queries q, int id, string? party ) =>
+api.MapGet( "/sessions/{id}/votes", ( Queries q, string id, string? party ) =>
     q.GetIndividualVotes( id, party ) );
 
 api.MapGet( "/mps", ( Queries q, string? name ) => q.FindMps( name ) );

@@ -29,16 +29,21 @@ SCHEMA = """
 PRAGMA journal_mode = WAL;
 
 CREATE TABLE session (
-    seq           INTEGER PRIMARY KEY,      -- surrogate rowid, for FTS5 external content
-    id            TEXT NOT NULL UNIQUE,     -- aanestystunnus, e.g. "2008-103-1"
-    date          TEXT NOT NULL,            -- ISO date; istuntopvm has a UTC offset we trim
-    title         TEXT NOT NULL,
-    subject       TEXT NOT NULL,
-    result_yes    INTEGER NOT NULL,
-    result_no     INTEGER NOT NULL,
-    result_blank  INTEGER NOT NULL,
-    result_absent INTEGER NOT NULL,
-    cancelled     INTEGER NOT NULL DEFAULT 0
+    seq            INTEGER PRIMARY KEY,     -- surrogate rowid, for FTS5 external content
+    id             TEXT NOT NULL UNIQUE,    -- aanestystunnus, e.g. "2008-103-1"
+    date           TEXT NOT NULL,           -- ISO date; istuntopvm has a UTC offset we trim
+    title          TEXT NOT NULL,
+    subject        TEXT NOT NULL,
+    -- Components of `id`. Ordering by the id string is wrong: "2009-114-4" sorts
+    -- before "2009-24-1" but happened five months later.
+    vp_year        INTEGER NOT NULL,
+    session_number INTEGER NOT NULL,
+    vote_number    INTEGER NOT NULL,
+    result_yes     INTEGER NOT NULL,
+    result_no      INTEGER NOT NULL,
+    result_blank   INTEGER NOT NULL,
+    result_absent  INTEGER NOT NULL,
+    cancelled      INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE mp (
@@ -58,6 +63,8 @@ CREATE TABLE vote (
 
 CREATE INDEX ix_vote_person ON vote ( person_number, session_id );
 CREATE INDEX ix_session_date ON session ( date );
+CREATE INDEX ix_session_chrono
+    ON session ( vp_year DESC, session_number DESC, vote_number DESC );
 
 CREATE VIRTUAL TABLE session_fts USING fts5 (
     title, subject, content='session', content_rowid='seq'
@@ -68,10 +75,21 @@ CREATE TRIGGER session_ai AFTER INSERT ON session BEGIN
     INSERT INTO session_fts ( rowid, title, subject )
     VALUES ( new.seq, new.title, new.subject );
 END;
+
+CREATE TABLE sync_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 # The raw API says "Tyhjää"; the domain value is "Tyhjä" (design.md §7 blockers).
 NORMALIZE = {"Jaa": "Jaa", "Ei": "Ei", "Tyhjää": "Tyhjä", "Tyhjä": "Tyhjä", "Poissa": "Poissa"}
+
+def as_int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
 
 def fi(node):
     return (node or {}).get("fi")
@@ -92,6 +110,8 @@ def main(src, dst):
             a["id"], date,
             fi(a.get("aanestysotsikko")) or "",
             fi((a.get("kohta") or {}).get("otsikko")) or "",
+            as_int(a.get("istuntovpvuosi")), as_int(a.get("istuntonumero")),
+            as_int(a.get("aanestysnumero")),
             tulos.get("jaa", 0), tulos.get("ei", 0),
             tulos.get("tyhjia", 0), tulos.get("poissa", 0),
             1 if a.get("aanestysmitatoity") else 0,
@@ -108,8 +128,9 @@ def main(src, dst):
                 mp_latest[pn] = (date, b.get("etunimi") or "", b.get("sukunimi") or "", party)
 
     con.executemany(
-        "INSERT INTO session (id,date,title,subject,result_yes,result_no,"
-        "result_blank,result_absent,cancelled) VALUES (?,?,?,?,?,?,?,?,?)", sessions)
+        "INSERT INTO session (id,date,title,subject,vp_year,session_number,vote_number,"
+        "result_yes,result_no,result_blank,result_absent,cancelled) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", sessions)
     con.executemany(
         "INSERT INTO mp (person_number,first_name,last_name,party) VALUES (?,?,?,?)",
         [(pn, v[1], v[2], v[3]) for pn, v in mp_latest.items()])

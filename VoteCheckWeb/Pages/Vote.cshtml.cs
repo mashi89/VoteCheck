@@ -14,7 +14,7 @@ public class VoteModel : PageModel {
 
     public VoteModel( Queries queries ) => _queries = queries;
 
-    public void OnGet( int id, string? party ) {
+    public void OnGet( string id, string? party ) {
         Session = _queries.GetSession( id );
         if ( Session == null ) return;
 
