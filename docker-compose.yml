@@ -1,0 +1,38 @@
+# Minimal production-shaped run: the app plus a persistent volume for the mirror.
+#
+#   docker compose up --build
+#
+# The first start backfills the 2023+ window from api.eduskunta.fi — roughly 2,800
+# divisions over ~56 requests — so give it a few minutes before the front page fills.
+# That work is why the volume matters: without it every restart re-backfills.
+
+services:
+  votecheck:
+    build:
+      context: .
+      dockerfile: VoteCheckWeb/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - votecheck-data:/data
+    environment:
+      # Set when a reverse proxy terminates TLS in front of this, so canonical URLs,
+      # og:url and the sitemap advertise https rather than the http we actually receive.
+      # Leave false when the container is reached directly — trusting the headers then
+      # would let a client forge its own scheme and host.
+      VoteCheck__BehindProxy: "false"
+      # Origins allowed to call /api/v1 from a browser. Empty means same-origin only.
+      # VoteCheck__AllowedOrigins__0: "https://example.org"
+      VoteCheck__SyncMinYear: "2023"
+    restart: unless-stopped
+    healthcheck:
+      # Done here rather than in the image: compose can probe over HTTP without the
+      # runtime image needing curl.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health HTTP/1.0\\n\\n' >&3 && head -1 <&3 | grep -q 200"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  votecheck-data:

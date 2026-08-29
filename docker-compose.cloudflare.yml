@@ -1,0 +1,22 @@
+# Overlay for running behind Cloudflare's proxy. Use alongside the production file:
+#
+#   DOMAIN=edustajavahti.fi [email protected] \
+#     docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
+#
+# CLOUDFLARE_API_TOKEN belongs in a .env file next to these, not on the command line.
+# It needs exactly one permission: Zone → DNS → Edit, scoped to this zone.
+
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: deploy/Caddy.Dockerfile
+    image: votecheck-caddy
+    volumes:
+      - ./deploy/Caddyfile.cloudflare:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?set CLOUDFLARE_API_TOKEN (Zone:DNS:Edit) for DNS-01}

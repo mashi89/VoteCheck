@@ -1,0 +1,52 @@
+# Caddyfile for running behind Cloudflare's proxy (orange cloud).
+#
+# Differences from deploy/Caddyfile, which is for a directly exposed server:
+#   - certificates come from DNS-01, which works regardless of what the proxy does
+#     to HTTP traffic
+#   - Cloudflare's ranges are trusted, so client IPs in logs are real visitors
+#     rather than Cloudflare edge nodes
+#
+# Requires the image built from deploy/Caddy.Dockerfile.
+
+{
+	email {$ACME_EMAIL}
+
+	servers {
+		# Refreshed from Cloudflare's published ranges rather than pinned here,
+		# because those ranges do change.
+		trusted_proxies cloudflare {
+			interval 12h
+			timeout 15s
+		}
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+}
+
+{$DOMAIN} {
+	# DNS-01: Caddy proves control by writing a TXT record, so nothing depends on
+	# an inbound HTTP request reaching this server.
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	}
+
+	encode zstd gzip
+
+	reverse_proxy votecheck:8080
+
+	# The app builds absolute canonical and og:url values from these, and trusts
+	# them only because VoteCheck__BehindProxy is set.
+	header_up X-Forwarded-Proto {scheme}
+	header_up X-Forwarded-Host {host}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
