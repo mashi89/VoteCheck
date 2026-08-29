@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [master]
+  # Unfiltered on purpose: every pull request gets built and tested whatever branch
+  # it targets. Feature branches are not built on push, so the PR run is the gate.
   pull_request:
   workflow_dispatch:
 
@@ -36,7 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Verifies the image builds; publishing to a registry is left to whoever
-      # sets up deployment (design.md §4, Step 2).
-      - name: Build API image
+      # Verifies the image builds. It now contains the whole product — SSR pages and
+      # the JSON API — since VoteCheck.Api was folded into VoteCheckWeb (design.md §7
+      # step 6). Publishing to a registry is left to whoever sets up deployment.
+      - name: Build image
         run: docker build -f VoteCheckWeb/Dockerfile -t votecheck .
