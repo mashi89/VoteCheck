@@ -15,6 +15,7 @@ namespace VoteCheck.Core.Tests
         public int SessionVotesCalls { get; private set; }
         public int MatterVotesCalls { get; private set; }
         public int RecentVotesCalls { get; private set; }
+        public int VotePageCalls { get; private set; }
 
         public IReadOnlyList<Mp> Mps { get; set; } = new List<Mp>();
         public Mp? Mp { get; set; } = new Mp { Henkilonro = 1109 };
@@ -69,6 +70,17 @@ namespace VoteCheck.Core.Tests
             RecentVotesCalls++;
             await WaitForGateAsync().ConfigureAwait(false);
             return Votes;
+        }
+
+        public async Task<VotePage> GetVotePageAsync(
+            int fromVpYear,
+            int startFromIndex,
+            int maxResults,
+            CancellationToken cancellationToken = default)
+        {
+            VotePageCalls++;
+            await WaitForGateAsync().ConfigureAwait(false);
+            return new VotePage { Votes = Votes, TotalCount = Votes.Count, StartIndex = startFromIndex };
         }
 
         private Task WaitForGateAsync() => Gate?.Task ?? Task.CompletedTask;

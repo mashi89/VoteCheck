@@ -1,6 +1,6 @@
 # VoteCheck — Design & Technical Roadmap
 
-*Last updated: 2026-07-20*
+*Last updated: 2026-08-29*
 
 > ⚠️ **Upstream API migration is already underway — target the new API now, not later.**
 > The legacy table API this project uses (`avoindata.eduskunta.fi/api/v1/tables/...`) is being
@@ -62,17 +62,21 @@ Typical user questions the product should answer in a few taps:
 ## 3. Target Architecture (to-be)
 
 ```
-┌──────────────────────┐     ┌──────────────────────────┐     ┌─────────────────────────┐
-│  Browser / PWA       │     │  VoteCheck.Api           │     │ api.eduskunta.fi        │
-│  (installable on     │ ──▶ │  ASP.NET Core minimal    │ ──▶ │ /api/v1/... (new,       │
-│   mobile & desktop)  │     │  API + response cache    │     │ unauthenticated JSON)   │
-└──────────────────────┘     └───────────┬──────────────┘     └─────────────────────────┘
-┌──────────────────────┐                 │
-│  Avalonia desktop    │ ──▶ ┌───────────▼──────────────┐
-│  (kept, optional)    │     │  VoteCheck.Core          │
-└──────────────────────┘     │  async services + typed  │
-                             │  models (no DataTable)   │
-                             └──────────────────────────┘
+api.eduskunta.fi ────▶ VoteCheck.Core ────▶ sync ────▶ votecheck.db
+/api/v1/... (new,      EduskuntaClient +    (Background    (SQLite + FTS5
+unauthenticated JSON)  typed models +        Service)       mirror; disposable,
+                       caching decorator                    rebuildable)
+                              │                                   │
+                              ▼                                   ▼
+                                                          VoteCheckWeb
+                                                          Razor SSR pages +
+                                                          /api/v1 JSON (Swagger,
+                                                          ?lang, CORS, /health)
+                                                          shareable permalinks
+                                                                  │
+                                                                  ▼
+                                                          Browser (crawlable,
+                                                          no JS required)
 ```
 
 Principles:
@@ -84,8 +88,15 @@ Principles:
 - **API in the middle.** The browser talks to *our* API, never to api.eduskunta.fi directly. This
   lets us cache aggressively (immutable historical votes), shape friendly JSON, add computed
   endpoints (activity summaries), and stay comfortably within upstream's rate limit (see §3.1).
-- **PWA instead of separate native apps.** A Progressive Web App gives browser + "install to home
-  screen" on Android/iOS from a single codebase — the fastest route to "usable from browser/app".
+- **SSR first, installable app later** *(decision 2026-08-29, revised from "PWA instead of
+  separate native apps")*. Server-rendered Razor pages give crawlable, instantly-rendering
+  permalinks — the atomic unit of fact-checking that gets shared, and the product's distribution
+  mechanism. A PWA/mobile client can still come later over `VoteCheckWeb`'s `/api/v1`
+  JSON without re-architecting.
+- **Mirror, don't proxy, for the web frontend.** Upstream payloads are heavy (~75 KB per vote,
+  ~750 KB for ten recent votes) and `/search*` is rate-capped (450 POST/3000s/IP), so
+  `VoteCheckWeb` serves from a local SQLite + FTS5 mirror fed by a sync service, projecting each
+  page down to what it needs. The mirror is disposable — gitignored and rebuildable from the API.
 - **Public data, no accounts.** No authentication needed for v1 — matches upstream, which is
   itself fully open (no API key or token).
 
@@ -214,11 +225,16 @@ detour through the legacy table shape, since it has only months of runway left (
 *Done when:* `EduskuntaClient` can fetch an MP, a vote with its party/government-opposition
 breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passing on mocked HTTP.
 
-### Step 2 — Stand up `VoteCheck.Api` (ASP.NET Core minimal API)
+### Step 2 — Stand up a JSON API (ASP.NET Core minimal API)
 
 *Goal: the data is reachable from any browser via clean JSON endpoints.*
 
-> **Status: built and running locally.** `VoteCheck.Api` serves all nine v1 routes, with
+> **Status: delivered, then folded into `VoteCheckWeb` (§7 step 6, 2026-08-29).** The
+> standalone `VoteCheck.Api` project no longer exists; its JSON surface, Swagger UI,
+> `?lang` resolution, CORS configuration and `/health` probe now live in `VoteCheckWeb`
+> and read the local mirror instead of upstream. History below kept for context.
+>
+> **Original status: built and running locally.** `VoteCheck.Api` served nine v1 routes, with
 > Swagger UI at `/swagger` and a `/health` probe. `EduskuntaClient` is registered via
 > `IHttpClientFactory` and wrapped in `CachingEduskuntaClient`; output caching sits in front
 > with matching immutable/volatile policies. Verified by booting the app, not only by tests.
@@ -253,23 +269,35 @@ breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passin
 *Done when:* `curl https://<host>/api/mps` returns live data and Swagger UI documents the API.
 *Currently:* both work locally; the public `<host>` is the remaining piece.
 
-### Step 3 — Ship the browser/PWA frontend
+### Step 3 — Ship the web frontend (revised: SSR over the mirror, not WASM)
 
-*Goal: a shareable URL that works on phone and desktop, installable as an app.*
+*Goal: a shareable URL that works on phone and desktop.*
 
-- Frontend project `VoteCheck.Web` — **Blazor WebAssembly (PWA template)** is the natural fit for
-  this C# codebase (shares models from `VoteCheck.Core`); a lightweight TypeScript/React SPA is
-  the alternative if broader contributor familiarity matters more.
-- v1 screens, mobile-first:
-  1. **MP search** (type-ahead by surname) → MP page with recent votes + activity summary.
-  2. **Vote browser** (by date) → drill-down to party distribution → individual ballots
-     (parity with today's desktop drill-down).
-- PWA manifest + service worker → installable on Android/iOS home screen, basic offline shell.
-- Localization scaffold: Finnish first, Swedish/English strings behind a resource file
-  (the Swedish party-name toggle already exists in the desktop app — carry the concept over).
+> **Status: built on `feature/web`, pending convergence (§7).** A Razor Pages SSR app,
+> `VoteCheckWeb`, exists with the v1 screens working against live data: latest votes,
+> vote drill-down to party distribution and individual ballots, MP search, MP profile,
+> and FTS5 topic search — plus its own `/api/v1` JSON surface. It ingests from the
+> **legacy** API, which is what §7 fixes.
 
-*Done when:* a public URL serves the app, Lighthouse PWA checks pass, and an MP's recent votes
-can be found on a phone in under three taps.
+**Decision (2026-08-29): SSR + SQLite mirror, not the Blazor-WASM PWA sketched earlier.**
+Reasons, in order of weight:
+
+1. Permalinks (`/vote/{id}`, `/mp/{id}`) must render instantly and be crawlable/SEO-visible —
+   a WASM app can do neither without a prerendering layer that is itself SSR.
+2. Payload economics: fetching ~75 KB per vote into the browser to show a tally is waste;
+   the mirror projects server-side (see §3 principles).
+3. Upstream `/search*` rate caps make a local FTS5 index the safer search backend.
+
+The WASM/PWA route is *deferred, not rejected* — `VoteCheckWeb`'s `/api/v1` remains the
+JSON surface a future installable client would consume (§5), documented at `/swagger` and
+CORS-capable for a separate origin.
+
+Still to do on the frontend itself (§7 steps 5–7): tests, OpenGraph/canonical tags for link
+unfurling, a `wwwroot` for a favicon and robots.txt, localization
+scaffold (Finnish first; the bilingual `LocalizedText` fields make Swedish nearly free).
+
+*Done when:* a public URL serves the SSR pages from a database synced via `VoteCheck.Core`,
+and an MP's recent votes can be found on a phone in under three taps.
 
 ## 5. Later (beyond the next 3 steps)
 
@@ -286,7 +314,7 @@ can be found on a phone in under three taps.
 
 | Risk | Mitigation |
 |------|------------|
-| **Legacy API shutdown (end of 2026, already redirecting since 30 Mar 2026)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency |
+| **Legacy API shutdown (end of 2026, already redirecting since 30 Mar 2026)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency; **note `VoteCheckWeb`'s sync still ingests from the legacy API** until §7 step 4 lands — that is the single most time-sensitive item in the repo |
 | ~~No confirmed endpoint for "all votes by one MP"~~ — **resolved**: ballots are embedded in every vote payload (§3.1) | Recent-window per-MP history is a client-side filter. Still open at larger scale: *deep historical* per-MP queries would mean walking every past session, so a per-MP index becomes worthwhile if we go beyond recent votes |
 | **Payload size** — each vote carries ~199 ballots plus three breakdown sets (~75 KB per vote); `uusimmat-aanestykset` returned ~750 KB for 10 votes | Our API should project down to what each view needs rather than proxying upstream objects; cache parsed results, and avoid fetching full vote objects when only tallies are shown |
 | Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec. `CachingEduskuntaClient` now covers this: immutable data cached 12 h, volatile 10 min, and concurrent callers for one key share a single fetch |
@@ -294,3 +322,99 @@ can be found on a phone in under three taps.
 | Upstream schema changes | Real captured responses are committed as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by shape tests, so a breaking change surfaces as a test failure; refresh fixtures periodically since they're a point-in-time snapshot |
 | MP identity across terms (`henkilonumero` continuity, legacy `EdustajaId`/`EdustajaHenkiloNumero`) | Decide canonical ID (`henkilonumero`, per the new API) in Step 1 model design |
 | Hosting cost for a hobby project | Free tiers + output caching keep compute minimal; static PWA assets are nearly free to serve |
+## 7. Convergence Plan — `VoteCheckWeb` onto `VoteCheck.Core`
+
+*Written 2026-08-28, revised 2026-08-29 after Step 1 landed.* `VoteCheckWeb` (§4 Step 3) and
+`VoteCheck.Core`/`VoteCheck.Api` grew on parallel branches. They are complementary, not
+redundant: `VoteCheckWeb` has the UI, permalinks and SQLite mirror but ingests from the
+retiring legacy API; `VoteCheck.Core` has the new-API client, typed models, caching and tests,
+but no pages and no persistence. This section converges them: `VoteCheckWeb` keeps its Razor UI
+and SQLite mirror, `VoteCheck.Core` becomes the single upstream boundary, and the duplicate
+legacy client in `VoteCheckWeb/Sync/` is deleted.
+
+### Blockers to resolve on the way
+
+- **String vote identifiers break the FTS5 index.** The mirror schema keys on
+  `session.id INTEGER PRIMARY KEY` (legacy `AanestysId`, e.g. `51221`); the new API's
+  identifier is a string (`Aanestys.Id`, e.g. `"2026-60-1"`). Moving `session.id` and
+  `vote.session_id` to `TEXT` invalidates `content_rowid='id'`, because FTS5 external-content
+  tables require an INTEGER rowid. The search index must keep a surrogate integer rowid beside
+  the text tunnus, or abandon external-content mode.
+
+- **`IEduskuntaClient` cannot enumerate history.** It exposes recent votes, a vote by tunnus,
+  votes in a session, votes for a matter, and the MP endpoints — nothing that walks the
+  archive. The current sync pages through legacy `SaliDBAanestys` from 2023 onward and has no
+  equivalent. Either the interface gains an enumeration method or backfill synthesises session
+  identifiers (`{year}-{number}`) and walks `GetVotesInSessionAsync` until exhaustion. Check
+  the OpenAPI spec (§3.1) first — this may already be answered there.
+
+- **The `KieliId` filter becomes obsolete.** The legacy API stored a Swedish duplicate of every
+  vote under the adjacent `AanestysId`; the new one returns a single record with `fi`/`sv`
+  inline as `LocalizedText`. Delete that filter and the test that was to pin it, rather than
+  porting either. The `Tyhjää` → `Tyhjä` normalisation still applies but moves to
+  `EdustajanAanestys.Kayttaytyminen`.
+
+### Steps
+
+In priority order; each step is independently landable.
+
+1. ~~**Land `VoteCheck.Core` on master.**~~ **Done 2026-08-29** (PR #25): `VoteCheck.Core`,
+   `VoteCheck.Core.Tests`, `VoteCheck.Api`, `VoteCheck.Api.Tests` merged; solution builds,
+   153 tests green (71 legacy + 55 Core + 27 Api).
+
+2. **Close the backfill gap.** Verify against the OpenAPI spec / live API whether sessions can
+   be enumerated, then add the method to `IEduskuntaClient` and both implementations. This is
+   the only step with genuine unknowns, so it runs early: if enumeration proves impossible the
+   mirror design needs rethinking, and that must surface now. Timebox it.
+
+3. **Migrate the mirror schema to string identifiers.** `session.id` and `vote.session_id` to
+   `TEXT`; rebuild the FTS5 index per the blocker above. The database is disposable, so this is
+   a drop-and-rebackfill, not a migration script.
+
+4. **Repoint the sync.** Rewrite `VoteSyncService` against `IEduskuntaClient` and delete
+   `VoteCheckWeb/Sync/EduskuntaApiClient.cs`. Move vote normalisation to `Kayttaytyminen`,
+   drop the `KieliId` filter, flatten `LocalizedText` party abbreviations at the boundary.
+   Acceptance: a fresh database backfills 2023+ unattended and resumes after restart without
+   duplicates or gaps. **This is the deadline-critical step** — the legacy API has been
+   redirecting since 30 Mar 2026 and shuts down at year end.
+
+5. ~~**Tests for `VoteCheckWeb`.**~~ **Done 2026-08-29.** `VoteCheckWeb.Tests` covers
+   `Queries` against a temp database built by the real `EnsureSchema` (party sums,
+   attendance, name and FTS search, annulled-division handling) and `VoteValue`
+   normalisation, which moved out of the sync so it could be tested and shared. 24 tests.
+   The chronological-ordering assertions were mutation-checked: reinstating
+   `ORDER BY id DESC` fails two of them.
+
+6. ~~**Decide `VoteCheck.Api`'s fate.**~~ **Done 2026-08-29: folded into `VoteCheckWeb`.**
+   One deployable, one upstream path, one JSON surface. What moved across: the
+   `/mps/{id}/activity` rollup (now a SQL aggregate over the mirror rather than a
+   derivation from live payloads), `?lang` resolution, Swagger/OpenAPI at `/swagger`,
+   configurable CORS via `VoteCheck:AllowedOrigins`, and `/health`. `VoteCheck.Api` and
+   `VoteCheck.Api.Tests` are deleted; the Dockerfile moved to `VoteCheckWeb/` and CI builds
+   that image.
+
+   Carrying `?lang` required a schema change, since the mirror stored Finnish only: `session`
+   now holds `title_sv`/`subject_sv`, falling back to Finnish per row when a translation is
+   absent. English is deliberately not stored — the vote endpoints upstream carry none, so
+   `lang=en` resolves to Finnish rather than returning blanks. Party abbreviations and vote
+   values stay canonical Finnish: they are identifiers, not prose. Search still matches the
+   Finnish FTS index whatever language the results render in.
+
+7. **Ship it.** *Metadata and crawlability done 2026-08-29; deployment outstanding.*
+
+   Done: OpenGraph and Twitter-card tags on every page, with `/vote/{id}` leading its card
+   with the tally (`Jaa 101 – Ei 90 · …`) because feeds truncate the tail and the numbers
+   are the fact being checked; per-page `<title>`, meta description and absolute
+   `<link rel=canonical>`; a `wwwroot` with a favicon; and `/robots.txt` and `/sitemap.xml`
+   served as endpoints rather than files, since both need the deployment's own origin.
+   Search result pages are `Disallow`ed — they are generated per query and add nothing to
+   an index. Card text is truncated on a word boundary: a subject can be a full sentence,
+   and a card cut mid-word reads as broken.
+
+   **Still to do — deployment.** `VoteCheckWeb/Dockerfile` builds the whole product and CI
+   builds that image, but choosing a host and pushing needs credentials. Requirements when
+   it happens: HTTPS, `votecheck.db` on a persistent volume (the mirror is rebuildable but
+   re-backfilling on every restart is slow and rude to upstream), and one unattended full
+   backfill of the 2023+ window (~2,771 divisions, ~56 requests) before traffic arrives.
+   Acceptance: a shared `/vote/{id}` link opens publicly in under a second and unfurls with
+   its tally.

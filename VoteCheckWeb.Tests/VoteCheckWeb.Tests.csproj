@@ -5,20 +5,15 @@
     <IsTestProject>true</IsTestProject>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>VoteCheck.Api.Tests</AssemblyName>
+    <RootNamespace>VoteCheckWeb.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="MSTest.TestAdapter"     Version="3.1.1" />
     <PackageReference Include="MSTest.TestFramework"   Version="3.1.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\VoteCheck.Api\VoteCheck.Api.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\VoteCheck.Core.Tests\Fixtures\*.json"
-          Link="Fixtures\%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\VoteCheckWeb\VoteCheckWeb.csproj" />
   </ItemGroup>
 </Project>

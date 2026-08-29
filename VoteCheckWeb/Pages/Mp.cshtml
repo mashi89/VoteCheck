@@ -1,0 +1,41 @@
+@page "/mp/{personNumber:int}"
+@model MpModel
+
+@if ( Model.Profile == null ) {
+    <h1>Edustajaa ei löytynyt</h1>
+    return;
+}
+
+@{
+    var mp = Model.Profile.Mp;
+    ViewData["Title"] = $"{mp.FirstName} {mp.LastName}";
+    var attendance = Model.Profile.TotalVotes > 0
+        ? 100.0 * Model.Profile.Present / Model.Profile.TotalVotes
+        : 0;
+    ViewData["OgType"] = "profile";
+    ViewData["OgTitle"] = $"{mp.FirstName} {mp.LastName} ({mp.Party}) — VoteCheck";
+    ViewData["Description"] = Model.Profile.TotalVotes > 0
+        ? $"{mp.FirstName} {mp.LastName} ({mp.Party}): {Model.Profile.TotalVotes} äänestystä, "
+          + $"läsnäolo {attendance:0.0} %. Katso edustajan äänet eduskunnassa."
+        : $"{mp.FirstName} {mp.LastName} ({mp.Party}) — ei äänestyksiä tietokannassa.";
+}
+
+<h1>@mp.FirstName @mp.LastName <span class="muted">(@mp.Party)</span></h1>
+<p>
+    Äänestyksiä tietokannassa: <strong>@Model.Profile.TotalVotes</strong> ·
+    Läsnäolo: <strong>@attendance.ToString( "0.0" ) %</strong>
+</p>
+
+<h2>Viimeisimmät äänet</h2>
+<table>
+    <thead><tr><th>Pvm</th><th>Äänestys</th><th>Ääni</th></tr></thead>
+    <tbody>
+    @foreach ( var v in Model.Profile.LatestVotes ) {
+        <tr>
+            <td>@v.Date[..Math.Min( 10, v.Date.Length )]</td>
+            <td><a href="/vote/@v.SessionId">@v.Title</a></td>
+            <td class="vote-@v.Vote">@v.Vote</td>
+        </tr>
+    }
+    </tbody>
+</table>

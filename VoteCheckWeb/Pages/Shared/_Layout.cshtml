@@ -1,0 +1,60 @@
+@{
+    // Permalinks are the product's distribution mechanism (design.md §3), so every page
+    // states its own title, description and canonical URL, and unfurls in a feed.
+    var pageTitle = ViewData["Title"] as string;
+    var fullTitle = pageTitle != null ? pageTitle + " — VoteCheck" : "VoteCheck — Eduskunnan äänestykset";
+    var description = ViewData["Description"] as string
+        ?? "Miten kansanedustajat ovat äänestäneet? Selaa eduskunnan täysistuntoäänestyksiä, "
+           + "puolueiden jakaumia ja edustajien äänestyskäyttäytymistä.";
+    // Absolute URLs: og:url and canonical must not be relative, and a shared link may be
+    // resolved by a crawler that never saw the originating request.
+    var canonical = $"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.Path}";
+}
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@fullTitle</title>
+    <meta name="description" content="@description" />
+    <link rel="canonical" href="@canonical" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:site_name" content="VoteCheck" />
+    <meta property="og:type" content="@(ViewData["OgType"] as string ?? "website")" />
+    <meta property="og:title" content="@(ViewData["OgTitle"] as string ?? fullTitle)" />
+    <meta property="og:description" content="@description" />
+    <meta property="og:url" content="@canonical" />
+    <meta property="og:locale" content="fi_FI" />
+    @* Summary rather than summary_large_image: there is no image, and asking for a large
+       card without one renders as an empty box in most clients. *@
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="@(ViewData["OgTitle"] as string ?? fullTitle)" />
+    <meta name="twitter:description" content="@description" />
+
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 0 auto; padding: 0 1rem; line-height: 1.5; }
+        header { padding: 1rem 0; border-bottom: 1px solid #8884; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+        header a.brand { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: inherit; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid #8883; vertical-align: top; }
+        .vote-Jaa { color: #1a7f37; font-weight: 600; }
+        .vote-Ei { color: #c62828; font-weight: 600; }
+        .vote-Tyhjä, .vote-Poissa { color: #888; }
+        form.search { display: flex; gap: .5rem; }
+        form.search input[type=search] { flex: 1; padding: .4rem .6rem; }
+        .muted { color: #888; font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">VoteCheck</a>
+        <a href="/mps">Kansanedustajat</a>
+        <a href="/search">Haku</a>
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

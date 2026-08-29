@@ -262,3 +262,5 @@ __pycache__/
 
 # NuGet restore tools
 .nuget/
+# VoteCheckWeb runtime database
+votecheck.db*
