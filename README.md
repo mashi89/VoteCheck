@@ -60,6 +60,19 @@ See `tools/README.md` for what that sample covers.
 
 ## Deployment
 
+For a real deployment — UpCloud Helsinki, Caddy for automatic TLS, provisioning script and
+a runbook — see **[`deploy/README.md`](deploy/README.md)**. In short:
+
+```
+# on a fresh Ubuntu server
+curl -fsSL https://raw.githubusercontent.com/mashi89/VoteCheck/master/deploy/setup.sh | bash
+# then, from a clone of this repo
+DOMAIN=your.domain [email protected] \
+  docker compose -f docker-compose.prod.yml up -d --build
+```
+
+To run the container alone, without TLS or a proxy:
+
 ```
 docker compose up --build
 ```
