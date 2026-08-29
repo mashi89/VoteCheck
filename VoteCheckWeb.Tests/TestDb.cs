@@ -28,13 +28,17 @@ internal sealed class TestDb : IDisposable {
     public void AddSession(
         string id, string date, string title, string subject,
         int year, int sessionNumber, int voteNumber,
-        int yes = 0, int no = 0, int blank = 0, int absent = 0, bool cancelled = false ) {
+        int yes = 0, int no = 0, int blank = 0, int absent = 0, bool cancelled = false,
+        string titleSv = "", string subjectSv = "" ) {
         Exec( """
-            INSERT INTO session ( id, date, title, subject, vp_year, session_number, vote_number,
+            INSERT INTO session ( id, date, title, subject, title_sv, subject_sv,
+                                  vp_year, session_number, vote_number,
                                   result_yes, result_no, result_blank, result_absent, cancelled )
-            VALUES ( $id, $date, $title, $subject, $y, $s, $n, $yes, $no, $blank, $absent, $c )
+            VALUES ( $id, $date, $title, $subject, $tsv, $ssv,
+                     $y, $s, $n, $yes, $no, $blank, $absent, $c )
             """,
             ( "$id", id ), ( "$date", date ), ( "$title", title ), ( "$subject", subject ),
+            ( "$tsv", titleSv ), ( "$ssv", subjectSv ),
             ( "$y", year ), ( "$s", sessionNumber ), ( "$n", voteNumber ),
             ( "$yes", yes ), ( "$no", no ), ( "$blank", blank ), ( "$absent", absent ),
             ( "$c", cancelled ? 1 : 0 ) );

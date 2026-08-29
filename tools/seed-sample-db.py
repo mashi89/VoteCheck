@@ -34,6 +34,10 @@ CREATE TABLE session (
     date           TEXT NOT NULL,           -- ISO date; istuntopvm has a UTC offset we trim
     title          TEXT NOT NULL,
     subject        TEXT NOT NULL,
+    -- Swedish alongside Finnish: upstream sends both on every division, and the API
+    -- resolves one via ?lang. No English — the vote endpoints do not carry it.
+    title_sv       TEXT NOT NULL DEFAULT '',
+    subject_sv     TEXT NOT NULL DEFAULT '',
     -- Components of `id`. Ordering by the id string is wrong: "2009-114-4" sorts
     -- before "2009-24-1" but happened five months later.
     vp_year        INTEGER NOT NULL,
@@ -94,6 +98,9 @@ def as_int(v):
 def fi(node):
     return (node or {}).get("fi")
 
+def sv(node):
+    return (node or {}).get("sv")
+
 def main(src, dst):
     con = sqlite3.connect(dst)
     con.executescript(SCHEMA)
@@ -110,6 +117,8 @@ def main(src, dst):
             a["id"], date,
             fi(a.get("aanestysotsikko")) or "",
             fi((a.get("kohta") or {}).get("otsikko")) or "",
+            sv(a.get("aanestysotsikko")) or "",
+            sv((a.get("kohta") or {}).get("otsikko")) or "",
             as_int(a.get("istuntovpvuosi")), as_int(a.get("istuntonumero")),
             as_int(a.get("aanestysnumero")),
             tulos.get("jaa", 0), tulos.get("ei", 0),
@@ -128,9 +137,10 @@ def main(src, dst):
                 mp_latest[pn] = (date, b.get("etunimi") or "", b.get("sukunimi") or "", party)
 
     con.executemany(
-        "INSERT INTO session (id,date,title,subject,vp_year,session_number,vote_number,"
+        "INSERT INTO session (id,date,title,subject,title_sv,subject_sv,"
+        "vp_year,session_number,vote_number,"
         "result_yes,result_no,result_blank,result_absent,cancelled) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", sessions)
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", sessions)
     con.executemany(
         "INSERT INTO mp (person_number,first_name,last_name,party) VALUES (?,?,?,?)",
         [(pn, v[1], v[2], v[3]) for pn, v in mp_latest.items()])

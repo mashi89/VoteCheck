@@ -33,8 +33,13 @@ public sealed class Db {
                 -- ({vpYear}-{sessionNumber}-{voteNumber}).
                 id             TEXT NOT NULL UNIQUE,
                 date           TEXT NOT NULL,         -- ISO date; upstream istuntopvm carries a UTC offset we trim
-                title          TEXT NOT NULL,         -- aanestysotsikko
-                subject        TEXT NOT NULL,         -- kohta.otsikko
+                title          TEXT NOT NULL,         -- aanestysotsikko.fi
+                subject        TEXT NOT NULL,         -- kohta.otsikko.fi
+                -- Swedish is carried alongside because Finland is officially bilingual and
+                -- upstream already sends both on every division; English is not stored,
+                -- because the vote endpoints do not carry it at all.
+                title_sv       TEXT NOT NULL DEFAULT '',
+                subject_sv     TEXT NOT NULL DEFAULT '',
                 -- Components of `id`, stored separately because ordering by the id
                 -- string is wrong: "2009-114-4" sorts before "2009-24-1" but happened
                 -- five months later. Chronology needs the numbers, not the text.

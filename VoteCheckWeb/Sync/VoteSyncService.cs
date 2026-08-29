@@ -109,9 +109,11 @@ public sealed class VoteSyncService : BackgroundService {
 
             var tulos = vote.Aanestystulos;
             Exec( conn, tx, """
-                INSERT INTO session ( id, date, title, subject, vp_year, session_number, vote_number,
+                INSERT INTO session ( id, date, title, subject, title_sv, subject_sv,
+                                      vp_year, session_number, vote_number,
                                       result_yes, result_no, result_blank, result_absent, cancelled )
-                VALUES ( $id, $date, $title, $subject, $year, $session, $number,
+                VALUES ( $id, $date, $title, $subject, $titleSv, $subjectSv,
+                         $year, $session, $number,
                          $yes, $no, $blank, $absent, $cancelled )
                 ON CONFLICT ( id ) DO NOTHING
                 """,
@@ -121,6 +123,8 @@ public sealed class VoteSyncService : BackgroundService {
                 ( "$date", Left( vote.Istuntopvm, 10 ) ),
                 ( "$title", vote.Aanestysotsikko?.Fi ?? "" ),
                 ( "$subject", vote.Kohta?.Otsikko?.Fi ?? "" ),
+                ( "$titleSv", vote.Aanestysotsikko?.Sv ?? "" ),
+                ( "$subjectSv", vote.Kohta?.Otsikko?.Sv ?? "" ),
                 ( "$year", ParseInt( vote.Istuntovpvuosi ) ),
                 ( "$session", ParseInt( vote.Istuntonumero ) ),
                 ( "$number", ParseInt( vote.Aanestysnumero ) ),

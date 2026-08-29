@@ -39,4 +39,4 @@ jobs:
       # Verifies the image builds; publishing to a registry is left to whoever
       # sets up deployment (design.md §4, Step 2).
       - name: Build API image
-        run: docker build -f VoteCheck.Api/Dockerfile -t votecheck-api .
+        run: docker build -f VoteCheckWeb/Dockerfile -t votecheck .

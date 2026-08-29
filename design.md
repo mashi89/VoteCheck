@@ -68,10 +68,11 @@ unauthenticated JSON)  typed models +        Service)       mirror; disposable,
                        caching decorator                    rebuildable)
                               │                                   │
                               ▼                                   ▼
-                     VoteCheck.Api                        VoteCheckWeb
-                     minimal JSON API                     Razor SSR pages +
-                     (mobile/PWA later;                   /api/v1 JSON
-                      fate decided in §7)                 shareable permalinks
+                                                          VoteCheckWeb
+                                                          Razor SSR pages +
+                                                          /api/v1 JSON (Swagger,
+                                                          ?lang, CORS, /health)
+                                                          shareable permalinks
                                                                   │
                                                                   ▼
                                                           Browser (crawlable,
@@ -90,8 +91,8 @@ Principles:
 - **SSR first, installable app later** *(decision 2026-08-29, revised from "PWA instead of
   separate native apps")*. Server-rendered Razor pages give crawlable, instantly-rendering
   permalinks — the atomic unit of fact-checking that gets shared, and the product's distribution
-  mechanism. A PWA/mobile client can still come later over `VoteCheck.Api`'s JSON without
-  re-architecting.
+  mechanism. A PWA/mobile client can still come later over `VoteCheckWeb`'s `/api/v1`
+  JSON without re-architecting.
 - **Mirror, don't proxy, for the web frontend.** Upstream payloads are heavy (~75 KB per vote,
   ~750 KB for ten recent votes) and `/search*` is rate-capped (450 POST/3000s/IP), so
   `VoteCheckWeb` serves from a local SQLite + FTS5 mirror fed by a sync service, projecting each
@@ -224,11 +225,16 @@ detour through the legacy table shape, since it has only months of runway left (
 *Done when:* `EduskuntaClient` can fetch an MP, a vote with its party/government-opposition
 breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passing on mocked HTTP.
 
-### Step 2 — Stand up `VoteCheck.Api` (ASP.NET Core minimal API)
+### Step 2 — Stand up a JSON API (ASP.NET Core minimal API)
 
 *Goal: the data is reachable from any browser via clean JSON endpoints.*
 
-> **Status: built and running locally.** `VoteCheck.Api` serves all nine v1 routes, with
+> **Status: delivered, then folded into `VoteCheckWeb` (§7 step 6, 2026-08-29).** The
+> standalone `VoteCheck.Api` project no longer exists; its JSON surface, Swagger UI,
+> `?lang` resolution, CORS configuration and `/health` probe now live in `VoteCheckWeb`
+> and read the local mirror instead of upstream. History below kept for context.
+>
+> **Original status: built and running locally.** `VoteCheck.Api` served nine v1 routes, with
 > Swagger UI at `/swagger` and a `/health` probe. `EduskuntaClient` is registered via
 > `IHttpClientFactory` and wrapped in `CachingEduskuntaClient`; output caching sits in front
 > with matching immutable/volatile policies. Verified by booting the app, not only by tests.
@@ -282,8 +288,9 @@ Reasons, in order of weight:
    the mirror projects server-side (see §3 principles).
 3. Upstream `/search*` rate caps make a local FTS5 index the safer search backend.
 
-The WASM/PWA route is *deferred, not rejected* — `VoteCheck.Api` remains the JSON surface a
-future installable client would consume (§5, §7 step 6).
+The WASM/PWA route is *deferred, not rejected* — `VoteCheckWeb`'s `/api/v1` remains the
+JSON surface a future installable client would consume (§5), documented at `/swagger` and
+CORS-capable for a separate origin.
 
 Still to do on the frontend itself (§7 steps 5–7): tests, OpenGraph/canonical tags for link
 unfurling, `wwwroot` static assets (currently missing — pages render unstyled), localization
@@ -378,17 +385,24 @@ In priority order; each step is independently landable.
    The chronological-ordering assertions were mutation-checked: reinstating
    `ORDER BY id DESC` fails two of them.
 
-6. **Decide `VoteCheck.Api`'s fate.** It and `VoteCheckWeb` both expose `/api/v1`, with
-   different architectures — live passthrough plus `IMemoryCache` versus SQLite mirror. Either
-   fold it into `VoteCheckWeb` as one deployable or keep it as the mobile-facing surface
-   (per §3, it stays the JSON surface a future PWA would consume — but it could read the mirror
-   instead of upstream). Cheap to decide once steps 2–4 land; expensive to defer past
-   deployment.
+6. ~~**Decide `VoteCheck.Api`'s fate.**~~ **Done 2026-08-29: folded into `VoteCheckWeb`.**
+   One deployable, one upstream path, one JSON surface. What moved across: the
+   `/mps/{id}/activity` rollup (now a SQL aggregate over the mirror rather than a
+   derivation from live payloads), `?lang` resolution, Swagger/OpenAPI at `/swagger`,
+   configurable CORS via `VoteCheck:AllowedOrigins`, and `/health`. `VoteCheck.Api` and
+   `VoteCheck.Api.Tests` are deleted; the Dockerfile moved to `VoteCheckWeb/` and CI builds
+   that image.
+
+   Carrying `?lang` required a schema change, since the mirror stored Finnish only: `session`
+   now holds `title_sv`/`subject_sv`, falling back to Finnish per row when a translation is
+   absent. English is deliberately not stored — the vote endpoints upstream carry none, so
+   `lang=en` resolves to Finnish rather than returning blanks. Party abbreviations and vote
+   values stay canonical Finnish: they are identifiers, not prose. Search still matches the
+   Finnish FTS index whatever language the results render in.
 
 7. **Ship it.** OpenGraph/Twitter-card meta tags on `/vote/{id}` and `/mp/{id}` (title = vote
    subject + result, e.g. "Jaa 107 – Ei 81"), canonical URLs, per-page `<title>` and meta
    description — the product's core distribution mechanism, so it precedes any traffic. Create
-   `wwwroot` (missing; pages render unstyled). Then deploy from `VoteCheck.Api/Dockerfile` as
-   the starting point, onto a small VPS or Azure App Service behind HTTPS, with `votecheck.db`
+   `wwwroot` (missing; pages render unstyled). Then deploy from `VoteCheckWeb/Dockerfile`, onto a small VPS or Azure App Service behind HTTPS, with `votecheck.db`
    on a persistent volume to avoid re-backfilling. Acceptance: a shared `/vote/{id}` link opens
    publicly in under a second.
