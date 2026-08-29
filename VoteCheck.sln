@@ -10,6 +10,7 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCollectorTests", "VoteCollectorTests\VoteCollectorTests.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheckWeb", "VoteCheckWeb\VoteCheckWeb.csproj", "{A313B370-280C-4CC2-9F07-18ADB196ABAE}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheck.Core", "VoteCheck.Core\VoteCheck.Core.csproj", "{AABFF944-AF29-49C6-8756-5BADCFB2C934}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheck.Core.Tests", "VoteCheck.Core.Tests\VoteCheck.Core.Tests.csproj", "{CB52C875-516D-4BBD-BFC2-1035B6F51C7F}"
@@ -17,6 +18,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheck.Api", "VoteCheck.Api\VoteCheck.Api.csproj", "{18D056F1-5A27-4637-BE12-B6CBEA76F2B2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheck.Api.Tests", "VoteCheck.Api.Tests\VoteCheck.Api.Tests.csproj", "{9227C2AF-F8B3-4280-936C-A6D71B3D662A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoteCheckWeb.Tests", "VoteCheckWeb.Tests\VoteCheckWeb.Tests.csproj", "{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -124,6 +127,18 @@ Global
 		{9227C2AF-F8B3-4280-936C-A6D71B3D662A}.Release|x64.Build.0 = Release|Any CPU
 		{9227C2AF-F8B3-4280-936C-A6D71B3D662A}.Release|x86.ActiveCfg = Release|Any CPU
 		{9227C2AF-F8B3-4280-936C-A6D71B3D662A}.Release|x86.Build.0 = Release|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Debug|x64.Build.0 = Debug|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Debug|x86.Build.0 = Debug|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Release|x64.ActiveCfg = Release|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Release|x64.Build.0 = Release|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Release|x86.ActiveCfg = Release|Any CPU
+		{3E2700A5-1D1C-4761-A5E7-DBED8E49D492}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

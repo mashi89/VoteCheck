@@ -371,8 +371,12 @@ In priority order; each step is independently landable.
    duplicates or gaps. **This is the deadline-critical step** — the legacy API has been
    redirecting since 30 Mar 2026 and shuts down at year end.
 
-5. **Tests for `VoteCheckWeb`.** `Queries` against an in-memory SQLite database seeded with
-   known rows (party sums, attendance %, search), vote normalisation, FTS query building.
+5. ~~**Tests for `VoteCheckWeb`.**~~ **Done 2026-08-29.** `VoteCheckWeb.Tests` covers
+   `Queries` against a temp database built by the real `EnsureSchema` (party sums,
+   attendance, name and FTS search, annulled-division handling) and `VoteValue`
+   normalisation, which moved out of the sync so it could be tested and shared. 24 tests.
+   The chronological-ordering assertions were mutation-checked: reinstating
+   `ORDER BY id DESC` fails two of them.
 
 6. **Decide `VoteCheck.Api`'s fate.** It and `VoteCheckWeb` both expose `/api/v1`, with
    different architectures — live passthrough plus `IMemoryCache` versus SQLite mirror. Either

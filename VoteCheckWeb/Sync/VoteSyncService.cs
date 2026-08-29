@@ -132,7 +132,7 @@ public sealed class VoteSyncService : BackgroundService {
 
             foreach ( var ballot in vote.Aanestystapahtumat ) {
                 var party = ballot.Edkryhmalyhenne?.Fi?.Trim() ?? "";
-                var choice = NormalizeVote( ballot.Kayttaytyminen?.Fi );
+                var choice = VoteValue.Normalize( ballot.Kayttaytyminen?.Fi );
 
                 Exec( conn, tx, """
                     INSERT INTO mp ( person_number, first_name, last_name, party )
@@ -160,15 +160,6 @@ public sealed class VoteSyncService : BackgroundService {
         tx.Commit();
         return count;
     }
-
-    // The API says "Tyhjää"; the canonical value in the mirror is "Tyhjä".
-    private static string NormalizeVote( string? raw ) => ( raw ?? "" ).Trim() switch {
-        "Jaa" => "Jaa",
-        "Ei" => "Ei",
-        "Tyhjää" or "Tyhjä" => "Tyhjä",
-        "Poissa" => "Poissa",
-        var other => other,
-    };
 
     private static string Left( string? value, int length ) =>
         string.IsNullOrEmpty( value ) ? "" : value[..Math.Min( length, value.Length )];
