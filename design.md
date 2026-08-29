@@ -247,8 +247,10 @@ breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passin
 >   api.eduskunta.fi, so that service being unreachable is a normal condition and shouldn't
 >   read as a fault in VoteCheck.
 >
-> Not done: actually deploying it. The Dockerfile and CI workflow are in place, but choosing a
-> host and pushing an image needs credentials, so a public URL is still outstanding.
+> Not done: actually deploying it. The kit is complete as of 2026-08-29 — Dockerfile, CI
+> image build, compose overlays and the `deploy/` runbook targeting UpCloud Helsinki behind
+> Cloudflare — but the public URL waits on `edustajavahti.fi` activating at the registrar.
+> See §7 step 7.
 
 - New project `VoteCheck.Api` referencing `VoteCheck.Core`; implement the v1 endpoints above.
 - Add the first *computed* endpoint, `GET /api/mps/{id}/activity`, aggregating attendance and
@@ -292,9 +294,11 @@ The WASM/PWA route is *deferred, not rejected* — `VoteCheckWeb`'s `/api/v1` re
 JSON surface a future installable client would consume (§5), documented at `/swagger` and
 CORS-capable for a separate origin.
 
-Still to do on the frontend itself (§7 steps 5–7): tests, OpenGraph/canonical tags for link
-unfurling, a `wwwroot` for a favicon and robots.txt, localization
-scaffold (Finnish first; the bilingual `LocalizedText` fields make Swedish nearly free).
+§7 steps 5–7 have since closed this out: `VoteCheckWeb.Tests`, OpenGraph and canonical tags
+for link unfurling, a `wwwroot` favicon with `/robots.txt` and `/sitemap.xml` served as
+endpoints (both need the deployment's own origin), and Swedish carried through the queries
+with a per-row Finnish fallback — nearly free, as predicted, because upstream sends both
+languages on every division.
 
 *Done when:* a public URL serves the SSR pages from a database synced via `VoteCheck.Core`,
 and an MP's recent votes can be found on a phone in under three taps.
@@ -362,21 +366,53 @@ In priority order; each step is independently landable.
    `VoteCheck.Core.Tests`, `VoteCheck.Api`, `VoteCheck.Api.Tests` merged; solution builds,
    153 tests green (71 legacy + 55 Core + 27 Api).
 
-2. **Close the backfill gap.** Verify against the OpenAPI spec / live API whether sessions can
-   be enumerated, then add the method to `IEduskuntaClient` and both implementations. This is
-   the only step with genuine unknowns, so it runs early: if enumeration proves impossible the
-   mirror design needs rethinking, and that must surface now. Timebox it.
+2. ~~**Close the backfill gap.**~~ **Done 2026-08-29.** Enumeration is possible, with a
+   caveat worth recording. No `taysistunnot/*` endpoint walks history; `/search` does, but
+   caps at `startFromIndex + maxResults <= 10000`, so it cannot reach all 15,562 divisions.
+   `/search/dataset` (an async export job) can. The cap does not bind here: the 2023+ window
+   is 2,771 divisions, so `GetVotePageAsync` on plain `/search` is sufficient for the app and
+   the dataset job stays unbuilt until something needs the full archive.
 
-3. **Migrate the mirror schema to string identifiers.** `session.id` and `vote.session_id` to
-   `TEXT`; rebuild the FTS5 index per the blocker above. The database is disposable, so this is
-   a drop-and-rebackfill, not a migration script.
+   Two places where upstream's documentation and its behaviour disagree, found the hard way:
+   `Sort` is `{property, ascending}` rather than what the spec shows, and a `fields`
+   projection is accepted and then silently ignored. Also note `istuntovpvuosi` (2,771 for
+   2023+) and an equivalent-looking date range (1,875) return materially different sets —
+   the year filter is the one that matches what `SyncMinYear` has always meant.
 
-4. **Repoint the sync.** Rewrite `VoteSyncService` against `IEduskuntaClient` and delete
-   `VoteCheckWeb/Sync/EduskuntaApiClient.cs`. Move vote normalisation to `Kayttaytyminen`,
-   drop the `KieliId` filter, flatten `LocalizedText` party abbreviations at the boundary.
+3. ~~**Migrate the mirror schema to string identifiers.**~~ **Done 2026-08-29.**
+   `session.id` and `vote.session_id` are `TEXT`, with a surrogate `session.seq` INTEGER
+   primary key existing purely because an FTS5 external-content table requires an INTEGER
+   `content_rowid` and cannot key off `id`.
+
+   One trap this uncovered: ordering by the identifier string reverses history. `"2009-114-4"`
+   sorts before `"2009-24-1"` lexicographically but happened five months later, so `id` is
+   stored alongside its parsed `vp_year` / `session_number` / `vote_number` components and
+   every chronological query orders on those. Two tests fail if the string ordering is
+   reinstated, which is the point of them.
+
+4. ~~**Repoint the sync.**~~ `VoteSyncService` rewritten against `IEduskuntaClient` and
+   `VoteCheckWeb/Sync/EduskuntaApiClient.cs` deleted. Vote normalisation moved out to
+   `VoteCheckWeb/Data/VoteValue.cs` — beside the schema rather than inside the sync, because
+   the queries, the pages and the seeding script all need the same four strings. The
+   `KieliId` filter is gone and `LocalizedText` party abbreviations are flattened at the
+   boundary.
    Acceptance: a fresh database backfills 2023+ unattended and resumes after restart without
-   duplicates or gaps. **This is the deadline-critical step** — the legacy API has been
+   duplicates or gaps. **This was the deadline-critical step** — the legacy API has been
    redirecting since 30 Mar 2026 and shuts down at year end.
+
+   **Done 2026-08-29**, verified against the live API rather than stubs: an empty database
+   reached 205 divisions for vp-year 2026, 202 MPs and 40,795 ballots with zero orphaned
+   rows and a complete FTS index, and a restart re-imported nothing. The cursor lives in
+   `sync_state["vote_cursor"]`, one page per transaction.
+
+   Two upstream realities that only live traffic exposed, both of which stubbed tests
+   passed straight through:
+   - **`api.eduskunta.fi` returns 403 without a `User-Agent`,** on every endpoint, and
+     `HttpClient` sends none by default — `VoteCheck.Core` as merged in step 1 could not
+     reach production at all. Hence `EduskuntaClient.DefaultUserAgent`.
+   - **`puhemies.henkilonumero` is sometimes `"-"`** (2 divisions of 15,562: no Speaker
+     recorded). A plain `int` threw and would have failed the whole page, so
+     `LenientInt32Converter` maps anything unparseable to null.
 
 5. ~~**Tests for `VoteCheckWeb`.**~~ **Done 2026-08-29.** `VoteCheckWeb.Tests` covers
    `Queries` against a temp database built by the real `EnsureSchema` (party sums,
@@ -400,7 +436,8 @@ In priority order; each step is independently landable.
    values stay canonical Finnish: they are identifiers, not prose. Search still matches the
    Finnish FTS index whatever language the results render in.
 
-7. **Ship it.** *Metadata and crawlability done 2026-08-29; deployment outstanding.*
+7. **Ship it.** *Metadata, crawlability and the deployment kit done 2026-08-29;
+   the deployment itself waits on the domain.*
 
    Done: OpenGraph and Twitter-card tags on every page, with `/vote/{id}` leading its card
    with the tally (`Jaa 101 – Ei 90 · …`) because feeds truncate the tail and the numbers
@@ -411,10 +448,27 @@ In priority order; each step is independently landable.
    an index. Card text is truncated on a word boundary: a subject can be a full sentence,
    and a card cut mid-word reads as broken.
 
-   **Still to do — deployment.** `VoteCheckWeb/Dockerfile` builds the whole product and CI
-   builds that image, but choosing a host and pushing needs credentials. Requirements when
-   it happens: HTTPS, `votecheck.db` on a persistent volume (the mirror is rebuildable but
-   re-backfilling on every restart is slow and rude to upstream), and one unattended full
-   backfill of the 2023+ window (~2,771 divisions, ~56 requests) before traffic arrives.
-   Acceptance: a shared `/vote/{id}` link opens publicly in under a second and unfurls with
-   its tally.
+   **Deployment kit done 2026-08-29** (PR #27); the deployment itself waits on the domain.
+   The target is `edustajavahti.fi`, registered at Domainkeskus, on a single UpCloud Starter
+   server in Helsinki behind Cloudflare, with `deploy/README.md` as the runbook. Helsinki
+   and a single instance are not arbitrary: the audience is Finnish, SQLite needs local
+   block storage rather than a network filesystem, and the sync is the single writer — a
+   second replica would mean two processes writing one file.
+
+   The runbook's ordering carries the anti-DDoS design, so it is worth stating here rather
+   than only there. Because Caddy takes its certificate via **DNS-01**, which needs no
+   inbound request, the server can be provisioned, certified and firewalled *before any DNS
+   record points at it*. The origin IP therefore never appears unproxied even briefly —
+   historical-DNS archives never capture it, and there is no window in which an attacker
+   learns the address and bypasses the proxy afterwards. DNS-01 also sidesteps the failure
+   HTTP-01 has behind a proxy, where a setting like *Always Use HTTPS* breaks renewal months
+   later, silently. The origin is then restricted to Cloudflare's ranges twice: at UpCloud's
+   firewall, which sits before the network interface and so drops floods without consuming
+   the server's bandwidth, and at `ufw` as an inner layer. UpCloud's is stateless, so
+   outbound must stay open or the sync and cert renewal fail quietly.
+
+   Remaining before traffic: the domain activating at Domainkeskus, confirmation that
+   `edustajavahti.fi` is clear at PRH/EUIPO/ytj.fi, and one unattended backfill of the
+   2023+ window (~2,771 divisions, ~56 requests) before the site is announced.
+   Acceptance is unchanged: a shared `/vote/{id}` link opens publicly in under a second and
+   unfurls with its tally.
