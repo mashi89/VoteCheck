@@ -68,6 +68,72 @@ curl -s https://your.domain/robots.txt | grep Sitemap    # must say https://your
 If the sitemap line says `http://`, `VoteCheck__BehindProxy` is not taking effect and every
 shared link will advertise the wrong scheme.
 
+## Behind Cloudflare (recommended)
+
+UpCloud mitigates DDoS in its own network, but says outright that it does not offer
+protection comparable to a dedicated service and recommends Cloudflare. Fronting the site
+costs nothing and buys three things that matter here: the origin IP stops being public,
+volumetric floods are absorbed at the edge, and historical votes — which never change —
+get cached away from your server entirely.
+
+### Setup
+
+1. Add the domain to Cloudflare (free plan) and change the nameservers at Domainkeskus to
+   the pair Cloudflare gives you. This is why the domain needs the **Omat nimipalvelimet**
+   product rather than Domainkeskus's own DNS.
+2. Create the `A` (and `AAAA`) record for the apex pointing at the server, **proxied**
+   (orange cloud).
+3. Create an API token: **My Profile → API Tokens → Create Token**, permissions
+   **Zone → DNS → Edit**, scoped to this zone alone. Put it on the server in a `.env`
+   file beside the compose files:
+
+   ```
+   CLOUDFLARE_API_TOKEN=...
+   ```
+
+   `.env` is gitignored. The token never needs to leave the server.
+4. Deploy with the overlay, which swaps in a Caddy built with the Cloudflare modules:
+
+   ```
+   DOMAIN=edustajavahti.fi [email protected] \
+     docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
+   ```
+
+5. **Lock the origin down** — the step that makes the rest meaningful:
+
+   ```
+   sudo bash deploy/cloudflare-firewall.sh
+   ```
+
+   Without it the origin IP leaks eventually (certificate transparency logs, historical
+   DNS, any outbound connection) and an attacker just bypasses Cloudflare. Re-run it when
+   Cloudflare updates its ranges; the script refuses to apply a suspiciously short list,
+   since a truncated one would firewall out most of Cloudflare.
+
+### Why DNS-01 rather than HTTP-01
+
+Behind a proxy, an HTTP-01 challenge depends on an inbound request reaching this server
+untouched. Cloudflare's "Always Use HTTPS" can break that months after setup, silently,
+during a renewal. DNS-01 proves control by writing a TXT record and does not care what the
+proxy does, which is why the Cloudflare image carries `caddy-dns/cloudflare`.
+
+### Caching worth setting
+
+Historical divisions are immutable, so most requests never need to reach the app. In
+Cloudflare, add a Cache Rule for `/vote/*` and `/mp/*` with **Cache Eligibility: eligible**
+and an edge TTL of an hour or more. Leave `/api/v1/*` and `/search` uncached — the first is
+small and the second is per-query.
+
+### Turning the proxy off
+
+Revert the firewall *before* switching to grey cloud, or the site becomes unreachable:
+
+```
+sudo bash deploy/cloudflare-firewall.sh --open
+```
+
+Then redeploy without the overlay, which returns Caddy to HTTP-01.
+
 ## Updating
 
 ```
@@ -97,4 +163,7 @@ gains a column, delete the volume and let it re-backfill.
 | Permalinks say `http://` | `VoteCheck__BehindProxy` not `true`, or Caddy not sending `X-Forwarded-Proto` |
 | Front page empty | Backfill still running, or it failed — check the logs |
 | `403` in sync logs | Upstream rejects requests without a User-Agent; `VoteCheck.Core` sets one, so this means it is being stripped in transit |
+| Site unreachable after firewall script | Cloudflare's ranges changed, or the proxy was switched off while the lockdown was active — `cloudflare-firewall.sh --open` over SSH |
+| Certificate renewal fails behind Cloudflare | Using HTTP-01 through the proxy; deploy the Cloudflare overlay so Caddy uses DNS-01 |
+| Logs show Cloudflare IPs, not visitors | The Cloudflare overlay is not in use, so `trusted_proxies` is unset |
 | Sync stops with "window exhausted" | `SyncMinYear` reaches further back than upstream will page (10,000 results); raise it |
