@@ -23,12 +23,24 @@ RUN dotnet publish VoteCheckWeb/VoteCheckWeb.csproj -c Release -o /app --no-rest
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
-# Run unprivileged; the image serves public open data and needs no write access.
-USER $APP_UID
-
 COPY --from=build /app .
+
+# The sync writes continuously, and SQLite in WAL mode needs to create -wal/-shm files
+# beside the database, so it needs a writable *directory*, not just a writable file.
+# /data is that directory and is where a volume should be mounted; without one the
+# mirror is lost on every restart and re-backfills from scratch.
+RUN mkdir -p /data && chown $APP_UID:$APP_UID /data
+VOLUME ["/data"]
+ENV VoteCheck__DbPath=/data/votecheck.db
+
+# Run unprivileged. Everything the app writes lives under /data, which it owns.
+USER $APP_UID
 
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
+
+# No HEALTHCHECK here on purpose: the runtime image ships no curl or wget, and a check
+# that only proves the runtime exists (`dotnet --info`) would report healthy while the
+# app is down. Point your orchestrator's HTTP probe at /health instead.
 
 ENTRYPOINT ["dotnet", "VoteCheckWeb.dll"]

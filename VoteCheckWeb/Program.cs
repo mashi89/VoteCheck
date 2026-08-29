@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using VoteCheck.Core;
 using VoteCheckWeb.Data;
 using VoteCheckWeb.Sync;
@@ -28,6 +29,23 @@ builder.Services.AddCors( options => options.AddDefaultPolicy( policy => {
         policy.WithOrigins( allowedOrigins ).AllowAnyHeader().AllowAnyMethod();
 } ) );
 
+// Behind a TLS-terminating proxy the request arrives as plain http, so Request.Scheme
+// would be "http" and every canonical URL, og:url and sitemap <loc> would advertise the
+// wrong scheme — for a product whose distribution is shareable links, that matters.
+// Off by default: trusting these headers when the app is directly exposed would let a
+// client forge its own scheme and host.
+var behindProxy = builder.Configuration.GetValue( "VoteCheck:BehindProxy", false );
+if ( behindProxy ) {
+    builder.Services.Configure<ForwardedHeadersOptions>( options => {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        // The proxy is a separate container or host, so the default loopback-only trust
+        // never matches. Clearing these trusts whatever fronts us — which is why the
+        // whole block is opt-in.
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    } );
+}
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen( options => options.SwaggerDoc( "v1", new() {
     Title = "VoteCheck API",
@@ -41,6 +59,11 @@ builder.Services.AddSwaggerGen( options => options.SwaggerDoc( "v1", new() {
 var app = builder.Build();
 
 app.Services.GetRequiredService<Db>().EnsureSchema();
+
+// Must run before anything that reads the scheme or host — that is, before the pages
+// and endpoints that build absolute URLs.
+if ( behindProxy )
+    app.UseForwardedHeaders();
 
 app.UseStaticFiles();
 app.UseCors();
