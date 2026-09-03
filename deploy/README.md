@@ -51,8 +51,10 @@ UpCloud control panel → **Deploy a server**:
   the local block storage both UpCloud tiers provide — never a network filesystem.
 - **Plan:** Starter, **1 vCPU / 2 GB**, standard SSD. Runtime needs only ~300–400 MB, but
   `docker compose up --build` compiles .NET with the SDK *and* Caddy from Go source, and
-  a 1 GB box fails or crawls during that build. (On 1 GB, `setup.sh` adds a 2 GB swapfile
-  automatically, which makes it survivable but slow.)
+  a 1 GB box fails or crawls during that build. (`setup.sh` adds a 2 GB swapfile when
+  MemTotal is under 2048 MB. A 2 GB server reports ~1950 MB once the kernel takes its
+  share, so it gets one too — harmless at `vm.swappiness=10`, and useful headroom for
+  the Go compile. On 1 GB the swapfile is what makes the build finish at all, slowly.)
 - **Operating system:** Ubuntu LTS.
 - **SSH keys:** add yours **at deploy time** — Linux servers are key-only, and retrofitting
   through the console is the hard way.
