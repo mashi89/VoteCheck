@@ -18,5 +18,5 @@ services:
       - caddy-config:/config
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL - the Caddyfile's global email directive has no valid empty form}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?set CLOUDFLARE_API_TOKEN (Zone:DNS:Edit) for DNS-01}

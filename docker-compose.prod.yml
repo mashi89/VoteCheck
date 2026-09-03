@@ -42,7 +42,7 @@ services:
       - caddy-config:/config
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN, e.g. DOMAIN=votecheck.fi}
-      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL - the Caddyfile's global email directive has no valid empty form}
     depends_on:
       - votecheck
     restart: unless-stopped
