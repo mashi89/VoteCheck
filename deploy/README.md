@@ -56,8 +56,15 @@ UpCloud control panel → **Deploy a server**:
 - **Operating system:** Ubuntu LTS.
 - **SSH keys:** add yours **at deploy time** — Linux servers are key-only, and retrofitting
   through the console is the hard way.
-- **Backups:** the free **Day** tier. The mirror is rebuildable and not worth backing up,
-  but a whole-server snapshot costs nothing and undoes "deleted the wrong thing".
+- **Storage:** **virtio**, and tick **encryption at rest** — both are creation-time
+  choices that cost a rebuild to change later. virtio is the paravirtualised interface;
+  IDE and SCSI are emulation, and Ubuntu has virtio drivers in-kernel. The mirror is
+  public data, but the same disk holds Caddy's TLS private key and the Cloudflare API
+  token, and encryption is what keeps those off a decommissioned disk.
+- **Backups:** the **Day** tier, ~€0.60/month. The mirror is rebuildable and not worth
+  backing up, but `caddy-data` is not — losing it re-issues against Let's Encrypt rate
+  limits — and a whole-server snapshot undoes "deleted the wrong thing" in minutes
+  rather than a rebuild plus a full re-backfill.
 - **Firewall:** included in the plan; configured in Phase F, not skipped.
 
 Note the IPv4 (and IPv6) address. **It never goes in an unproxied DNS record.**
@@ -199,8 +206,8 @@ recreating it re-issues against Let's Encrypt rate limits.
   itself (`restart: unless-stopped` + Docker enabled at boot).
 - **Disk is the thing that fills.** Container logs are capped at 30 MB each by `setup.sh`;
   the mirror grows slowly and predictably.
-- **Backups:** the Day tier snapshot is the only one needed. Do not build backup
-  machinery for the mirror — it is rebuildable from api.eduskunta.fi.
+- **Backups:** the Day tier snapshot (~€0.60/month) is the only one needed. Do not build
+  backup machinery for the mirror — it is rebuildable from api.eduskunta.fi.
 - **Turning the proxy off** (grey cloud) requires reverting both firewall layers *first*
   — `sudo bash deploy/cloudflare-firewall.sh --open` plus the UpCloud rules — or the site
   becomes unreachable. Then redeploy without the overlay. But see Phase E: a grey-cloud
