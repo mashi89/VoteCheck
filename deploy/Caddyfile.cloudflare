@@ -31,12 +31,14 @@
 
 	encode zstd gzip
 
-	reverse_proxy votecheck:8080
-
 	# The app builds absolute canonical and og:url values from these, and trusts
-	# them only because VoteCheck__BehindProxy is set.
-	header_up X-Forwarded-Proto {scheme}
-	header_up X-Forwarded-Host {host}
+	# them only because VoteCheck__BehindProxy is set. reverse_proxy would set both
+	# on its own; they are spelled out because every permalink the site emits
+	# depends on them being right.
+	reverse_proxy votecheck:8080 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
