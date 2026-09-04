@@ -247,10 +247,9 @@ breakdown, and recent votes, entirely from `api.eduskunta.fi`, with tests passin
 >   api.eduskunta.fi, so that service being unreachable is a normal condition and shouldn't
 >   read as a fault in VoteCheck.
 >
-> Not done: actually deploying it. The kit is complete as of 2026-08-29 — Dockerfile, CI
-> image build, compose overlays and the `deploy/` runbook targeting UpCloud Helsinki behind
-> Cloudflare — but the public URL waits on `edustajavahti.fi` activating at the registrar.
-> See §7 step 7.
+> Done 2026-09-04: <https://edustajavahti.fi> is live on UpCloud Helsinki behind Cloudflare,
+> built from the kit completed 2026-08-29 — Dockerfile, CI image build, compose overlays and
+> the `deploy/` runbook. See §7 step 7.
 
 - New project `VoteCheck.Api` referencing `VoteCheck.Core`; implement the v1 endpoints above.
 - Add the first *computed* endpoint, `GET /api/mps/{id}/activity`, aggregating attendance and
@@ -553,8 +552,8 @@ In priority order; each step is independently landable.
    values stay canonical Finnish: they are identifiers, not prose. Search still matches the
    Finnish FTS index whatever language the results render in.
 
-7. **Ship it.** *Metadata, crawlability and the deployment kit done 2026-08-29;
-   the deployment itself waits on the domain.*
+7. ~~**Ship it.**~~ **Done 2026-09-04.** *Metadata and crawlability 2026-08-29, the
+   deployment kit the same day, and the deployment itself the following week.*
 
    Done: OpenGraph and Twitter-card tags on every page, with `/vote/{id}` leading its card
    with the tally (`Jaa 101 – Ei 90 · …`) because feeds truncate the tail and the numbers
@@ -565,9 +564,9 @@ In priority order; each step is independently landable.
    an index. Card text is truncated on a word boundary: a subject can be a full sentence,
    and a card cut mid-word reads as broken.
 
-   **Deployment kit done 2026-08-29** (PR #27); the deployment itself waits on the domain.
-   The target is `edustajavahti.fi`, registered at Domainkeskus, on a single UpCloud Starter
-   server in Helsinki behind Cloudflare, with `deploy/README.md` as the runbook. Helsinki
+   **Deployed 2026-09-04**, from the kit landed 2026-08-29 (PR #27). `edustajavahti.fi`,
+   registered at Domainkeskus and delegated to Cloudflare, runs on a single UpCloud Starter
+   server in Helsinki, with `deploy/README.md` as the runbook. Helsinki
    and a single instance are not arbitrary: the audience is Finnish, SQLite needs local
    block storage rather than a network filesystem, and the sync is the single writer — a
    second replica would mean two processes writing one file.
@@ -579,13 +578,31 @@ In priority order; each step is independently landable.
    historical-DNS archives never capture it, and there is no window in which an attacker
    learns the address and bypasses the proxy afterwards. DNS-01 also sidesteps the failure
    HTTP-01 has behind a proxy, where a setting like *Always Use HTTPS* breaks renewal months
-   later, silently. The origin is then restricted to Cloudflare's ranges twice: at UpCloud's
-   firewall, which sits before the network interface and so drops floods without consuming
-   the server's bandwidth, and at `ufw` as an inner layer. UpCloud's is stateless, so
-   outbound must stay open or the sync and cert renewal fail quietly.
+   later, silently. That much held exactly as designed: the certificate was issued while the
+   domain still resolved to nothing at all.
 
-   Remaining before traffic: the domain activating at Domainkeskus, confirmation that
-   `edustajavahti.fi` is clear at PRH/EUIPO/ytj.fi, and one unattended backfill of the
-   2023+ window (~2,771 divisions, ~56 requests) before the site is announced.
-   Acceptance is unchanged: a shared `/vote/{id}` link opens publicly in under a second and
-   unfurls with its tally.
+   The origin lockdown did not, and the correction is the most valuable thing this deployment
+   produced. It was written here as two layers — UpCloud's firewall, which sits before the
+   network interface and so drops floods without consuming the server's bandwidth, and `ufw`
+   as an inner layer. **`ufw` is not an inner layer.** Docker publishes 80/443 by writing its
+   own iptables rules, and those are evaluated before ufw's INPUT chain, so a published
+   container port answers the entire internet however ufw is configured. This was not
+   theoretical: `ufw status` listed 44 Cloudflare-scoped rules while `curl` from another
+   machine got a 308 off the raw IP. `deploy/cloudflare-firewall.sh` now filters in
+   `DOCKER-USER`, the hook Docker provides ahead of its own rules, scoped to the
+   default-route interface so the sync's own tcp/443 calls to api.eduskunta.fi are not caught
+   by the drop, and installs a systemd unit because iptables does not survive a reboot.
+
+   The UpCloud layer is not in place: it requires a paid account and this one is on trial.
+   What that costs is volumetric-flood absorption on the raw IP, an attack that needs the
+   address first — which is what the DNS-01 ordering above denies it. When it is enabled,
+   note that UpCloud's firewall is stateless, so outbound must stay open or the sync and cert
+   renewal fail quietly.
+
+   The only check that means anything is a request from another machine: from the host, traffic
+   to its own public IP goes over loopback, which every layer here allows, so it answers no
+   matter how exposed the origin is.
+
+   Acceptance met: the 2023+ backfill imported 2,771 divisions unattended before any DNS record
+   existed, and a shared `/vote/{id}` link opens publicly and unfurls with its tally. Still
+   outstanding: confirmation that `edustajavahti.fi` is clear at PRH/EUIPO/ytj.fi.
