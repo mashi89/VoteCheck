@@ -319,8 +319,9 @@ and an MP's recent votes can be found on a phone in under three taps.
   informative-text rules apply to it directly rather than by analogy.
 
   What the guidance demands of a site like this one — drawn from that section and from
-  *Vuorovaikutus lukijan kanssa ja tekstin kokonaisuus*; the sections on vocabulary, sentence
-  structure and layout are not yet reflected here:
+  *Vuorovaikutus lukijan kanssa ja tekstin kokonaisuus*, *Helpot kielen rakenteet* and
+  *Selkokielen sanasto*. Layout and typography, and the criteria Selkokeskus assesses for the
+  *selkotunnus*, are not yet read:
 
   - **No content gaps (*sisällöllinen aukko*).** A gap is anything the writer expects the
     reader to infer that the text never states outright. A table cell reading `Jaa` is exactly
@@ -358,9 +359,37 @@ and an MP's recent votes can be found on a phone in under three taps.
     is a recurring editorial cost with a named skill attached, which is the main thing to weigh
     before committing to any scope beyond chrome.
 
-  The two sections pull against each other, and holding both is the actual craft: cut every
-  piece of information the reader does not need, while never creating a *sisällöllinen aukko*.
-  Shorter, and yet nothing left to infer.
+  The structure and vocabulary rules settle the scope question, because **parliamentary Finnish
+  is their systematic inverse.** The guidance asks for the active voice, common case forms,
+  short clauses carrying one idea, no participle or infinitive constructions, no
+  *lauseenvastikkeet*, everyday concrete words, short words, and no abbreviations.
+  `aanestysotsikko` is passive, nominalised, participle-heavy, abstract and long by
+  construction — that is what the register is *for*. So a selko view cannot be the same string
+  with easier words substituted. It has to be written from knowledge of the matter, which is
+  the same conclusion the "know the subject more broadly than the source text" rule reaches.
+
+  Four consequences worth deciding early:
+
+  - **A table is structurally anti-cohesive.** The guidance requires that relations between
+    things be visible, warns against loose disconnected main clauses, and allows only short
+    lists whose items form a whole. A three-column table of divisions is the table equivalent
+    of the thing it warns about: rows with no stated relation to one another. Selko mode is
+    therefore probably not the current tables with simpler wording — it is a different
+    presentation, closer to grouped prose.
+  - **One term per thing, everywhere.** *Viittaa samaan asiaan samalla sanalla.* Today the
+    schema says `session`, the UI says *äänestys*, and the roadmap says *division*. Pick one
+    Finnish term for the concept and never vary it for style. Cheap now, expensive later.
+  - **Party abbreviations survive, but on the exception.** The rule is to avoid abbreviations
+    *unless the abbreviation is more familiar than the expansion*, and `kok` or `sd` plainly is.
+    Keep `edkryhmalyhenne` in the interface, and expand it once where it first appears rather
+    than banishing it.
+  - **Explanations go inline, not in a glossary.** The guidance asks for the explanation that
+    is sufficient and most useful *in this context*, not a dictionary entry. That argues
+    against a separate terms page and for a short gloss beside the term that needs it.
+
+  Finally, the two halves of the guidance pull against each other, and holding both is the
+  actual craft: cut every piece of information the reader does not need, while never creating a
+  *sisällöllinen aukko*. Shorter, and yet nothing left to infer.
 
   Worth noting who the guidance says this is for: people who need selkokieli *"voidakseen
   osallistua yhteiskunnan toimintaan"* — in order to take part in society. For a product whose
