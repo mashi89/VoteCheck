@@ -307,6 +307,123 @@ and an MP's recent votes can be found on a phone in under three taps.
   and a persistence layer — first real database need).
 - **Charts:** party-line cohesion, MP attendance trends over an electoral term.
 - **Historical MP data:** extend beyond `SeatingOfParliament` (current term) to past terms.
+- **Selkokieli (Finnish plain language) as an optional reading mode:** an accessibility
+  feature that serves the product's purpose directly — a voting record nobody can read is not
+  a check on power. The audience is people with reading or comprehension difficulties, language
+  learners, and readers who simply bounce off officialese. Written to the Selkokeskus guidance:
+  <https://selkokeskus.fi/selkokieli/nain-kirjoitat-selkokielta/>.
+
+  The genre section, *Ohjeita informoivien tekstien tekijöille*, is the governing one: it
+  covers texts whose job is to inform or help the reader do something, and names
+  *säädöstekstit* — legislative texts — among them. That is what this site publishes, so the
+  informative-text rules apply to it directly rather than by analogy.
+
+  What the guidance demands of a site like this one — drawn from that section and from
+  *Vuorovaikutus lukijan kanssa ja tekstin kokonaisuus*, *Helpot kielen rakenteet* and
+  *Selkokielen sanasto*. Layout and typography, and the criteria Selkokeskus assesses for the
+  *selkotunnus*, are not yet read:
+
+  - **No content gaps (*sisällöllinen aukko*).** A gap is anything the writer expects the
+    reader to infer that the text never states outright. A table cell reading `Jaa` is exactly
+    that: it assumes the reader knows what the motion was and what voting for it did to it.
+    The standard arrives independently at the same defect as the "what did Jaa/Ei mean" work —
+    strong evidence those are one piece of work rather than two.
+  - **Write from the reader's perspective, not the organisation's.** This site speaks in the
+    parliament's voice by construction: `aanestysotsikko` *is* institutional voice, inherited
+    wholesale from upstream. Undoing that is editorial work, not a setting.
+  - **Headings must match their content.** Division titles routinely name the procedural step
+    rather than what was decided, so using one as a heading breaks this rule even when the
+    title is perfectly accurate.
+  - **Do not condescend, and do not underestimate the reader.** The guidance warns against a
+    patronising (*holhoava*) tone and against explaining words the reader can be assumed to
+    know. A selko mode that reads as a simplified ghetto has failed on the standard's own
+    terms.
+  - **One idea per paragraph, subheadings for rhythm, recap in long texts.** MP pages are long
+    and will get longer; this is a layout constraint as much as a wording one.
+  - **Know the subject more broadly than the source text**, so you can judge what is essential.
+    This is a data requirement, not just an editorial one: a division's `title` and `subject`
+    are not enough to say what was actually decided. It needs the matter behind the vote —
+    `/valtiopaivaasiat` and `/asiakirjat`, neither modelled yet (§3.1), and both on the list of
+    shapes that must be captured live before being modelled (§6).
+  - **Make the reader an active agent.** The guidance warns against casting the reader as
+    permanently passive or as an object of help, and prefers the imperative and the sinä-form
+    for instructions. That suits this product exactly: the citizen checking a representative is
+    the actor, and the copy should read that way — *katso, miten edustajasi äänesti*, not a
+    passive report about what is available.
+  - **Support the text with images and infographics.** Named explicitly in the genre section.
+    The party distribution is the obvious candidate: a graphic carries a split that a table of
+    four numbers does not. Overlaps with the **Charts** item above; do them together.
+  - **Have it checked, by a subject expert and ideally by another selkokieli expert.** Review
+    is part of the standard, not a nicety — and the guidance notes the subject expert's pass
+    often makes the text *harder*, so someone has to hold the selko purpose afterwards. This
+    is a recurring editorial cost with a named skill attached, which is the main thing to weigh
+    before committing to any scope beyond chrome.
+
+  The structure and vocabulary rules settle the scope question, because **parliamentary Finnish
+  is their systematic inverse.** The guidance asks for the active voice, common case forms,
+  short clauses carrying one idea, no participle or infinitive constructions, no
+  *lauseenvastikkeet*, everyday concrete words, short words, and no abbreviations.
+  `aanestysotsikko` is passive, nominalised, participle-heavy, abstract and long by
+  construction — that is what the register is *for*. So a selko view cannot be the same string
+  with easier words substituted. It has to be written from knowledge of the matter, which is
+  the same conclusion the "know the subject more broadly than the source text" rule reaches.
+
+  Four consequences worth deciding early:
+
+  - **A table is structurally anti-cohesive.** The guidance requires that relations between
+    things be visible, warns against loose disconnected main clauses, and allows only short
+    lists whose items form a whole. A three-column table of divisions is the table equivalent
+    of the thing it warns about: rows with no stated relation to one another. Selko mode is
+    therefore probably not the current tables with simpler wording — it is a different
+    presentation, closer to grouped prose.
+  - **One term per thing, everywhere.** *Viittaa samaan asiaan samalla sanalla.* Today the
+    schema says `session`, the UI says *äänestys*, and the roadmap says *division*. Pick one
+    Finnish term for the concept and never vary it for style. Cheap now, expensive later.
+  - **Party abbreviations survive, but on the exception.** The rule is to avoid abbreviations
+    *unless the abbreviation is more familiar than the expansion*, and `kok` or `sd` plainly is.
+    Keep `edkryhmalyhenne` in the interface, and expand it once where it first appears rather
+    than banishing it.
+  - **Explanations go inline, not in a glossary.** The guidance asks for the explanation that
+    is sufficient and most useful *in this context*, not a dictionary entry. That argues
+    against a separate terms page and for a short gloss beside the term that needs it.
+
+  Finally, the two halves of the guidance pull against each other, and holding both is the
+  actual craft: cut every piece of information the reader does not need, while never creating a
+  *sisällöllinen aukko*. Shorter, and yet nothing left to infer.
+
+  Worth noting who the guidance says this is for: people who need selkokieli *"voidakseen
+  osallistua yhteiskunnan toimintaan"* — in order to take part in society. For a product whose
+  entire purpose is holding representatives accountable to the people they represent, that is
+  the audience, not a secondary one.
+
+  The hard part is not our chrome, it is the source data. The densest Finnish on the site is
+  upstream: `aanestysotsikko` and `kohta.otsikko` are parliamentary officialese, and there are
+  thousands of them. Three honest scopes, in increasing cost:
+
+  - **Chrome only** — navigation, labels, explanations of what a division and a Jaa/Ei are.
+    Fully achievable, invents nothing, and already most of the comprehension barrier for a
+    first-time visitor.
+  - **Chrome plus curated summaries** for divisions that matter. Editorial work per division,
+    so it does not scale to the full mirror; pick a threshold (contested votes, party-line
+    breaks) rather than pretending to cover everything.
+  - **Generated summaries** — must be labelled as such and never presented as the record.
+    An unverified restatement of how somebody voted is precisely the failure mode this project
+    cannot afford, and it fails the standard on its own terms: the guidance requires checking
+    by a subject expert and use of reliable sources only. Unreviewed generated text is not
+    selkokieli, whatever it reads like.
+
+  Two constraints to design around. **`selkokieli` is a standard, not a style:** Selkokeskus
+  assesses material and grants the *selkotunnus*, so the UI must not claim the label without
+  it — "selkokieli" as a self-applied badge is a claim about someone else's certification.
+  And **it is a third variant of Finnish, not a fourth language:** the existing `LocalizedText`
+  and `IsSwedish( lang )` plumbing keys off fi/sv, so this needs a deliberate decision (a
+  `fi-selko` variant, or an orthogonal toggle) rather than being bolted onto the language
+  parameter.
+
+  Design it together with the "what did Jaa/Ei actually mean" work rather than after it. That
+  restatement is the same problem at a lower standard, and the no-content-gaps rule above is
+  the same finding reached from the other direction. Writing it once, to the guidance, costs
+  little more than writing it twice without.
 - **Retire or slim the desktop app** once the PWA reaches feature parity; Avalonia project can
   remain as a thin shell over the same core.
 
