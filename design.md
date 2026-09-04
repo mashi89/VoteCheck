@@ -307,6 +307,37 @@ and an MP's recent votes can be found on a phone in under three taps.
   and a persistence layer — first real database need).
 - **Charts:** party-line cohesion, MP attendance trends over an electoral term.
 - **Historical MP data:** extend beyond `SeatingOfParliament` (current term) to past terms.
+- **Selkokieli (Finnish plain language) as an optional reading mode:** an accessibility
+  feature that serves the product's purpose directly — a voting record nobody can read is not
+  a check on power. The audience is people with reading or comprehension difficulties, language
+  learners, and readers who simply bounce off officialese. Written to the Selkokeskus guidance:
+  <https://selkokeskus.fi/selkokieli/nain-kirjoitat-selkokielta/>.
+
+  The hard part is not our chrome, it is the source data. The densest Finnish on the site is
+  upstream: `aanestysotsikko` and `kohta.otsikko` are parliamentary officialese, and there are
+  thousands of them. Three honest scopes, in increasing cost:
+
+  - **Chrome only** — navigation, labels, explanations of what a division and a Jaa/Ei are.
+    Fully achievable, invents nothing, and already most of the comprehension barrier for a
+    first-time visitor.
+  - **Chrome plus curated summaries** for divisions that matter. Editorial work per division,
+    so it does not scale to the full mirror; pick a threshold (contested votes, party-line
+    breaks) rather than pretending to cover everything.
+  - **Generated summaries** — must be labelled as such and never presented as the record.
+    An unverified restatement of how somebody voted is precisely the failure mode this
+    project cannot afford.
+
+  Two constraints to design around. **`selkokieli` is a standard, not a style:** Selkokeskus
+  assesses material and grants the *selkotunnus*, so the UI must not claim the label without
+  it — "selkokieli" as a self-applied badge is a claim about someone else's certification.
+  And **it is a third variant of Finnish, not a fourth language:** the existing `LocalizedText`
+  and `IsSwedish( lang )` plumbing keys off fi/sv, so this needs a deliberate decision (a
+  `fi-selko` variant, or an orthogonal toggle) rather than being bolted onto the language
+  parameter.
+
+  Sequence it after the "what did Jaa/Ei actually mean" work: that is already a plain-language
+  restatement of a procedural vote, and doing it twice to two different standards would be
+  waste.
 - **Retire or slim the desktop app** once the PWA reaches feature parity; Avalonia project can
   remain as a thin shell over the same core.
 
