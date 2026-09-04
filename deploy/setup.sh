@@ -29,8 +29,22 @@ if ! command -v docker >/dev/null 2>&1; then
 	curl -fsSL https://download.docker.com/linux/ubuntu/gpg |
 		gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 	chmod a+r /etc/apt/keyrings/docker.gpg
+	# Docker publishes one suite per Ubuntu codename, and a freshly released LTS can
+	# lag by months. Probe before writing the source, so a new release degrades to the
+	# newest suite Docker actually has instead of failing apt-get update with a 404.
+	codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+	docker_suite() { curl -fsI "https://download.docker.com/linux/ubuntu/dists/$1/Release" >/dev/null 2>&1; }
+	if ! docker_suite "$codename"; then
+		for fallback in questing plucky noble jammy; do
+			if docker_suite "$fallback"; then
+				echo "  Docker has no '$codename' suite yet — falling back to '$fallback'"
+				codename=$fallback
+				break
+			fi
+		done
+	fi
 	echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+https://download.docker.com/linux/ubuntu $codename stable" \
 		>/etc/apt/sources.list.d/docker.list
 	apt-get update -qq
 	apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
