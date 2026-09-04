@@ -5,6 +5,39 @@
 One topic per branch, branched from an up-to-date `master`. Nothing is committed to
 `master` directly.
 
+### Issues first
+
+**Every change has an issue.** If one does not already exist, create it before branching —
+that is part of the work, not a precondition someone else supplies. The issue holds the *why*:
+what is wrong, or what should exist, and how anyone would tell it was done. The branch and
+pull request carry only the *what*, and the issue number ties the two together.
+
+This is what makes the branch names below worth having. A list reading `bugfix/31-…`,
+`feature/42-…` can be traced back to a stated reason; one reading `bugfix/that-thing` cannot.
+
+The single carve-out is about ordering, not exemption: a `hotfix/` while production is down
+does not wait on paperwork. File the issue as soon as the fix is out — an urgent change is
+precisely the one whose reasoning someone will want later.
+
+### Issue status is never stale
+
+An issue's state should never need interpreting. Open means still wanted and not yet done.
+
+- **Link the pull request to the issue** with `Closes #33` in its description, so merging
+  closes the issue and nobody has to remember to. Use `Refs #33` where the pull request only
+  advances the issue rather than finishing it — a half-fix that auto-closes is worse than no
+  link at all, because the list then lies.
+- **An issue that is no longer wanted gets closed as *not planned*,** with a sentence saying
+  why. Leaving it open costs everyone who scans the list a fresh re-read of a decision that
+  was already made.
+- **Something resolved outside a pull request still gets closed** — fixed upstream, or made
+  moot by another change — with a note saying what happened.
+- **If the work turns out different from what the issue describes, edit the issue.** The
+  branch should not quietly drift away from its own stated reason; whichever of the two is
+  now wrong is the one to correct.
+- **Reopen rather than file a duplicate** when a fix did not hold. The history of a thing that
+  broke twice is worth more than two half-histories.
+
 ### Categories
 
 | Prefix | For | Example |
@@ -33,11 +66,12 @@ no number — this is required only when there is something to cite.
 
 ### Lifecycle
 
-1. Branch from current `master`.
-2. Keep to one topic. Finding a second one is a reason to branch again, not to widen this one.
-3. Open a pull request. CI must pass before merge.
-4. Delete the branch after merge, locally and on the remote.
-5. **A merged branch is finished.** Never add commits on top of merged history — start a new
+1. Open an issue, or find the existing one.
+2. Branch from current `master`.
+3. Keep to one topic. Finding a second one is a reason to branch again, not to widen this one.
+4. Open a pull request, linking the issue (`Closes #33`). CI must pass before merge.
+5. Delete the branch after merge, locally and on the remote.
+6. **A merged branch is finished.** Never add commits on top of merged history — start a new
    branch from `master`. The merged pull request cannot track new work, and stacking on it
    produces a branch whose diff against `master` no longer describes what changed.
 

@@ -14,12 +14,20 @@
 
 - **Categories:** `feature/`, `bugfix/`, `hotfix/`, `docs/`, `chore/`, `refactor/`. `bugfix/`
   is the name for a wrong-behaviour fix; the short form is not used.
-- **Issue numbers are required where an issue exists**, leading the description and following
-  the category prefix: `bugfix/31-sitemap-advertises-http`.
+- **Every change has an issue, and creating it is your job.** Before the first commit, find
+  the existing issue or open a new one on GitHub describing what is wrong or what should
+  exist. Do not start work on the assumption that someone else will file it. Its number then
+  leads the branch description, after the category prefix:
+  `bugfix/31-sitemap-advertises-http`. The only carve-out is ordering — a `hotfix/` while
+  production is down ships first and gets its issue immediately afterwards.
 - **One topic per branch.** Finding a second topic means opening a second branch, not widening
   this one.
 - **A merged branch is finished.** Never add commits to merged history — branch again from
   `master`.
+- **Keep the issue's status true.** Link the pull request with `Closes #33` so the merge closes
+  it, or `Refs #33` if the change only advances it. Close abandoned issues as *not planned*
+  with a reason, close anything resolved elsewhere with a note, and edit the issue if the work
+  turns out to be different from what it describes.
 
 ## Deployment
 
