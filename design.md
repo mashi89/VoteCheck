@@ -313,6 +313,33 @@ and an MP's recent votes can be found on a phone in under three taps.
   learners, and readers who simply bounce off officialese. Written to the Selkokeskus guidance:
   <https://selkokeskus.fi/selkokieli/nain-kirjoitat-selkokielta/>.
 
+  What the guidance actually demands of a site like this one — from its first section,
+  *Vuorovaikutus lukijan kanssa ja tekstin kokonaisuus*; the sections on vocabulary, sentence
+  structure and layout are not yet reflected here:
+
+  - **No content gaps (*sisällöllinen aukko*).** A gap is anything the writer expects the
+    reader to infer that the text never states outright. A table cell reading `Jaa` is exactly
+    that: it assumes the reader knows what the motion was and what voting for it did to it.
+    The standard arrives independently at the same defect as the "what did Jaa/Ei mean" work —
+    strong evidence those are one piece of work rather than two.
+  - **Write from the reader's perspective, not the organisation's.** This site speaks in the
+    parliament's voice by construction: `aanestysotsikko` *is* institutional voice, inherited
+    wholesale from upstream. Undoing that is editorial work, not a setting.
+  - **Headings must match their content.** Division titles routinely name the procedural step
+    rather than what was decided, so using one as a heading breaks this rule even when the
+    title is perfectly accurate.
+  - **Do not condescend, and do not underestimate the reader.** The guidance warns against a
+    patronising (*holhoava*) tone and against explaining words the reader can be assumed to
+    know. A selko mode that reads as a simplified ghetto has failed on the standard's own
+    terms.
+  - **One idea per paragraph, subheadings for rhythm, recap in long texts.** MP pages are long
+    and will get longer; this is a layout constraint as much as a wording one.
+
+  Worth noting who the guidance says this is for: people who need selkokieli *"voidakseen
+  osallistua yhteiskunnan toimintaan"* — in order to take part in society. For a product whose
+  entire purpose is holding representatives accountable to the people they represent, that is
+  the audience, not a secondary one.
+
   The hard part is not our chrome, it is the source data. The densest Finnish on the site is
   upstream: `aanestysotsikko` and `kohta.otsikko` are parliamentary officialese, and there are
   thousands of them. Three honest scopes, in increasing cost:
@@ -335,9 +362,10 @@ and an MP's recent votes can be found on a phone in under three taps.
   `fi-selko` variant, or an orthogonal toggle) rather than being bolted onto the language
   parameter.
 
-  Sequence it after the "what did Jaa/Ei actually mean" work: that is already a plain-language
-  restatement of a procedural vote, and doing it twice to two different standards would be
-  waste.
+  Design it together with the "what did Jaa/Ei actually mean" work rather than after it. That
+  restatement is the same problem at a lower standard, and the no-content-gaps rule above is
+  the same finding reached from the other direction. Writing it once, to the guidance, costs
+  little more than writing it twice without.
 - **Retire or slim the desktop app** once the PWA reaches feature parity; Avalonia project can
   remain as a thin shell over the same core.
 
