@@ -45,6 +45,9 @@
         form.search { display: flex; gap: .5rem; }
         form.search input[type=search] { flex: 1; padding: .4rem .6rem; }
         .muted { color: #888; font-size: .9rem; }
+        /* A date is one token: 2026-07-21 broken across two lines reads as two dates. */
+        td.date { white-space: nowrap; }
+        .label { color: #888; font-size: .9rem; font-weight: 600; }
     </style>
 </head>
 <body>
