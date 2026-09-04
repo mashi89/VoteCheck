@@ -91,7 +91,7 @@ your orchestrator's HTTP probe at `/health`. `docker-compose.yml` shows one way.
 
 ## Software bill of materials
 
-`sbom/votecheck-web.cdx.json` lists every component the deployed image carries — NuGet
+`sbom/edustajavahti.cdx.json` lists every component the deployed image carries — NuGet
 closure, the .NET and ASP.NET Core shared frameworks, the runtime base image — in
 CycloneDX 1.6. It is what the Cyber Resilience Act (Regulation (EU) 2024/2847, Annex I
 Part II point 1) requires of a manufacturer, and CI fails if a dependency moves without

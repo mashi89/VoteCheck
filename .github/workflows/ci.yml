@@ -69,7 +69,7 @@ jobs:
           done
           pip install --quiet jsonschema
 
-      # sbom/votecheck-web.cdx.json is a pure function of the source tree. A
+      # sbom/edustajavahti.cdx.json is a pure function of the source tree. A
       # dependency added or bumped without regenerating it fails here, which is the
       # only thing standing between "we have an SBOM" and "we had one once".
       - name: Check the committed SBOM still describes the source tree
@@ -83,12 +83,12 @@ jobs:
           python3 sbom/generate.py \
             --resolve-base-image \
             --source-revision "$GITHUB_SHA" \
-            --output "$RUNNER_TEMP/votecheck-web.build.cdx.json" \
+            --output "$RUNNER_TEMP/edustajavahti.build.cdx.json" \
             --schema "$RUNNER_TEMP/cdx/bom-1.6.schema.json"
 
       - name: Upload the build SBOM
         uses: actions/upload-artifact@v4
         with:
           name: sbom
-          path: ${{ runner.temp }}/votecheck-web.build.cdx.json
+          path: ${{ runner.temp }}/edustajavahti.build.cdx.json
           if-no-files-found: error

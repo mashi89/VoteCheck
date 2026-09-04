@@ -1,8 +1,13 @@
 # sbom
 
-`votecheck-web.cdx.json` is the software bill of materials for **VoteCheckWeb**, the
+`edustajavahti.cdx.json` is the software bill of materials for **Edustajavahti**, the
 deployed product — CycloneDX 1.6, JSON, 24 components, every dependency the container
 image carries and not only the top-level ones.
+
+The product is named as it is placed on the market: `metadata.component.name` is
+`Edustajavahti`, not the assembly `VoteCheckWeb.dll` or the repository `VoteCheck`,
+both of which are internal names nobody outside the build sees. The assembly is
+recorded as a property, and the repository stays in the `vcs` reference.
 
 It exists because the Cyber Resilience Act, Regulation (EU) 2024/2847, requires one.
 Annex I, Part II, point (1) obliges a manufacturer to
@@ -37,7 +42,7 @@ CI always does.
 
 |  | Source SBOM | Build SBOM |
 |---|---|---|
-| Committed | yes, `votecheck-web.cdx.json` | no, a CI artifact per run |
+| Committed | yes, `edustajavahti.cdx.json` | no, a CI artifact per run |
 | Product version | `0.0.0` | `--product-version` from the release |
 | Source revision | absent — git already knows | `--source-revision` |
 | Base image | the tag `VoteCheckWeb/Dockerfile` declares | digest resolved from the registry |
@@ -55,7 +60,7 @@ nothing to compare, and the guarantee that the file still describes the tree wou
 
 ```
 python3 sbom/generate.py --resolve-base-image --source-revision "$(git rev-parse HEAD)" \
-  --product-version 1.4.0 --output votecheck-web.build.cdx.json
+  --product-version 1.4.0 --output edustajavahti.build.cdx.json
 ```
 
 ## What is in it
@@ -71,7 +76,7 @@ Three things are added on top, because a NuGet graph cannot see them:
   the wrong product.
 - **The base image.** Same reason: the Debian userland under the runtime ships with the
   product.
-- **How each package reaches the product**, as `votecheck:sbom:assetScope`:
+- **How each package reaches the product**, as `edustajavahti:sbom:assetScope`:
 
   | Value | Meaning | Example |
   |---|---|---|
@@ -103,16 +108,16 @@ SHA-512 per deployable component, a creator and a timestamp on the document).
 | Dependency relationships | `dependencies`, rooted at the product component |
 | SBOM author and timestamp | `metadata.authors`, `.manufacturer`, `.supplier`, `.timestamp` |
 | Manufacturer of the product | `metadata.manufacturer` |
-| Contact for reporting vulnerabilities | `security-contact` in `metadata.component.externalReferences` |
+| Contact for reporting vulnerabilities | `security-contact` in `metadata.component.externalReferences`, the issue tracker |
 | Unique document identity | `serialNumber`, a UUIDv5 over the contents |
 
 ## What it does not cover, and what is still missing
 
-- **Only VoteCheckWeb.** The Avalonia desktop app (`WPFGUI`) is a separate product with
+- **Only the web product.** The Avalonia desktop app (`WPFGUI`) is a separate product with
   digital elements and would need its own SBOM; the test projects ship to nobody and are
   excluded.
 - **No licence on the first-party components.** The repository has no `LICENSE` file, so
-  `VoteCheckWeb` and `VoteCheck.Core` have nothing to declare. Adding one fills these in.
+  `Edustajavahti` and `VoteCheck.Core` have nothing to declare. Adding one fills these in.
 - **No hash on the frameworks or on `VoteCheck.Core`.** Neither is a package: the
   frameworks come out of the image and `VoteCheck.Core` is source compiled during the
   build. BSI TR-03183-2 wants a hash per deployable component; getting one here means
@@ -123,6 +128,9 @@ SHA-512 per deployable component, a creator and a timestamp on the document).
 - **`metadata.manufacturer` is the project, not a legal entity.** Placing the product on
   the EU market means naming the responsible person or company, with a postal address, in
   `sbom/bom-metadata.json`.
+- **The vulnerability contact is the public issue tracker.** Reports arrive in the open,
+  where anyone reading the repository sees them before a fix exists. GitHub's private
+  vulnerability reporting is the alternative if that ever matters.
 - **The CRA obligations that are not the SBOM's job** — the support period, the
   vulnerability handling process, the conformity assessment — live in the technical
   documentation, not here.
@@ -131,6 +139,6 @@ SHA-512 per deployable component, a creator and a timestamp on the document).
 
 | File | What it is |
 |---|---|
-| `votecheck-web.cdx.json` | The SBOM. Generated; committed so the tree always carries a current one |
+| `edustajavahti.cdx.json` | The SBOM. Generated; committed so the tree always carries a current one |
 | `generate.py` | Generator. Wraps the CycloneDX .NET tool and adds what it cannot know |
 | `bom-metadata.json` | The hand-maintained half: manufacturer, contacts, CRA properties, and licence corrections for packages too old to declare an SPDX id |

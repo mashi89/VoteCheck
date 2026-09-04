@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:7e4543de-a55d-5bcf-a9f9-aea25620fb4d",
+  "serialNumber": "urn:uuid:7b8ca468-f2a9-54a2-89e3-2392e229fc4a",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-09-04T07:04:12Z",
+    "timestamp": "2026-09-04T07:13:34Z",
     "lifecycles": [
       {
         "phase": "build"
@@ -32,28 +32,30 @@
       ]
     },
     "manufacturer": {
-      "name": "VoteCheck project",
+      "name": "Edustajavahti",
       "url": [
         "https://edustajavahti.fi",
         "https://github.com/mashi89/VoteCheck"
       ],
       "contact": [
         {
-          "name": "VoteCheck security contact — GitHub private vulnerability reporting at https://github.com/mashi89/VoteCheck/security/advisories/new"
+          "name": "Edustajavahti vulnerability reports — https://github.com/mashi89/VoteCheck/issues"
         }
       ]
     },
     "authors": [
       {
-        "name": "VoteCheck project"
+        "name": "Edustajavahti"
       }
     ],
     "component": {
       "type": "application",
-      "description": "Edustajavahti (edustajavahti.fi): server-rendered site and /api/v1 JSON API over a local SQLite mirror of api.eduskunta.fi. Shipped as the container image built from VoteCheckWeb/Dockerfile.",
+      "name": "Edustajavahti",
+      "description": "edustajavahti.fi: server-rendered site and /api/v1 JSON API over a local SQLite mirror of api.eduskunta.fi. Shipped as the container image built from VoteCheckWeb/Dockerfile.",
       "supplier": {
-        "name": "VoteCheck project",
+        "name": "Edustajavahti",
         "url": [
+          "https://edustajavahti.fi",
           "https://github.com/mashi89/VoteCheck"
         ]
       },
@@ -72,51 +74,53 @@
         },
         {
           "type": "security-contact",
-          "url": "https://github.com/mashi89/VoteCheck/security/advisories/new",
+          "url": "https://github.com/mashi89/VoteCheck/issues",
           "comment": "Single point of contact for reporting vulnerabilities in this product."
-        },
-        {
-          "type": "advisories",
-          "url": "https://github.com/mashi89/VoteCheck/security/advisories"
         },
         {
           "type": "documentation",
           "url": "https://github.com/mashi89/VoteCheck/blob/master/README.md"
         }
       ],
-      "bom-ref": "VoteCheckWeb@0.0.0",
-      "name": "VoteCheckWeb",
+      "properties": [
+        {
+          "name": "edustajavahti:sbom:assembly",
+          "value": "VoteCheckWeb.dll, from VoteCheckWeb/VoteCheckWeb.csproj"
+        }
+      ],
+      "bom-ref": "Edustajavahti@0.0.0",
       "version": "0.0.0"
     },
     "supplier": {
-      "name": "VoteCheck project",
+      "name": "Edustajavahti",
       "url": [
+        "https://edustajavahti.fi",
         "https://github.com/mashi89/VoteCheck"
       ]
     },
     "properties": [
       {
-        "name": "votecheck:cra:regulation",
+        "name": "edustajavahti:cra:regulation",
         "value": "Regulation (EU) 2024/2847 (Cyber Resilience Act)"
       },
       {
-        "name": "votecheck:cra:requirement",
+        "name": "edustajavahti:cra:requirement",
         "value": "Annex I, Part II, point (1): a software bill of materials in a commonly used and machine-readable format, covering at the very least the top-level dependencies of the product"
       },
       {
-        "name": "votecheck:cra:dependencyCoverage",
+        "name": "edustajavahti:cra:dependencyCoverage",
         "value": "complete transitive closure, not only top-level dependencies"
       },
       {
-        "name": "votecheck:cra:scope",
-        "value": "The deployed VoteCheckWeb container image. The Avalonia desktop app (WPFGUI) and the test projects are separate and not covered."
+        "name": "edustajavahti:cra:scope",
+        "value": "The deployed Edustajavahti container image. The Avalonia desktop app (WPFGUI) and the test projects are separate and not covered."
       },
       {
-        "name": "votecheck:sbom:generator",
+        "name": "edustajavahti:sbom:generator",
         "value": "sbom/generate.py"
       },
       {
-        "name": "votecheck:sbom:reproducible",
+        "name": "edustajavahti:sbom:reproducible",
         "value": "Regenerating from the same source tree reproduces this document byte for byte, apart from metadata.timestamp."
       }
     ]
@@ -147,11 +151,11 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:declaredIn",
+          "name": "edustajavahti:sbom:declaredIn",
           "value": "VoteCheckWeb/Dockerfile"
         },
         {
-          "name": "votecheck:sbom:versionKind",
+          "name": "edustajavahti:sbom:versionKind",
           "value": "declared-tag; the digest is fixed at image build time, not by the source tree"
         }
       ]
@@ -192,15 +196,15 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "framework-provided"
         },
         {
-          "name": "votecheck:sbom:targetFramework",
+          "name": "edustajavahti:sbom:targetFramework",
           "value": "net8.0"
         },
         {
-          "name": "votecheck:sbom:versionKind",
+          "name": "edustajavahti:sbom:versionKind",
           "value": "target framework band; the patch level is whatever the runtime image carries at build time"
         }
       ]
@@ -241,15 +245,15 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "framework-provided"
         },
         {
-          "name": "votecheck:sbom:targetFramework",
+          "name": "edustajavahti:sbom:targetFramework",
           "value": "net8.0"
         },
         {
-          "name": "votecheck:sbom:versionKind",
+          "name": "edustajavahti:sbom:versionKind",
           "value": "target framework band; the patch level is whatever the runtime image carries at build time"
         }
       ]
@@ -293,7 +297,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "metapackage"
         }
       ]
@@ -337,7 +341,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -381,7 +385,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "build-only"
         }
       ]
@@ -425,7 +429,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -469,7 +473,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -513,7 +517,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -557,7 +561,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -601,7 +605,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -645,7 +649,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -686,7 +690,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -730,7 +734,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -770,7 +774,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -810,7 +814,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -850,7 +854,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -890,7 +894,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -933,7 +937,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "metapackage"
         }
       ]
@@ -976,7 +980,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -1019,7 +1023,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -1062,7 +1066,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "runtime"
         }
       ]
@@ -1103,7 +1107,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:assetScope",
+          "name": "edustajavahti:sbom:assetScope",
           "value": "framework-provided"
         }
       ]
@@ -1115,8 +1119,9 @@
       "version": "1.0.0",
       "scope": "required",
       "supplier": {
-        "name": "VoteCheck project",
+        "name": "Edustajavahti",
         "url": [
+          "https://edustajavahti.fi",
           "https://github.com/mashi89/VoteCheck"
         ]
       },
@@ -1128,7 +1133,7 @@
       ],
       "properties": [
         {
-          "name": "votecheck:sbom:origin",
+          "name": "edustajavahti:sbom:origin",
           "value": "first-party"
         }
       ]
@@ -1136,14 +1141,7 @@
   ],
   "dependencies": [
     {
-      "ref": "VoteCheck.Core@1.0.0",
-      "dependsOn": [
-        "pkg:nuget/Microsoft.Extensions.Caching.Memory@8.0.1",
-        "pkg:nuget/Newtonsoft.Json@13.0.3"
-      ]
-    },
-    {
-      "ref": "VoteCheckWeb@0.0.0",
+      "ref": "Edustajavahti@0.0.0",
       "dependsOn": [
         "VoteCheck.Core@1.0.0",
         "container:mcr.microsoft.com/dotnet/aspnet:8.0",
@@ -1169,6 +1167,13 @@
         "pkg:nuget/Swashbuckle.AspNetCore.SwaggerUI@6.5.0",
         "pkg:nuget/Swashbuckle.AspNetCore@6.5.0",
         "pkg:nuget/System.Memory@4.5.3"
+      ]
+    },
+    {
+      "ref": "VoteCheck.Core@1.0.0",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.Extensions.Caching.Memory@8.0.1",
+        "pkg:nuget/Newtonsoft.Json@13.0.3"
       ]
     },
     {

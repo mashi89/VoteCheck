@@ -6,34 +6,37 @@
       { "phase": "build" }
     ],
     "manufacturer": {
-      "name": "VoteCheck project",
+      "name": "Edustajavahti",
       "url": [
         "https://edustajavahti.fi",
         "https://github.com/mashi89/VoteCheck"
       ],
       "contact": [
         {
-          "name": "VoteCheck security contact — GitHub private vulnerability reporting at https://github.com/mashi89/VoteCheck/security/advisories/new"
+          "name": "Edustajavahti vulnerability reports — https://github.com/mashi89/VoteCheck/issues"
         }
       ]
     },
     "supplier": {
-      "name": "VoteCheck project",
+      "name": "Edustajavahti",
       "url": [
+        "https://edustajavahti.fi",
         "https://github.com/mashi89/VoteCheck"
       ]
     },
     "authors": [
       {
-        "name": "VoteCheck project"
+        "name": "Edustajavahti"
       }
     ],
     "component": {
       "type": "application",
-      "description": "Edustajavahti (edustajavahti.fi): server-rendered site and /api/v1 JSON API over a local SQLite mirror of api.eduskunta.fi. Shipped as the container image built from VoteCheckWeb/Dockerfile.",
+      "name": "Edustajavahti",
+      "description": "edustajavahti.fi: server-rendered site and /api/v1 JSON API over a local SQLite mirror of api.eduskunta.fi. Shipped as the container image built from VoteCheckWeb/Dockerfile.",
       "supplier": {
-        "name": "VoteCheck project",
+        "name": "Edustajavahti",
         "url": [
+          "https://edustajavahti.fi",
           "https://github.com/mashi89/VoteCheck"
         ]
       },
@@ -52,42 +55,44 @@
         },
         {
           "type": "security-contact",
-          "url": "https://github.com/mashi89/VoteCheck/security/advisories/new",
+          "url": "https://github.com/mashi89/VoteCheck/issues",
           "comment": "Single point of contact for reporting vulnerabilities in this product."
-        },
-        {
-          "type": "advisories",
-          "url": "https://github.com/mashi89/VoteCheck/security/advisories"
         },
         {
           "type": "documentation",
           "url": "https://github.com/mashi89/VoteCheck/blob/master/README.md"
         }
+      ],
+      "properties": [
+        {
+          "name": "edustajavahti:sbom:assembly",
+          "value": "VoteCheckWeb.dll, from VoteCheckWeb/VoteCheckWeb.csproj"
+        }
       ]
     },
     "properties": [
       {
-        "name": "votecheck:cra:regulation",
+        "name": "edustajavahti:cra:regulation",
         "value": "Regulation (EU) 2024/2847 (Cyber Resilience Act)"
       },
       {
-        "name": "votecheck:cra:requirement",
+        "name": "edustajavahti:cra:requirement",
         "value": "Annex I, Part II, point (1): a software bill of materials in a commonly used and machine-readable format, covering at the very least the top-level dependencies of the product"
       },
       {
-        "name": "votecheck:cra:dependencyCoverage",
+        "name": "edustajavahti:cra:dependencyCoverage",
         "value": "complete transitive closure, not only top-level dependencies"
       },
       {
-        "name": "votecheck:cra:scope",
-        "value": "The deployed VoteCheckWeb container image. The Avalonia desktop app (WPFGUI) and the test projects are separate and not covered."
+        "name": "edustajavahti:cra:scope",
+        "value": "The deployed Edustajavahti container image. The Avalonia desktop app (WPFGUI) and the test projects are separate and not covered."
       },
       {
-        "name": "votecheck:sbom:generator",
+        "name": "edustajavahti:sbom:generator",
         "value": "sbom/generate.py"
       },
       {
-        "name": "votecheck:sbom:reproducible",
+        "name": "edustajavahti:sbom:reproducible",
         "value": "Regenerating from the same source tree reproduces this document byte for byte, apart from metadata.timestamp."
       }
     ]

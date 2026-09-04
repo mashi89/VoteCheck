@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the CycloneDX SBOM for the VoteCheckWeb product.
+"""Generate the CycloneDX SBOM for Edustajavahti, the deployed product.
 
 Wraps the CycloneDX .NET tool, which reads the restored NuGet graph, and adds the
 things that graph cannot know about: the CRA metadata in `bom-metadata.json`, the
@@ -31,7 +31,7 @@ REPO = Path(__file__).resolve().parent.parent
 SBOM_DIR = REPO / "sbom"
 
 DEFAULT_PROJECT = "VoteCheckWeb/VoteCheckWeb.csproj"
-DEFAULT_OUTPUT = "sbom/votecheck-web.cdx.json"
+DEFAULT_OUTPUT = "sbom/edustajavahti.cdx.json"
 DEFAULT_DOCKERFILE = "VoteCheckWeb/Dockerfile"
 
 SPEC_VERSION = "1.6"
@@ -118,7 +118,7 @@ def find_tool() -> str:
     return tool
 
 
-def run_cyclonedx(project: Path, version: str) -> dict:
+def run_cyclonedx(project: Path, name: str, version: str) -> dict:
     tool = find_tool()
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
@@ -131,6 +131,7 @@ def run_cyclonedx(project: Path, version: str) -> dict:
                 "--exclude-test-projects",
                 "--spec-version", SPEC_VERSION,
                 "--output-format", "Json",
+                "--set-name", name,
                 "--set-version", version,
                 "--output", tmp,
                 "--filename", "bom.json",
@@ -331,7 +332,7 @@ def base_image_component(dockerfile: Path, resolved: dict | None) -> dict:
             {"type": "website", "url": "https://github.com/dotnet/dotnet-docker"},
         ],
         "properties": [
-            {"name": "votecheck:sbom:declaredIn", "value": str(dockerfile.relative_to(REPO))},
+            {"name": "edustajavahti:sbom:declaredIn", "value": str(dockerfile.relative_to(REPO))},
         ],
     }
     if resolved and resolved.get("digest"):
@@ -340,12 +341,12 @@ def base_image_component(dockerfile: Path, resolved: dict | None) -> dict:
         component["purl"] = f"pkg:docker/{repository}@{digest}?repository_url={registry}"
         component["hashes"] = [{"alg": "SHA-256", "content": digest.split(":", 1)[1]}]
         component["properties"].append(
-            {"name": "votecheck:sbom:resolvedDigest", "value": digest}
+            {"name": "edustajavahti:sbom:resolvedDigest", "value": digest}
         )
     else:
         component["properties"].append(
             {
-                "name": "votecheck:sbom:versionKind",
+                "name": "edustajavahti:sbom:versionKind",
                 "value": "declared-tag; the digest is fixed at image build time, "
                 "not by the source tree",
             }
@@ -372,8 +373,8 @@ def framework_component(name: str, resolved: dict | None) -> dict:
              "url": "https://github.com/dotnet/announcements/issues"},
         ],
         "properties": [
-            {"name": "votecheck:sbom:assetScope", "value": "framework-provided"},
-            {"name": "votecheck:sbom:targetFramework", "value": TARGET_FRAMEWORK},
+            {"name": "edustajavahti:sbom:assetScope", "value": "framework-provided"},
+            {"name": "edustajavahti:sbom:targetFramework", "value": TARGET_FRAMEWORK},
         ],
     }
     env_key = FRAMEWORK_IMAGE_ENV.get(name)
@@ -385,12 +386,12 @@ def framework_component(name: str, resolved: dict | None) -> dict:
         if pack:
             component["purl"] = f"pkg:nuget/{pack}@{patch}"
         component["properties"].append(
-            {"name": "votecheck:sbom:versionSource",
+            {"name": "edustajavahti:sbom:versionSource",
              "value": f"{env_key} of the resolved runtime image"}
         )
     else:
         component["properties"].append(
-            {"name": "votecheck:sbom:versionKind",
+            {"name": "edustajavahti:sbom:versionKind",
              "value": "target framework band; the patch level is whatever the runtime "
                       "image carries at build time"}
         )
@@ -422,7 +423,6 @@ def apply_metadata(bom: dict, version: str, revision: str | None) -> None:
 
     component = dict(meta["component"])
     component["bom-ref"] = generated["component"]["bom-ref"]
-    component["name"] = generated["component"]["name"]
     component["version"] = version
 
     if revision:
@@ -434,7 +434,7 @@ def apply_metadata(bom: dict, version: str, revision: str | None) -> None:
             }
         )
         component.setdefault("properties", []).append(
-            {"name": "votecheck:sbom:sourceRevision", "value": revision}
+            {"name": "edustajavahti:sbom:sourceRevision", "value": revision}
         )
 
     bom["metadata"] = {
@@ -459,7 +459,7 @@ def annotate_packages(bom: dict, scopes: dict[str, str], overrides: dict) -> Non
         scope = scopes.get(f"{component['name']}@{component['version']}")
         if scope:
             component.setdefault("properties", []).append(
-                {"name": "votecheck:sbom:assetScope", "value": scope}
+                {"name": "edustajavahti:sbom:assetScope", "value": scope}
             )
             # CycloneDX "excluded": in the build, not required at runtime and not
             # carried in the shipped image.
@@ -483,7 +483,7 @@ def annotate_first_party(bom: dict, product_ref: str) -> None:
             {"type": "vcs", "url": "https://github.com/mashi89/VoteCheck"}
         ]
         component.setdefault("properties", []).append(
-            {"name": "votecheck:sbom:origin", "value": "first-party"}
+            {"name": "edustajavahti:sbom:origin", "value": "first-party"}
         )
 
 
@@ -547,7 +547,8 @@ def ordered(bom: dict) -> dict:
 
 def build(project: Path, dockerfile: Path, resolve: bool, version: str,
           revision: str | None) -> dict:
-    bom = run_cyclonedx(project, version)
+    product = template()["metadata"]["component"]["name"]
+    bom = run_cyclonedx(project, product, version)
     bom["$schema"] = (
         "http://cyclonedx.org/schema/bom-" + SPEC_VERSION + ".schema.json"
     )
