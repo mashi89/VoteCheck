@@ -24,6 +24,10 @@
   this one.
 - **A merged branch is finished.** Never add commits to merged history — branch again from
   `master`.
+- **Keep the issue's status true.** Link the pull request with `Closes #33` so the merge closes
+  it, or `Refs #33` if the change only advances it. Close abandoned issues as *not planned*
+  with a reason, close anything resolved elsewhere with a note, and edit the issue if the work
+  turns out to be different from what it describes.
 
 ## Deployment
 
