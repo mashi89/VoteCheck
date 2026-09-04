@@ -2,7 +2,7 @@
     // Permalinks are the product's distribution mechanism (design.md §3), so every page
     // states its own title, description and canonical URL, and unfurls in a feed.
     var pageTitle = ViewData["Title"] as string;
-    var fullTitle = pageTitle != null ? pageTitle + " — VoteCheck" : "VoteCheck — Eduskunnan äänestykset";
+    var fullTitle = pageTitle != null ? pageTitle + " — Edustajavahti" : "Edustajavahti — Eduskunnan äänestykset";
     var description = ViewData["Description"] as string
         ?? "Miten kansanedustajat ovat äänestäneet? Selaa eduskunnan täysistuntoäänestyksiä, "
            + "puolueiden jakaumia ja edustajien äänestyskäyttäytymistä.";
@@ -20,7 +20,7 @@
     <link rel="canonical" href="@canonical" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
-    <meta property="og:site_name" content="VoteCheck" />
+    <meta property="og:site_name" content="Edustajavahti" />
     <meta property="og:type" content="@(ViewData["OgType"] as string ?? "website")" />
     <meta property="og:title" content="@(ViewData["OgTitle"] as string ?? fullTitle)" />
     <meta property="og:description" content="@description" />
@@ -49,7 +49,7 @@
 </head>
 <body>
     <header>
-        <a class="brand" href="/">VoteCheck</a>
+        <a class="brand" href="/">Edustajavahti</a>
         <a href="/mps">Kansanedustajat</a>
         <a href="/search">Haku</a>
     </header>
