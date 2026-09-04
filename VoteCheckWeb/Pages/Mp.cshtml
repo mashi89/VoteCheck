@@ -13,7 +13,7 @@
         ? 100.0 * Model.Profile.Present / Model.Profile.TotalVotes
         : 0;
     ViewData["OgType"] = "profile";
-    ViewData["OgTitle"] = $"{mp.FirstName} {mp.LastName} ({mp.Party}) — VoteCheck";
+    ViewData["OgTitle"] = $"{mp.FirstName} {mp.LastName} ({mp.Party}) — Edustajavahti";
     ViewData["Description"] = Model.Profile.TotalVotes > 0
         ? $"{mp.FirstName} {mp.LastName} ({mp.Party}): {Model.Profile.TotalVotes} äänestystä, "
           + $"läsnäolo {attendance:0.0} %. Katso edustajan äänet eduskunnassa."
@@ -32,7 +32,7 @@
     <tbody>
     @foreach ( var v in Model.Profile.LatestVotes ) {
         <tr>
-            <td>@v.Date[..Math.Min( 10, v.Date.Length )]</td>
+            <td class="date">@v.Date[..Math.Min( 10, v.Date.Length )]</td>
             <td><a href="/vote/@v.SessionId">@v.Title</a></td>
             <td class="vote-@v.Vote">@v.Vote</td>
         </tr>

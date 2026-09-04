@@ -1,0 +1,111 @@
+{
+  "$comment": "Hand-maintained input to sbom/generate.py. Not a BOM: only the parts of one that cannot be derived from the source tree. See sbom/README.md.",
+  "specVersion": "1.6",
+  "metadata": {
+    "lifecycles": [
+      { "phase": "build" }
+    ],
+    "manufacturer": {
+      "name": "Edustajavahti",
+      "url": [
+        "https://edustajavahti.fi",
+        "https://github.com/mashi89/VoteCheck"
+      ],
+      "contact": [
+        {
+          "name": "Edustajavahti vulnerability reports — https://github.com/mashi89/VoteCheck/issues"
+        }
+      ]
+    },
+    "supplier": {
+      "name": "Edustajavahti",
+      "url": [
+        "https://edustajavahti.fi",
+        "https://github.com/mashi89/VoteCheck"
+      ]
+    },
+    "authors": [
+      {
+        "name": "Edustajavahti"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "Edustajavahti",
+      "description": "edustajavahti.fi: server-rendered site and /api/v1 JSON API over a local SQLite mirror of api.eduskunta.fi. Shipped as the container image built from VoteCheckWeb/Dockerfile.",
+      "supplier": {
+        "name": "Edustajavahti",
+        "url": [
+          "https://edustajavahti.fi",
+          "https://github.com/mashi89/VoteCheck"
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://edustajavahti.fi"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/mashi89/VoteCheck"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/mashi89/VoteCheck/issues"
+        },
+        {
+          "type": "security-contact",
+          "url": "https://github.com/mashi89/VoteCheck/issues",
+          "comment": "Single point of contact for reporting vulnerabilities in this product."
+        },
+        {
+          "type": "documentation",
+          "url": "https://github.com/mashi89/VoteCheck/blob/master/README.md"
+        }
+      ],
+      "properties": [
+        {
+          "name": "edustajavahti:sbom:assembly",
+          "value": "VoteCheckWeb.dll, from VoteCheckWeb/VoteCheckWeb.csproj"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "edustajavahti:cra:regulation",
+        "value": "Regulation (EU) 2024/2847 (Cyber Resilience Act)"
+      },
+      {
+        "name": "edustajavahti:cra:requirement",
+        "value": "Annex I, Part II, point (1): a software bill of materials in a commonly used and machine-readable format, covering at the very least the top-level dependencies of the product"
+      },
+      {
+        "name": "edustajavahti:cra:dependencyCoverage",
+        "value": "complete transitive closure, not only top-level dependencies"
+      },
+      {
+        "name": "edustajavahti:cra:scope",
+        "value": "The deployed Edustajavahti container image. The Avalonia desktop app (WPFGUI) and the test projects are separate and not covered."
+      },
+      {
+        "name": "edustajavahti:sbom:generator",
+        "value": "sbom/generate.py"
+      },
+      {
+        "name": "edustajavahti:sbom:reproducible",
+        "value": "Regenerating from the same source tree reproduces this document byte for byte, apart from metadata.timestamp."
+      }
+    ]
+  },
+  "licenseOverrides": {
+    "$comment": "NuGet packages old enough to carry a deprecated licenseUrl instead of an SPDX expression. The tool can only report 'Unknown - See URL' for these; each id below was read off the licence file the package points at, which is recorded as the url.",
+    "pkg:nuget/Microsoft.OpenApi@1.2.3": {
+      "id": "MIT",
+      "url": "https://raw.githubusercontent.com/Microsoft/OpenAPI.NET/master/LICENSE"
+    },
+    "pkg:nuget/System.Memory@4.5.3": {
+      "id": "MIT",
+      "url": "https://github.com/dotnet/corefx/blob/master/LICENSE.TXT"
+    }
+  }
+}

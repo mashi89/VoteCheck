@@ -43,3 +43,62 @@ jobs:
       # step 6). Publishing to a registry is left to whoever sets up deployment.
       - name: Build image
         run: docker build -f VoteCheckWeb/Dockerfile -t votecheck .
+
+  sbom:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Pinned: the tool writes its own version into the SBOM, so an unpinned
+      # upgrade would show up as a diff in an unrelated pull request.
+      - name: Install the CycloneDX tool
+        run: dotnet tool install --global CycloneDX --version 6.2.0
+
+      - name: Fetch the CycloneDX 1.6 schema
+        run: |
+          mkdir -p "$RUNNER_TEMP/cdx"
+          for f in bom-1.6.schema.json spdx.schema.json jsf-0.82.schema.json; do
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/cdx/$f" \
+              "https://raw.githubusercontent.com/CycloneDX/specification/1.6/schema/$f"
+          done
+
+      # A virtualenv, rather than a bare `pip install`: on the runner `pip` and
+      # `python3` are not the same interpreter, so the install lands somewhere the
+      # script cannot import from. One interpreter, named explicitly, has neither
+      # that problem nor PEP 668's.
+      - name: Install the schema validator
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet jsonschema
+
+      # sbom/edustajavahti.cdx.json is a pure function of the source tree. A
+      # dependency added or bumped without regenerating it fails here, which is the
+      # only thing standing between "we have an SBOM" and "we had one once".
+      - name: Check the committed SBOM still describes the source tree
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" sbom/generate.py --check \
+            --schema "$RUNNER_TEMP/cdx/bom-1.6.schema.json"
+
+      # What a release attaches to the image, as opposed to what the source tree can
+      # say on its own: base image digest and shared framework patch versions, both
+      # resolved from the registry. See sbom/README.md.
+      - name: Produce the build SBOM
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" sbom/generate.py \
+            --resolve-base-image \
+            --source-revision "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/edustajavahti.build.cdx.json" \
+            --schema "$RUNNER_TEMP/cdx/bom-1.6.schema.json"
+
+      - name: Upload the build SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/edustajavahti.build.cdx.json
+          if-no-files-found: error

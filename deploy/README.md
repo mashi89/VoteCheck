@@ -51,13 +51,22 @@ UpCloud control panel → **Deploy a server**:
   the local block storage both UpCloud tiers provide — never a network filesystem.
 - **Plan:** Starter, **1 vCPU / 2 GB**, standard SSD. Runtime needs only ~300–400 MB, but
   `docker compose up --build` compiles .NET with the SDK *and* Caddy from Go source, and
-  a 1 GB box fails or crawls during that build. (On 1 GB, `setup.sh` adds a 2 GB swapfile
-  automatically, which makes it survivable but slow.)
+  a 1 GB box fails or crawls during that build. (`setup.sh` adds a 2 GB swapfile when
+  MemTotal is under 2048 MB. A 2 GB server reports ~1950 MB once the kernel takes its
+  share, so it gets one too — harmless at `vm.swappiness=10`, and useful headroom for
+  the Go compile. On 1 GB the swapfile is what makes the build finish at all, slowly.)
 - **Operating system:** Ubuntu LTS.
 - **SSH keys:** add yours **at deploy time** — Linux servers are key-only, and retrofitting
   through the console is the hard way.
-- **Backups:** the free **Day** tier. The mirror is rebuildable and not worth backing up,
-  but a whole-server snapshot costs nothing and undoes "deleted the wrong thing".
+- **Storage:** **virtio**, and tick **encryption at rest** — both are creation-time
+  choices that cost a rebuild to change later. virtio is the paravirtualised interface;
+  IDE and SCSI are emulation, and Ubuntu has virtio drivers in-kernel. The mirror is
+  public data, but the same disk holds Caddy's TLS private key and the Cloudflare API
+  token, and encryption is what keeps those off a decommissioned disk.
+- **Backups:** the **Day** tier, ~€0.60/month. The mirror is rebuildable and not worth
+  backing up, but `caddy-data` is not — losing it re-issues against Let's Encrypt rate
+  limits — and a whole-server snapshot undoes "deleted the wrong thing" in minutes
+  rather than a rebuild plus a full re-backfill.
 - **Firewall:** included in the plan; configured in Phase F, not skipped.
 
 Note the IPv4 (and IPv6) address. **It never goes in an unproxied DNS record.**
@@ -119,11 +128,36 @@ worth much less. Test through the proxy or via `curl --resolve` locally.
 
 ## Phase F — Lock the origin down
 
-Two layers, outer first:
+Do this **before** Phase E, not after. The opening principle of this runbook is that the
+firewall is closed before the first visitor arrives, and a proxied `A` record makes
+visitors possible the moment it propagates. Locking first costs nothing: Cloudflare can
+already reach the origin, there is simply nothing pointing at it yet.
 
-**1. UpCloud firewall (control panel → the server → Firewall).** This sits *before* the
-network interface — flood traffic aimed at the raw IP is dropped upstream and never
-consumes the server's bandwidth, which `ufw` cannot do. Rules:
+**1. On the host — the layer that actually enforces this:**
+
+```
+sudo bash deploy/cloudflare-firewall.sh
+```
+
+`ufw` on its own does **nothing** for this stack, and `ufw status` showing a tidy list of
+Cloudflare ranges is not evidence of anything. Docker publishes 80/443 by writing its own
+iptables rules, and those are evaluated before ufw's INPUT chain — so a published
+container port answers the entire internet however ufw is configured. The script therefore
+filters in `DOCKER-USER`, the hook Docker provides for exactly this, and mirrors the rules
+into ufw only to cover things listening on the host rather than in a container.
+
+It scopes the rule to the default-route interface, because `DOCKER-USER` also carries
+traffic the containers originate: the sync's own calls to api.eduskunta.fi are tcp/443,
+and an unscoped drop would stop the mirror updating without a word. It installs a systemd
+unit as well, since iptables does not survive a reboot. SSH is never touched, so a mistake
+here cannot lock you out, and it refuses to apply a suspiciously short range list.
+
+Re-run it when Cloudflare updates its ranges.
+
+**2. UpCloud firewall (control panel → the server → Firewall)** — an outer layer, and
+**not available on a trial account**; it needs a verified/paid one. It sits *before* the
+network interface, so flood traffic aimed at the raw IP is dropped upstream and never
+consumes the server's bandwidth, which nothing on the host can do. Rules:
 
 - Accept TCP 80 and 443 **only from [Cloudflare's published ranges](https://www.cloudflare.com/ips/)**
   (IPv4 and IPv6).
@@ -134,19 +168,22 @@ consumes the server's bandwidth, which `ufw` cannot do. Rules:
   rule set silently kills the sync's requests to api.eduskunta.fi and Caddy's certificate
   renewals — both failures that surface weeks later.
 
-**2. `ufw` on the host, as the inner layer:**
-
-```
-sudo bash deploy/cloudflare-firewall.sh
-```
-
-Fetches Cloudflare's current ranges and restricts 80/443 to them (SSH untouched, so a
-mistake cannot lock you out; it refuses a suspiciously short range list). Re-run it — and
-refresh the UpCloud rules — when Cloudflare updates its ranges.
+Deploying with only step 1 is reasonable: it is what stops anyone bypassing the proxy to
+reach the app. What step 2 adds is volumetric-flood absorption on the raw IP, and that
+attack needs the IP first — which nobody has as long as no grey-cloud record is ever
+created.
 
 Without this phase Cloudflare is decorative: the origin IP leaks eventually (certificate
 transparency logs, any outbound connection) and an attacker simply targets the server
 directly.
+
+**Verify from another machine, never from the server.** Traffic from the host to its own
+public IP is delivered over loopback, which every layer here allows, so the check passes
+no matter how exposed the origin is:
+
+```
+curl -sI --max-time 5 http://<server-ip>/     # must time out (exit 28)
+```
 
 ## Phase G — Verify
 
@@ -199,8 +236,8 @@ recreating it re-issues against Let's Encrypt rate limits.
   itself (`restart: unless-stopped` + Docker enabled at boot).
 - **Disk is the thing that fills.** Container logs are capped at 30 MB each by `setup.sh`;
   the mirror grows slowly and predictably.
-- **Backups:** the Day tier snapshot is the only one needed. Do not build backup
-  machinery for the mirror — it is rebuildable from api.eduskunta.fi.
+- **Backups:** the Day tier snapshot (~€0.60/month) is the only one needed. Do not build
+  backup machinery for the mirror — it is rebuildable from api.eduskunta.fi.
 - **Turning the proxy off** (grey cloud) requires reverting both firewall layers *first*
   — `sudo bash deploy/cloudflare-firewall.sh --open` plus the UpCloud rules — or the site
   becomes unreachable. Then redeploy without the overlay. But see Phase E: a grey-cloud
@@ -215,6 +252,7 @@ recreating it re-issues against Let's Encrypt rate limits.
 | Permalinks say `http://` | `VoteCheck__BehindProxy` not `true`, or Caddy not sending `X-Forwarded-Proto` |
 | Front page empty | Backfill still running, or failed — check `votecheck` logs |
 | `403` in sync logs | Upstream rejects requests without a User-Agent; `VoteCheck.Core` sets one, so something is stripping it in transit |
+| `ufw status` lists Cloudflare ranges but the origin still answers on its raw IP | Docker's iptables rules run before ufw's INPUT chain, so published ports ignore it — re-run `cloudflare-firewall.sh`, which filters in `DOCKER-USER`, and re-check from another machine |
 | Site unreachable after firewall work | Cloudflare's ranges changed, or the proxy was turned off while the lockdown was active — `cloudflare-firewall.sh --open` over SSH, then fix the UpCloud rules |
 | Sync stopped, cert renewals failing, no other symptoms | Outbound blocked at the stateless UpCloud firewall — reopen outbound |
 | Logs show Cloudflare IPs, not visitors | The Cloudflare overlay is not in use, so `trusted_proxies` is unset |

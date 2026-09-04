@@ -74,7 +74,10 @@ app.MapRazorPages();
 app.UseSwagger();
 app.UseSwaggerUI( options => options.SwaggerEndpoint( "/swagger/v1/swagger.json", "VoteCheck API v1" ) );
 
-app.MapGet( "/health", () => Results.Ok( new { status = "ok" } ) ).ExcludeFromDescription();
+// HEAD as well as GET: uptime monitors default to HEAD, and a GET-only route answers
+// 405, which reads as an outage rather than as a healthy service.
+app.MapMethods( "/health", new[] { "GET", "HEAD" },
+    () => Results.Ok( new { status = "ok" } ) ).ExcludeFromDescription();
 
 // robots.txt and the sitemap are served rather than static files because both need the
 // deployment's own absolute origin, which a file in wwwroot cannot know.

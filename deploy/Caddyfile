@@ -8,13 +8,12 @@
 {$DOMAIN} {
 	encode zstd gzip
 
-	# The app is on the compose network, not published to the host.
+	# The app is on the compose network, not published to the host. reverse_proxy
+	# passes X-Forwarded-Proto and -Host upstream on its own; the app builds
+	# canonical URLs, og:url and the sitemap from them, and trusts them only
+	# because VoteCheck__BehindProxy is set. Restating them here is what Caddy
+	# warns about, and spelling them at site level is what it refuses outright.
 	reverse_proxy votecheck:8080
-
-	# Tell the app the public scheme, or canonical URLs, og:url and the sitemap
-	# advertise http — the app trusts these only because VoteCheck__BehindProxy is set.
-	header_up X-Forwarded-Proto {scheme}
-	header_up X-Forwarded-Host {host}
 
 	header {
 		# Public, read-only open data: no credentials, nothing to steal, but these
