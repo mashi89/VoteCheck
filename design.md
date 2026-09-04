@@ -313,7 +313,12 @@ and an MP's recent votes can be found on a phone in under three taps.
   learners, and readers who simply bounce off officialese. Written to the Selkokeskus guidance:
   <https://selkokeskus.fi/selkokieli/nain-kirjoitat-selkokielta/>.
 
-  What the guidance actually demands of a site like this one — from its first section,
+  The genre section, *Ohjeita informoivien tekstien tekijöille*, is the governing one: it
+  covers texts whose job is to inform or help the reader do something, and names
+  *säädöstekstit* — legislative texts — among them. That is what this site publishes, so the
+  informative-text rules apply to it directly rather than by analogy.
+
+  What the guidance demands of a site like this one — drawn from that section and from
   *Vuorovaikutus lukijan kanssa ja tekstin kokonaisuus*; the sections on vocabulary, sentence
   structure and layout are not yet reflected here:
 
@@ -334,6 +339,28 @@ and an MP's recent votes can be found on a phone in under three taps.
     terms.
   - **One idea per paragraph, subheadings for rhythm, recap in long texts.** MP pages are long
     and will get longer; this is a layout constraint as much as a wording one.
+  - **Know the subject more broadly than the source text**, so you can judge what is essential.
+    This is a data requirement, not just an editorial one: a division's `title` and `subject`
+    are not enough to say what was actually decided. It needs the matter behind the vote —
+    `/valtiopaivaasiat` and `/asiakirjat`, neither modelled yet (§3.1), and both on the list of
+    shapes that must be captured live before being modelled (§6).
+  - **Make the reader an active agent.** The guidance warns against casting the reader as
+    permanently passive or as an object of help, and prefers the imperative and the sinä-form
+    for instructions. That suits this product exactly: the citizen checking a representative is
+    the actor, and the copy should read that way — *katso, miten edustajasi äänesti*, not a
+    passive report about what is available.
+  - **Support the text with images and infographics.** Named explicitly in the genre section.
+    The party distribution is the obvious candidate: a graphic carries a split that a table of
+    four numbers does not. Overlaps with the **Charts** item above; do them together.
+  - **Have it checked, by a subject expert and ideally by another selkokieli expert.** Review
+    is part of the standard, not a nicety — and the guidance notes the subject expert's pass
+    often makes the text *harder*, so someone has to hold the selko purpose afterwards. This
+    is a recurring editorial cost with a named skill attached, which is the main thing to weigh
+    before committing to any scope beyond chrome.
+
+  The two sections pull against each other, and holding both is the actual craft: cut every
+  piece of information the reader does not need, while never creating a *sisällöllinen aukko*.
+  Shorter, and yet nothing left to infer.
 
   Worth noting who the guidance says this is for: people who need selkokieli *"voidakseen
   osallistua yhteiskunnan toimintaan"* — in order to take part in society. For a product whose
@@ -351,8 +378,10 @@ and an MP's recent votes can be found on a phone in under three taps.
     so it does not scale to the full mirror; pick a threshold (contested votes, party-line
     breaks) rather than pretending to cover everything.
   - **Generated summaries** — must be labelled as such and never presented as the record.
-    An unverified restatement of how somebody voted is precisely the failure mode this
-    project cannot afford.
+    An unverified restatement of how somebody voted is precisely the failure mode this project
+    cannot afford, and it fails the standard on its own terms: the guidance requires checking
+    by a subject expert and use of reliable sources only. Unreviewed generated text is not
+    selkokieli, whatever it reads like.
 
   Two constraints to design around. **`selkokieli` is a standard, not a style:** Selkokeskus
   assesses material and grants the *selkotunnus*, so the UI must not claim the label without
