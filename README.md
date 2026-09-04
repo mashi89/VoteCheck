@@ -89,6 +89,15 @@ Two things that will bite otherwise:
 The runtime image ships no curl, so there is no `HEALTHCHECK` in the Dockerfile — point
 your orchestrator's HTTP probe at `/health`. `docker-compose.yml` shows one way.
 
+## Software bill of materials
+
+`sbom/edustajavahti.cdx.json` lists every component the deployed image carries — NuGet
+closure, the .NET and ASP.NET Core shared frameworks, the runtime base image — in
+CycloneDX 1.6. It is what the Cyber Resilience Act (Regulation (EU) 2024/2847, Annex I
+Part II point 1) requires of a manufacturer, and CI fails if a dependency moves without
+it. Regenerate with `python3 sbom/generate.py`; see **[`sbom/README.md`](sbom/README.md)**
+for the two-SBOM split and what is still missing.
+
 ## Technology Stack
 
 | Category | Technology |
