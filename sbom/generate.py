@@ -121,7 +121,7 @@ def find_tool() -> str:
 def run_cyclonedx(project: Path, name: str, version: str) -> dict:
     tool = find_tool()
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run(
+        result = subprocess.run(
             [
                 tool, str(project),
                 "--recursive",                 # follow ProjectReference
@@ -136,8 +136,12 @@ def run_cyclonedx(project: Path, name: str, version: str) -> dict:
                 "--output", tmp,
                 "--filename", "bom.json",
             ],
-            check=True, cwd=REPO, stdout=subprocess.DEVNULL,
+            cwd=REPO, capture_output=True, text=True,
         )
+        if result.returncode != 0:
+            print(result.stdout, file=sys.stderr)
+            print(result.stderr, file=sys.stderr)
+            sys.exit(f"dotnet-CycloneDX failed with exit code {result.returncode}")
         return json.loads((Path(tmp) / "bom.json").read_text(encoding="utf-8"))
 
 
@@ -584,7 +588,11 @@ def validate(bom: dict, schema_path: Path | None) -> None:
         from referencing import Registry, Resource
         from referencing.jsonschema import DRAFT7
     except ImportError:
-        sys.exit("--schema needs the jsonschema package: pip install jsonschema")
+        sys.exit(
+            f"--schema needs the jsonschema package, and {sys.executable} does not "
+            f"have it.\nInstall it for this interpreter:\n"
+            f"  {sys.executable} -m pip install jsonschema"
+        )
 
     def load(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
