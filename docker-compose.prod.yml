@@ -23,7 +23,11 @@ services:
       # VoteCheck__AllowedOrigins__0: "https://app.example.org"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q 200"]
+      # bash, not CMD-SHELL: /dev/tcp is a bash feature and /bin/sh on this Debian-based
+      # runtime image is dash, which reports "cannot create /dev/tcp/..." and marks a
+      # perfectly healthy container unhealthy forever. The image ships no curl or wget,
+      # which is why the check is a hand-rolled request in the first place.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q 200"]
       interval: 30s
       timeout: 5s
       start_period: 40s
