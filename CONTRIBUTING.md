@@ -7,18 +7,17 @@ One topic per branch, branched from an up-to-date `master`. Nothing is committed
 
 ### Issues first
 
-Open an issue before starting, whenever there is anything worth describing. The issue holds
-the *why* — what is wrong, or what should exist, and how anyone would tell it was done. The
-branch and pull request then carry only the *what*, and the issue number ties the two together.
+**Every change has an issue.** If one does not already exist, create it before branching —
+that is part of the work, not a precondition someone else supplies. The issue holds the *why*:
+what is wrong, or what should exist, and how anyone would tell it was done. The branch and
+pull request carry only the *what*, and the issue number ties the two together.
 
-This is also what makes the branch names below worth having. A list reading `bugfix/31-…`,
+This is what makes the branch names below worth having. A list reading `bugfix/31-…`,
 `feature/42-…` can be traced back to a stated reason; one reading `bugfix/that-thing` cannot.
 
-Two cases where work legitimately starts without one:
-
-- The change is smaller than the issue describing it — a typo, a dead link, a stale comment.
-- Production is down. A `hotfix/` does not wait on paperwork. File the issue once it is out,
-  because an urgent change is precisely the one whose reasoning someone will want later.
+The single carve-out is about ordering, not exemption: a `hotfix/` while production is down
+does not wait on paperwork. File the issue as soon as the fix is out — an urgent change is
+precisely the one whose reasoning someone will want later.
 
 ### Categories
 
@@ -48,7 +47,7 @@ no number — this is required only when there is something to cite.
 
 ### Lifecycle
 
-1. Open an issue, unless one of the exceptions above applies.
+1. Open an issue, or find the existing one.
 2. Branch from current `master`.
 3. Keep to one topic. Finding a second one is a reason to branch again, not to widen this one.
 4. Open a pull request. CI must pass before merge.
