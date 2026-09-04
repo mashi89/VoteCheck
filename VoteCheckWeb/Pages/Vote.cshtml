@@ -20,7 +20,7 @@
 }
 
 <h1>@Model.Session.Title</h1>
-<p class="muted">@Model.Session.Subject · @Model.Session.Date[..Math.Min( 10, Model.Session.Date.Length )]</p>
+<p class="muted"><span class="label">Aihe:</span> @Model.Session.Subject · @Model.Session.Date[..Math.Min( 10, Model.Session.Date.Length )]</p>
 
 <p>
     <strong class="vote-Jaa">Jaa @Model.Session.Yes</strong> ·
