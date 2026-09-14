@@ -1,0 +1,415 @@
+/* Edustajavahti — design tokens and components.
+ *
+ * Moved out of a <style> block in _Layout so it is fetched once and cached, rather than
+ * re-sent with every page. Cloudflare caches static assets by default but not HTML, so this
+ * is also the part of a page view the edge can actually serve.
+ *
+ * Two rules govern colour here, both of them measured rather than chosen by eye:
+ *
+ *  1. Jaa and Ei are blue and warm orange, not green and red. Under protanopia the old
+ *     green/red pair collapsed to a perceptual distance of dE 20 — the two readings of every
+ *     division looked alike. This pair holds dE 84. It also separates on luminance (2.31:1),
+ *     so it survives greyscale and print, and it drops the implication that Jaa is the good
+ *     answer and Ei the bad one.
+ *  2. Nothing is encoded by colour alone. Every tally segment, swatch and ballot carries its
+ *     word as well, because a colour that fails for one reader must not take the fact with it.
+ */
+
+:root {
+    color-scheme: light dark;
+
+    --paper:        #f6f7f9;
+    --surface:      #ffffff;
+    --ink:          #15181d;
+    --ink-muted:    #5a6372;   /* 5.66:1 on paper — the old #888 was 3.54:1 and failed AA */
+    --rule:         #dfe3e9;
+    --rule-strong:  #c3cad4;
+
+    --jaa-text:     #1a548f;   /* 7.23:1 */
+    --ei-text:      #9c4517;   /* 5.98:1 */
+    --jaa-fill:     #1f5c9e;
+    --ei-fill:      #d98045;
+    --neutral-fill: #9aa3b0;   /* Tyhjä and Poissa: present in the bar, absent from the argument */
+    --seat-stroke:  #00000026;
+
+    --focus:        #1a548f;
+
+    /* Long Finnish compounds set the measure: "tiedoksiantomenettelystä" is one word and
+     * must not be hyphenated to fit, so lines are allowed to run a little wider than the
+     * usual 66 characters. */
+    --measure:      64rem;
+
+    --space-1: .25rem;
+    --space-2: .5rem;
+    --space-3: .75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+    --space-7: 3rem;
+
+    --radius:   6px;
+    --radius-lg: 10px;
+
+    --text-sm:   .9375rem;
+    --text-base: 1.125rem;      /* 18px floor: this site is read by people with older eyes */
+    --text-lg:   1.3125rem;
+    --text-xl:   1.5rem;
+    --text-2xl:  clamp( 1.75rem, 1.15rem + 2.4vw, 2.5rem );
+    --text-score: clamp( 2rem, 1.3rem + 3vw, 3rem );
+
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Only the tokens are redefined, so every rule below stays written once. There is no theme
+ * toggle — the site follows the reader's own setting, which is also why this is a plain
+ * media query rather than nested under a [data-theme] guard. */
+@media ( prefers-color-scheme: dark ) {
+    :root {
+        --paper:        #14171b;
+        --surface:      #1b1f25;
+        --ink:          #e6e9ee;
+        --ink-muted:    #98a2b1;
+        --rule:         #2b313a;
+        --rule-strong:  #3c444f;
+
+        --jaa-text:     #8ebdea;
+        --ei-text:      #eda372;
+        --jaa-fill:     #3b7ab9;
+        --ei-fill:      #c9773f;
+        --neutral-fill: #5b6472;
+        --seat-stroke:  #ffffff2e;
+
+        --focus:        #8ebdea;
+    }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var( --paper );
+    color: var( --ink );
+    font-family: var( --font-body );
+    font-size: var( --text-base );
+    line-height: 1.55;
+    -webkit-text-size-adjust: 100%;
+}
+
+main {
+    max-width: var( --measure );
+    margin: 0 auto;
+    padding: var( --space-5 ) var( --space-4 ) var( --space-7 );
+}
+
+a { color: var( --jaa-text ); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* A visible focus ring is the whole keyboard interface. :focus-visible keeps it off mouse
+ * clicks, where it reads as a stuck selection. */
+:focus-visible {
+    outline: 3px solid var( --focus );
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+h1, h2, h3 { line-height: 1.15; text-wrap: balance; margin: 0; }
+h2 {
+    font-size: var( --text-xl );
+    letter-spacing: -.01em;
+    margin: var( --space-7 ) 0 var( --space-4 );
+}
+
+/* ---- shell ---------------------------------------------------------------- */
+
+.site-header {
+    border-bottom: 1px solid var( --rule );
+    background: var( --surface );
+}
+.site-header nav {
+    max-width: var( --measure );
+    margin: 0 auto;
+    padding: var( --space-4 );
+    display: flex;
+    gap: var( --space-5 );
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+.site-header a { color: inherit; text-decoration: none; }
+.site-header a:hover { text-decoration: underline; }
+.site-header .brand {
+    font-weight: 700;
+    font-size: var( --text-lg );
+    letter-spacing: -.02em;
+    margin-right: auto;
+}
+
+/* ---- shared text ---------------------------------------------------------- */
+
+.muted { color: var( --ink-muted ); }
+.label { color: var( --ink-muted ); font-weight: 600; }
+
+/* Available to a screen reader, absent from the page. Used where a heading is needed for
+ * document structure but would be redundant to read. */
+.visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip-path: inset( 50% );
+    white-space: nowrap;
+}
+
+/* A date is one token: 2026-09-11 broken across two lines reads as two dates. */
+.date, td.date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var( --space-2 ) var( --space-3 );
+    align-items: baseline;
+    font-size: var( --text-sm );
+    color: var( --ink-muted );
+    margin-bottom: var( --space-3 );
+}
+.eyebrow .sep { color: var( --rule-strong ); }
+
+/* ---- vote page: the subject leads ----------------------------------------- */
+
+/* The division's subject is the headline. Upstream's own title is procedural
+ * ("1. lakiehdotus 8 d §: mietintö JAA / …") and belongs further down, labelled — it is
+ * what parliament called the question, not what the question was about. */
+.subject {
+    font-size: var( --text-2xl );
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin-bottom: var( --space-5 );
+}
+
+.outcome {
+    background: var( --surface );
+    border: 1px solid var( --rule );
+    border-radius: var( --radius-lg );
+    padding: var( --space-5 );
+    margin-bottom: var( --space-6 );
+}
+
+.outcome-headline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var( --space-2 ) var( --space-4 );
+    margin-bottom: var( --space-4 );
+}
+.verdict { font-size: var( --text-lg ); font-weight: 600; }
+.verdict .v-jaa { color: var( --jaa-text ); }
+.verdict .v-ei  { color: var( --ei-text ); }
+.score {
+    font-size: var( --text-score );
+    font-weight: 700;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-left: auto;
+}
+.score .s-jaa { color: var( --jaa-text ); }
+.score .s-ei  { color: var( --ei-text ); }
+.score .s-dash { color: var( --ink-muted ); font-weight: 400; }
+
+/* ---- proportional tally --------------------------------------------------- */
+
+.tally-bar {
+    display: flex;
+    height: 2.25rem;
+    border-radius: var( --radius );
+    overflow: hidden;
+    background: var( --rule );
+    margin-bottom: var( --space-3 );
+}
+.tally-bar .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var( --text-sm );
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    /* A one-vote segment is a sliver; the stroke keeps it from vanishing against its
+     * neighbour, and min-width keeps it from disappearing entirely. */
+    box-shadow: inset 0 0 0 1px var( --seat-stroke );
+    min-width: 2px;
+    overflow: hidden;
+}
+.seg-jaa     { background: var( --jaa-fill ); }
+.seg-ei      { background: var( --ei-fill ); }
+.seg-neutral { background: var( --neutral-fill ); }
+
+/* Absent is hatched rather than given a fifth colour. "Did not vote" is a different kind of
+ * fact from "voted blank", and a texture separates them without adding another hue that
+ * would have to survive colour-vision deficiency on its own. */
+.seg-absent, .swatch-absent {
+    background-color: var( --neutral-fill );
+    background-image: repeating-linear-gradient(
+        135deg, #ffffff00 0 3px, #ffffff40 3px 6px );
+}
+
+.tally-key {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var( --space-2 ) var( --space-5 );
+    font-size: var( --text-sm );
+}
+.tally-key li { display: flex; align-items: center; gap: var( --space-2 ); }
+.tally-key b { font-variant-numeric: tabular-nums; }
+.swatch {
+    width: .875rem;
+    height: .875rem;
+    border-radius: 3px;
+    flex: none;
+    box-shadow: inset 0 0 0 1px var( --seat-stroke );
+}
+.swatch-jaa     { background: var( --jaa-fill ); }
+.swatch-ei      { background: var( --ei-fill ); }
+.swatch-neutral { background: var( --neutral-fill ); }
+
+/* ---- the procedural question ---------------------------------------------- */
+
+.asettelu {
+    margin: 0 0 var( --space-6 );
+    padding-left: var( --space-4 );
+    border-left: 3px solid var( --rule-strong );
+    color: var( --ink-muted );
+    font-size: var( --text-sm );
+}
+.asettelu .label { display: block; margin-bottom: var( --space-1 ); }
+.asettelu q { color: var( --ink ); font-style: normal; }
+
+/* ---- groups --------------------------------------------------------------- */
+
+.groups { list-style: none; margin: 0; padding: 0; }
+
+/* Name and counts share the top row, the bar spans beneath them. Two columns rather than
+ * three means the same grid works down to the narrowest phone without a breakpoint. */
+.group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var( --space-2 ) var( --space-4 );
+    align-items: baseline;
+    padding: var( --space-4 ) 0;
+    border-bottom: 1px solid var( --rule );
+}
+.group-name { grid-column: 1; font-weight: 600; }
+.group-counts { grid-column: 2; text-align: right; font-size: var( --text-sm ); }
+.group-bar { grid-column: 1 / -1; }
+.group-counts .sep { color: var( --rule-strong ); }
+.group-name a { color: inherit; text-decoration: none; }
+.group-name a:hover { text-decoration: underline; }
+.group-size { color: var( --ink-muted ); font-weight: 400; font-size: var( --text-sm ); }
+/* The outer element is the full width of the largest group; the fill inside is this group's
+ * share of it, and the segments divide the fill. Two nested widths rather than one so the
+ * row shows both how the group voted and how big the group is. */
+.group-bar { display: block; height: 1.5rem; }
+.group-bar-fill { display: flex; height: 100%; border-radius: 4px; overflow: hidden; }
+.group-bar .seg { box-shadow: inset 0 0 0 1px var( --seat-stroke ); min-width: 2px; }
+
+/* ---- ballots -------------------------------------------------------------- */
+
+table { border-collapse: collapse; width: 100%; }
+th, td {
+    text-align: left;
+    padding: var( --space-3 ) var( --space-3 );
+    border-bottom: 1px solid var( --rule );
+    vertical-align: top;
+}
+th { font-size: var( --text-sm ); color: var( --ink-muted ); font-weight: 600; }
+
+/* Kept as class names because the front page, MP profile and search still use them;
+ * issue #39 restructures those. */
+.vote-Jaa   { color: var( --jaa-text ); font-weight: 700; }
+.vote-Ei    { color: var( --ei-text ); font-weight: 700; }
+.vote-Tyhjä,
+.vote-Poissa { color: var( --ink-muted ); }
+
+/* A wide table scrolls inside its own box rather than pushing the page sideways. Not scoped
+ * to a breakpoint: the ballot list can outgrow any width once names and group names are
+ * long, and a horizontally scrolling body is much worse than a scrolling table. */
+.scroll-x { overflow-x: auto; }
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var( --space-2 );
+    margin-bottom: var( --space-4 );
+    padding: 0;
+    list-style: none;
+}
+.chip {
+    display: inline-flex;
+    align-items: center;
+    /* WCAG 2.5.5 asks for a comfortable touch target; at 18px base this clears 44px. */
+    min-height: 2.4rem;
+    padding: var( --space-2 ) var( --space-3 );
+    border: 1px solid var( --rule-strong );
+    border-radius: 999px;
+    font-size: var( --text-sm );
+    text-decoration: none;
+    color: inherit;
+}
+.chip:hover { border-color: var( --ink-muted ); text-decoration: none; }
+.chip[aria-current="true"] {
+    background: var( --jaa-fill );
+    border-color: var( --jaa-fill );
+    color: #fff;
+    font-weight: 600;
+}
+
+/* ---- search --------------------------------------------------------------- */
+
+form.search { display: flex; gap: var( --space-2 ); margin-bottom: var( --space-5 ); }
+form.search input[ type=search ] {
+    flex: 1;
+    padding: var( --space-3 );
+    font: inherit;
+    color: inherit;
+    background: var( --surface );
+    border: 1px solid var( --rule-strong );
+    border-radius: var( --radius );
+    min-width: 0;
+}
+form.search button {
+    padding: var( --space-3 ) var( --space-5 );
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var( --jaa-fill );
+    border: 1px solid var( --jaa-fill );
+    border-radius: var( --radius );
+    cursor: pointer;
+}
+form.search button:hover { filter: brightness( 1.08 ); }
+
+/* ---- narrow screens ------------------------------------------------------- */
+
+@media ( max-width: 34rem ) {
+    /* One column, so the group name, its bar and its counts stack. Every child is pinned
+     * back to column 1 — leaving .group-counts on column 2 would have grid create an
+     * implicit second track and quietly undo the stack. */
+    .group { grid-template-columns: 1fr; gap: var( --space-2 ); }
+    .group-name,
+    .group-counts,
+    .group-bar { grid-column: 1; }
+    .group-counts { text-align: left; }
+
+    .score { margin-left: 0; }
+    th, td { padding: var( --space-2 ); }
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
