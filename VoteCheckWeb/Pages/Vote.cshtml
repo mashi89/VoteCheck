@@ -1,61 +1,178 @@
 @page "/vote/{id}/{party?}"
+@using System.Globalization
 @model VoteModel
 
 @if ( Model.Session == null ) {
     <h1>Äänestystä ei löytynyt</h1>
+    <p>Tarkista osoite tai <a href="/">palaa etusivulle</a>.</p>
     return;
 }
 
 @{
     var s = Model.Session;
-    var day = s.Date[..Math.Min( 10, s.Date.Length )];
-    ViewData["Title"] = s.Title;
+    var day = Format.Date( s.Date );
+
+    // The subject leads. On a few divisions upstream sends no subject at all, and then the
+    // procedural title is the only description there is — it is promoted to the headline
+    // rather than repeated in both places.
+    var hasSubject = !string.IsNullOrWhiteSpace( s.Subject );
+    var headline = hasSubject ? s.Subject : s.Title;
+
+    // Percentages go into inline widths, so they are formatted against the invariant
+    // culture: a Finnish "44,5%" is not a CSS length and would collapse the bar.
+    string Width( int n ) =>
+        ( s.Total == 0 ? 0 : 100.0 * n / s.Total )
+            .ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
+
+    ViewData["Title"] = Meta.Truncate( headline, 60 );
     ViewData["OgType"] = "article";
     // Tally first: a feed truncates the tail, and the numbers are the fact being checked.
     // The party filter is a view of the same division, so it shares the division's card.
-    ViewData["OgTitle"] = $"Jaa {s.Yes} – Ei {s.No} · {Meta.Truncate( s.Subject, 70 )}";
+    ViewData["OgTitle"] = $"Jaa {s.Yes} – Ei {s.No} · {Meta.Truncate( headline, 70 )}";
     ViewData["Description"] =
         $"Eduskunnan äänestys {day}: Jaa {s.Yes}, Ei {s.No}, Tyhjä {s.Blank}, Poissa {s.Absent}. "
         + Meta.Truncate( s.Title, 80 );
 }
 
-<h1>@Model.Session.Title</h1>
-<p class="muted"><span class="label">Aihe:</span> @Model.Session.Subject · @Model.Session.Date[..Math.Min( 10, Model.Session.Date.Length )]</p>
-
-<p>
-    <strong class="vote-Jaa">Jaa @Model.Session.Yes</strong> ·
-    <strong class="vote-Ei">Ei @Model.Session.No</strong> ·
-    Tyhjä @Model.Session.Blank · Poissa @Model.Session.Absent
+<p class="eyebrow">
+    <time datetime="@Format.Iso( s.Date )">@day</time>
+    @if ( s.SessionNumber != null && s.VoteNumber != null ) {
+        <span class="sep">·</span>
+        <span>Täysistunto @s.SessionNumber, äänestys @s.VoteNumber</span>
+    }
 </p>
 
+<h1 class="subject">@headline</h1>
+
+<section class="outcome" aria-labelledby="tulos">
+    <h2 id="tulos" class="visually-hidden">Äänestyksen tulos</h2>
+    <div class="outcome-headline">
+        <span class="verdict">
+            @if ( s.Majority == VoteValue.Yes ) {
+                @:Enemmistö äänesti <span class="v-jaa">Jaa</span>
+            } else if ( s.Majority == VoteValue.No ) {
+                @:Enemmistö äänesti <span class="v-ei">Ei</span>
+            } else {
+                @:Äänet menivät tasan
+            }
+        </span>
+        <span class="score">
+            <span class="s-jaa">@s.Yes</span><span class="s-dash">–</span><span class="s-ei">@s.No</span>
+        </span>
+    </div>
+
+    @* The bar repeats what the list below states in words, so it is hidden from assistive
+       technology rather than announced twice as a row of meaningless percentages. *@
+    @* Segments are emitted only when they hold votes. A zero-width segment still picks up the
+       min-width that keeps one-vote slivers visible, and would draw a stray 2px mark. *@
+    <div class="tally-bar" aria-hidden="true">
+        @if ( s.Yes > 0 ) {
+            <span class="seg seg-jaa" style="width:@Width( s.Yes )">@( s.Yes * 8 > s.Total ? s.Yes.ToString() : "" )</span>
+        }
+        @if ( s.No > 0 ) {
+            <span class="seg seg-ei" style="width:@Width( s.No )">@( s.No * 8 > s.Total ? s.No.ToString() : "" )</span>
+        }
+        @if ( s.Blank > 0 ) {
+            <span class="seg seg-neutral" style="width:@Width( s.Blank )"></span>
+        }
+        @if ( s.Absent > 0 ) {
+            <span class="seg seg-absent" style="width:@Width( s.Absent )"></span>
+        }
+    </div>
+
+    <ul class="tally-key">
+        <li><span class="swatch swatch-jaa"></span> Jaa <b>@s.Yes</b></li>
+        <li><span class="swatch swatch-ei"></span> Ei <b>@s.No</b></li>
+        <li><span class="swatch swatch-neutral"></span> Tyhjä <b>@s.Blank</b></li>
+        <li><span class="swatch swatch-absent"></span> Poissa <b>@s.Absent</b></li>
+    </ul>
+</section>
+
+@if ( hasSubject ) {
+    <p class="asettelu">
+        <span class="label">Äänestysasettelu</span>
+        <q>@s.Title</q>
+    </p>
+}
+
+@{
+    // Bars are scaled against the largest group, not stretched to a common width. A group of
+    // 17 drawn the same length as a group of 51 would overstate its weight in the chamber,
+    // which is the one thing these rows exist to convey.
+    var largestGroup = Model.Parties.Count == 0
+        ? 1
+        : Model.Parties.Max( g => g.Yes + g.No + g.Blank + g.Absent );
+}
 <h2>Eduskuntaryhmittäin</h2>
-<table>
-    <thead><tr><th>Ryhmä</th><th>Jaa</th><th>Ei</th><th>Tyhjä</th><th>Poissa</th></tr></thead>
-    <tbody>
-    @foreach ( var p in Model.Parties ) {
-        <tr>
-            <td><a href="/vote/@Model.Session.Id/@p.Party">@p.Party</a></td>
-            <td class="vote-Jaa">@p.Yes</td>
-            <td class="vote-Ei">@p.No</td>
-            <td>@p.Blank</td>
-            <td>@p.Absent</td>
-        </tr>
-    }
-    </tbody>
-</table>
+<ol class="groups">
+@foreach ( var p in Model.Parties ) {
+    var total = p.Yes + p.No + p.Blank + p.Absent;
+    string GroupWidth( int n ) =>
+        ( total == 0 ? 0 : 100.0 * n / total ).ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
+    var share = ( 100.0 * total / largestGroup ).ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
+    <li class="group">
+        <span class="group-name">
+            <a href="/vote/@s.Id/@p.Party" title="@Party.FormalName( p.Party )">@Party.Name( p.Party )</a>
+            <span class="group-size">@total</span>
+        </span>
+        <span class="group-bar" aria-hidden="true">
+            <span class="group-bar-fill" style="width:@share">
+                @if ( p.Yes > 0 ) { <span class="seg seg-jaa" style="width:@GroupWidth( p.Yes )"></span> }
+                @if ( p.No > 0 ) { <span class="seg seg-ei" style="width:@GroupWidth( p.No )"></span> }
+                @if ( p.Blank > 0 ) { <span class="seg seg-neutral" style="width:@GroupWidth( p.Blank )"></span> }
+                @if ( p.Absent > 0 ) { <span class="seg seg-absent" style="width:@GroupWidth( p.Absent )"></span> }
+            </span>
+        </span>
+        @* Zero counts are omitted: a row reading "0 · 0 · 0" is noise, and the bar already
+           shows that the group voted one way. *@
+        <span class="group-counts muted">
+            @if ( p.Yes > 0 ) { <span class="vote-Jaa">@p.Yes Jaa</span> }
+            @if ( p.Yes > 0 && ( p.No > 0 || p.Blank > 0 || p.Absent > 0 ) ) { <span class="sep">·</span> }
+            @if ( p.No > 0 ) { <span class="vote-Ei">@p.No Ei</span> }
+            @if ( p.No > 0 && ( p.Blank > 0 || p.Absent > 0 ) ) { <span class="sep">·</span> }
+            @if ( p.Blank > 0 ) { <span>@p.Blank tyhjää</span> }
+            @if ( p.Blank > 0 && p.Absent > 0 ) { <span class="sep">·</span> }
+            @if ( p.Absent > 0 ) { <span>@p.Absent poissa</span> }
+        </span>
+    </li>
+}
+</ol>
 
 @if ( Model.Votes.Count > 0 ) {
-    <h2>Edustajien äänet@(Model.Party != null ? $" — {Model.Party}" : "")</h2>
-    <table>
-        <thead><tr><th>Edustaja</th><th>Ryhmä</th><th>Ääni</th></tr></thead>
-        <tbody>
-        @foreach ( var v in Model.Votes ) {
-            <tr>
-                <td><a href="/mp/@v.PersonNumber">@v.LastName, @v.FirstName</a></td>
-                <td>@v.Party</td>
-                <td class="vote-@v.Vote">@v.Vote</td>
-            </tr>
+    <h2>Edustajien äänet</h2>
+    <ul class="filters">
+        <li>
+            <a class="chip" href="/vote/@s.Id" aria-current="@( Model.Party == null ? "true" : "false" )">Kaikki</a>
+        </li>
+        @foreach ( var p in Model.Parties ) {
+            <li>
+                <a class="chip" href="/vote/@s.Id/@p.Party"
+                   aria-current="@( string.Equals( Model.Party, p.Party, StringComparison.OrdinalIgnoreCase ) ? "true" : "false" )"
+                   title="@Party.FormalName( p.Party )">@Party.Name( p.Party )</a>
+            </li>
         }
-        </tbody>
-    </table>
+    </ul>
+
+    @* With a group filter applied the group column repeats the same name on every row, so it
+       is dropped — the selected chip already says which group this is. *@
+    <div class="scroll-x">
+        <table>
+            <thead>
+                <tr>
+                    <th>Edustaja</th>
+                    @if ( Model.Party == null ) { <th>Ryhmä</th> }
+                    <th>Ääni</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach ( var v in Model.Votes ) {
+                <tr>
+                    <td><a href="/mp/@v.PersonNumber">@v.LastName, @v.FirstName</a></td>
+                    @if ( Model.Party == null ) { <td>@Party.Name( v.Party )</td> }
+                    <td class="vote-@v.Vote">@v.Vote</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }

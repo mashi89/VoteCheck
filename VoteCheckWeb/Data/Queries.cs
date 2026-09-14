@@ -3,7 +3,37 @@ using Microsoft.Data.Sqlite;
 namespace VoteCheckWeb.Data;
 
 public sealed record SessionSummary( string Id, string Date, string Title, string Subject,
-    int Yes, int No, int Blank, int Absent );
+    int Yes, int No, int Blank, int Absent ) {
+
+    // Every member is accounted for exactly once, so the four counts total the chamber.
+    // Absences are part of the picture on a site about what your representative does, so
+    // they are shown in proportion rather than left out of the denominator.
+    public int Total => Yes + No + Blank + Absent;
+
+    // Members who actually registered a vote of some kind.
+    public int Cast => Yes + No + Blank;
+
+    // Which way the chamber leaned, or null when Jaa and Ei tie.
+    //
+    // Deliberately not "did it pass". Some questions need a qualified majority — a
+    // constitutional amendment needs two thirds — so a plurality does not always decide the
+    // outcome, and inferring passage from these numbers would be wrong in exactly the cases
+    // that matter most. What the counts support is which side had more votes; that is all
+    // this reports, and the page says it in those words.
+    public string? Majority => Yes == No ? null : Yes > No ? VoteValue.Yes : VoteValue.No;
+
+    // "2026-80-3" is {vpYear}-{sessionNumber}-{voteNumber}. The components exist as columns
+    // as well, because chronological ordering needs them as integers, but a caller holding a
+    // summary has the identifier and not the row — so they are read back off the identifier
+    // rather than widening the projection every query shares.
+    public int? SessionNumber => Component( 1 );
+    public int? VoteNumber => Component( 2 );
+
+    private int? Component( int index ) {
+        var parts = Id.Split( '-' );
+        return parts.Length == 3 && int.TryParse( parts[ index ], out var value ) ? value : null;
+    }
+}
 
 public sealed record MpSummary( int PersonNumber, string FirstName, string LastName, string Party );
 
