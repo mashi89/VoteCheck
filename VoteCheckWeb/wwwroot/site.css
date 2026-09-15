@@ -290,19 +290,23 @@ h2 {
 
 .groups { list-style: none; margin: 0; padding: 0; }
 
-/* Name and counts share the top row, the bar spans beneath them. Two columns rather than
- * three means the same grid works down to the narrowest phone without a breakpoint. */
+/* Name, bar and counts stack on one left edge, so the eye reads a group top to bottom in one
+ * column instead of travelling to the far side of the row for the numbers. A plain block
+ * stack, not a grid: everything shares column one, and the same rule holds at every width.
+ *
+ * The spacing inside a group is deliberately tighter than the spacing between groups — the
+ * three parts belong together, and when the gaps were equal the rows read as six loose
+ * fragments rather than three pairs. */
 .group {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var( --space-2 ) var( --space-4 );
-    align-items: baseline;
-    padding: var( --space-4 ) 0;
+    padding: var( --space-3 ) 0;
     border-bottom: 1px solid var( --rule );
 }
-.group-name { grid-column: 1; font-weight: 600; }
-.group-counts { grid-column: 2; text-align: right; font-size: var( --text-sm ); }
-.group-bar { grid-column: 1 / -1; }
+.group-name { display: block; font-weight: 600; margin-bottom: var( --space-1 ); }
+.group-counts {
+    display: block;
+    margin-top: var( --space-1 );
+    font-size: var( --text-sm );
+}
 .group-counts .sep { color: var( --rule-strong ); }
 .group-name a { color: inherit; text-decoration: none; }
 .group-name a:hover { text-decoration: underline; }
@@ -393,15 +397,7 @@ form.search button:hover { filter: brightness( 1.08 ); }
 /* ---- narrow screens ------------------------------------------------------- */
 
 @media ( max-width: 34rem ) {
-    /* One column, so the group name, its bar and its counts stack. Every child is pinned
-     * back to column 1 — leaving .group-counts on column 2 would have grid create an
-     * implicit second track and quietly undo the stack. */
-    .group { grid-template-columns: 1fr; gap: var( --space-2 ); }
-    .group-name,
-    .group-counts,
-    .group-bar { grid-column: 1; }
-    .group-counts { text-align: left; }
-
+    /* Group rows need nothing here — they stack on one edge at every width by construction. */
     .score { margin-left: 0; }
     th, td { padding: var( --space-2 ); }
 }
