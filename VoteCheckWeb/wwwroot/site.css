@@ -274,6 +274,59 @@ h2 {
 .swatch-ei      { background: var( --ei-fill ); }
 .swatch-neutral { background: var( --neutral-fill ); }
 
+/* ---- the chamber ----------------------------------------------------------- */
+
+.chamber { margin: var( --space-5 ) 0 0; }
+.chamber svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* The chevron is wide and shallow; without a ceiling it would dominate a large screen
+     * and push the group breakdown below the fold. */
+    max-height: 17rem;
+}
+.chamber figcaption {
+    margin-top: var( --space-3 );
+    font-size: var( --text-sm );
+    text-wrap: pretty;
+}
+
+/* Boundaries between groups. Muted rather than black: they should let you find where a group
+ * starts without competing with the seats, which are what the picture is about. */
+.chamber-divider {
+    fill: none;
+    stroke: var( --ink-muted );
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Group names, in viewBox units so they scale with the diagram. text-anchor centres each
+ * on the block it names. */
+.chamber-label {
+    fill: var( --ink-muted );
+    font-size: 17px;
+    font-weight: 700;
+    text-anchor: middle;
+    letter-spacing: .03em;
+}
+
+.seat-Jaa   { fill: var( --jaa-fill ); }
+.seat-Ei    { fill: var( --ei-fill ); }
+.seat-Tyhjä { fill: var( --neutral-fill ); }
+
+/* Absent is drawn hollow rather than in a fifth colour — the same distinction the printed
+ * chamber graphics make, and a difference in shape rather than only in hue, so it survives
+ * for a reader who cannot separate the fills. */
+.seat-Poissa {
+    /* Matches the panel it sits on, not the page — the two differ, and filling with the page
+     * colour left every empty seat a shade off its own background. Filled rather than
+     * fill:none so the whole circle stays hoverable for its tooltip. */
+    fill: var( --surface );
+    stroke: var( --neutral-fill );
+    stroke-width: 1.4;
+}
+
 /* ---- the procedural question ---------------------------------------------- */
 
 .asettelu {
@@ -397,6 +450,11 @@ form.search button:hover { filter: brightness( 1.08 ); }
 /* ---- narrow screens ------------------------------------------------------- */
 
 @media ( max-width: 34rem ) {
+    /* The chamber is small enough on a phone that the group names render at about eight
+     * pixels — too small to read, and clutter at that size. The list directly below names
+     * every group anyway, which is the better way to read a breakdown on a phone. */
+    .chamber-label { display: none; }
+
     /* Group rows need nothing here — they stack on one edge at every width by construction. */
     .score { margin-left: 0; }
     th, td { padding: var( --space-2 ); }
