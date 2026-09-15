@@ -6,10 +6,14 @@ namespace VoteCheckWeb.Pages;
 public sealed record Seat(
     double X, double Y, string Vote, string Party, string Member, int PersonNumber );
 
+// A group's short name, centred under the block of seats it belongs to.
+public sealed record ChamberLabel( double X, double Y, string Text );
+
 // A laid-out chamber, with the box it needs. The caller does not compute geometry.
 // Dividers are SVG path data, one per boundary between two groups.
 public sealed record ChamberPlan(
     IReadOnlyList<Seat> Seats, IReadOnlyList<string> Dividers,
+    IReadOnlyList<ChamberLabel> Labels,
     double Width, double Height, double Radius ) {
     public bool IsEmpty => Seats.Count == 0;
 }
@@ -26,11 +30,15 @@ public sealed record ChamberPlan(
 // the split inside it, and how the whole chamber divided.
 public static class Chamber {
 
-    private const int RowCount = 8;
+    // Six rows rather than eight. The same members then spread over 43 columns instead of
+    // 32, which is what gives the boundaries between groups room to be told apart, and leaves
+    // the chevron wide and shallow the way the printed chamber graphics draw it.
+    private const int RowCount = 6;
     private const double SeatSpacing = 18;   // along an arm, centre to centre
     private const double RowSpacing = 21;    // between nested chevrons
     private const double SeatRadius = 6.2;
     private const double Margin = 8;
+    private const double LabelSize = 17;     // group names, in viewBox units
 
     // 30° from horizontal. Shallower reads as a line rather than a chamber; steeper turns the
     // chevron into a V narrow enough that the outer rows tower over the inner ones.
@@ -38,7 +46,7 @@ public static class Chamber {
 
     public static ChamberPlan Arrange( IReadOnlyList<IndividualVote> ballots ) {
         if ( ballots.Count == 0 )
-            return new ChamberPlan( [], [], 0, 0, SeatRadius );
+            return new ChamberPlan( [], [], [], 0, 0, SeatRadius );
 
         var seated = ballots
             .OrderBy( b => Party.SeatingRank( b.Party ) )
@@ -70,8 +78,61 @@ public static class Chamber {
             .Select( s => s with { X = Round( s.X - minX ), Y = Round( s.Y - minY ) } )
             .ToList();
 
-        return new ChamberPlan( shifted, Dividers( shifted ),
-                                Round( maxX - minX ), Round( maxY - minY ), SeatRadius );
+        var labels = Labels( shifted );
+
+        // The box has to grow to hold the labels, which hang below the seats.
+        var height = labels.Count == 0
+            ? maxY - minY
+            : Math.Max( maxY - minY, labels.Max( l => l.Y ) + LabelSize * 0.35 + Margin );
+
+        return new ChamberPlan( shifted, Dividers( shifted ), labels,
+                                Round( maxX - minX ), Round( height ), SeatRadius );
+    }
+
+    // A short name under each group, centred on its seats and hanging just below them, so the
+    // labels follow the underside of the chevron. One line under the whole diagram would have
+    // left the labels for the arms floating far from the members they name.
+    private static List<ChamberLabel> Labels( List<Seat> seats ) {
+        var labels = new List<ChamberLabel>();
+        double placedRight = 0, placedY = 0;
+        var first = true;
+
+        foreach ( var group in seats.GroupBy( s => s.Party )
+                                    .OrderBy( g => g.Min( s => s.X ) ) ) {
+            var text = Party.ShortName( group.Key );
+            var centre = ( group.Min( s => s.X ) + group.Max( s => s.X ) ) / 2;
+
+            // Rough, and deliberately so: the exact width depends on the reader's font, and
+            // erring wide both drops a doubtful label and clears more seats than strictly
+            // needed, which are the safe directions to be wrong in.
+            var half = text.Length * LabelSize * 0.34;
+
+            // Clear every seat the label will actually sit over, not just the ones in this
+            // group's own column. The underside of the chevron slopes, so a label centred on
+            // one column overhangs deeper ones beside it: measuring a single column put VAS
+            // and KOK inside the seats rather than under them.
+            var footprint = seats
+                .Where( s => Math.Abs( s.X - centre ) <= half + SeatRadius )
+                .Select( s => s.Y )
+                .DefaultIfEmpty( group.Max( s => s.Y ) )
+                .Max();
+            var y = footprint + SeatRadius + LabelSize;
+
+            var left = centre - half;
+            var right = centre + half;
+
+            // Groups of one or two members are narrower than their own name, and a row of
+            // overlapping labels identifies nobody. The list below the diagram names every
+            // group, and hovering a seat names its member's, so dropping one costs little.
+            if ( !first && left < placedRight && Math.Abs( y - placedY ) < LabelSize * 1.2 )
+                continue;
+
+            labels.Add( new ChamberLabel( Round( centre ), Round( y ), text ) );
+            ( placedRight, placedY ) = ( right, y );
+            first = false;
+        }
+
+        return labels;
     }
 
     // A line along each boundary between two groups, so the blocks are bounded rather than
@@ -139,23 +200,31 @@ public static class Chamber {
             var n = perRow[ row ];
             if ( n == 0 ) continue;
 
-            // The apex of each nested chevron sits above the one inside it, and the arms grow
-            // so that seat spacing stays constant however many a row holds.
+            // The apex of each nested chevron sits above the one inside it; the arms simply
+            // run as far as the row's seats reach.
             var apexY = -row * RowSpacing;
-            var armLength = n * SeatSpacing / 2.0;
 
-            for ( var i = 0; i < n; i++ ) {
-                // Walk the whole path — left tip, through the apex, out to the right tip —
-                // and place seats at even intervals along it. Measuring by path length rather
-                // than per arm means an odd row simply puts one seat near the apex instead of
-                // forcing the row to be even.
-                var along = ( i + 0.5 ) / n * ( 2 * armLength );
-                var onLeftArm = along < armLength;
-                var fromApex = onLeftArm ? armLength - along : along - armLength;
+            // Every seat sits a half-integer number of steps out from the apex, on both arms
+            // and in every row, so all rows share one lattice and the columns line up.
+            //
+            // Spacing them along the row's own length instead looked equivalent and was not:
+            // a row holding an odd number of seats landed on integer steps while an even row
+            // landed on half-integer ones, and the two interleaved into columns half the
+            // expected distance apart. The dividers, which reach half a column either side,
+            // then crossed their neighbours.
+            var left = n / 2;
+            var right = n - left;
+            // Alternate which arm takes the extra seat of an odd row, so the lopsidedness
+            // does not accumulate down one side of the chamber.
+            if ( row % 2 == 1 ) ( left, right ) = ( right, left );
 
-                var dx = fromApex * Math.Cos( ArmAngle );
-                var dy = fromApex * Math.Sin( ArmAngle );
-                points.Add( ( onLeftArm ? -dx : dx, apexY - dy ) );
+            for ( var k = 0; k < left; k++ ) {
+                var d = ( k + 0.5 ) * SeatSpacing;
+                points.Add( ( -d * Math.Cos( ArmAngle ), apexY - d * Math.Sin( ArmAngle ) ) );
+            }
+            for ( var k = 0; k < right; k++ ) {
+                var d = ( k + 0.5 ) * SeatSpacing;
+                points.Add( ( d * Math.Cos( ArmAngle ), apexY - d * Math.Sin( ArmAngle ) ) );
             }
         }
 

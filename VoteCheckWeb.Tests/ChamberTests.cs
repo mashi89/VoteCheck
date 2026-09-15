@@ -145,6 +145,38 @@ public class ChamberTests {
     }
 
     [TestMethod]
+    public void EveryRowSharesOneLatticeSoColumnsAreEvenlySpaced() {
+        // The dividers reach half a column either side, so the columns have to be a uniform
+        // distance apart. They were not: spacing seats along each row's own length put an odd
+        // row on integer steps from the apex and an even row on half-integer ones, and the two
+        // interleaved into columns half the expected distance apart — so a stepped divider
+        // reached exactly onto its neighbour. Nothing about the seats looked wrong, only the
+        // lines crossing each other.
+        foreach ( var n in new[] { 99, 150, 198, 199, 200 } ) {
+            var xs = Chamber.Arrange( Ballots( n ) )
+                .Seats.Select( s => s.X ).Distinct().OrderBy( x => x ).ToList();
+            var gaps = xs.Zip( xs.Skip( 1 ), ( a, b ) => Math.Round( b - a, 1 ) )
+                         .Distinct().ToList();
+            Assert.AreEqual( 1, gaps.Count,
+                $"{n} ballots produced columns at {gaps.Count} different spacings: "
+                + string.Join( ", ", gaps ) );
+        }
+    }
+
+    [TestMethod]
+    public void NoBoundaryIsDrawnTwice() {
+        var plan = Chamber.Arrange( Division() );
+
+        CollectionAssert.AllItemsAreUnique( plan.Dividers.ToList() );
+
+        // Note that two *different* boundaries sharing a starting x is expected, not a fault:
+        // where one group ends partway down a column and the next ends at the foot of the same
+        // column, the step's right edge and the following straight line lie on one vertical,
+        // above and below the step. Together they read as the single continuous boundary they
+        // are. Asserting distinct x values here fails on correct output.
+    }
+
+    [TestMethod]
     public void BoundariesInsideAColumnStepAroundTheMembersRatherThanCuttingThrough() {
         // A group almost never ends exactly where a column does, so some boundaries fall
         // partway down one. Those are drawn as a step — two verticals joined by a horizontal —

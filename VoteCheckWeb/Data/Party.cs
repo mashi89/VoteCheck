@@ -41,6 +41,27 @@ public static class Party {
         [ "tv" ]   = "Eduskuntaryhmä Timo Vornanen",
     };
 
+    // Four characters at most, for labelling the chamber diagram, where a name has to fit
+    // under a group that may be only a few seats wide. These are the forms Finnish election
+    // graphics use — "RKP" rather than the bare "r" upstream sends, which names nothing.
+    private static readonly Dictionary<string, string> ShortNames = new( StringComparer.OrdinalIgnoreCase ) {
+        [ "kok" ]  = "KOK",
+        [ "sd" ]   = "SDP",
+        [ "ps" ]   = "PS",
+        [ "kesk" ] = "KESK",
+        [ "vihr" ] = "VIHR",
+        [ "vas" ]  = "VAS",
+        [ "r" ]    = "RKP",
+        [ "kd" ]   = "KD",
+        [ "liik" ] = "LIIK",
+        [ "tv" ]   = "TV",
+    };
+
+    public static string ShortName( string? abbreviation ) {
+        var key = ( abbreviation ?? "" ).Trim();
+        return ShortNames.TryGetValue( key, out var name ) ? name : key.ToUpperInvariant();
+    }
+
     // The conventional left-to-right ordering of the groups, used to seat the chamber diagram.
     // It is the arrangement Finnish election graphics and the chamber itself use, and it is a
     // convention rather than a measurement — nothing downstream depends on it being an exact

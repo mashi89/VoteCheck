@@ -103,6 +103,17 @@
                 @foreach ( var divider in chamber.Dividers ) {
                     <path class="chamber-divider" d="@divider" />
                 }
+                @* Razor reserves <text> as a control keyword and refuses it attributes, so the
+                   SVG element is written out. The short name is encoded because an
+                   unrecognised group falls back to whatever abbreviation upstream sent. *@
+                @foreach ( var label in chamber.Labels ) {
+                    @Html.Raw(
+                        $"<text class=\"chamber-label\" "
+                        + $"x=\"{label.X.ToString( "0.##", CultureInfo.InvariantCulture )}\" "
+                        + $"y=\"{label.Y.ToString( "0.##", CultureInfo.InvariantCulture )}\">"
+                        + System.Net.WebUtility.HtmlEncode( label.Text )
+                        + "</text>" )
+                }
                 @foreach ( var seat in chamber.Seats ) {
                     <circle class="seat seat-@seat.Vote"
                             cx="@seat.X.ToString( "0.##", CultureInfo.InvariantCulture )"
