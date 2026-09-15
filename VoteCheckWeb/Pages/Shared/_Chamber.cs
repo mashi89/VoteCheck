@@ -7,8 +7,10 @@ public sealed record Seat(
     double X, double Y, string Vote, string Party, string Member, int PersonNumber );
 
 // A laid-out chamber, with the box it needs. The caller does not compute geometry.
+// Dividers are SVG path data, one per boundary between two groups.
 public sealed record ChamberPlan(
-    IReadOnlyList<Seat> Seats, double Width, double Height, double Radius ) {
+    IReadOnlyList<Seat> Seats, IReadOnlyList<string> Dividers,
+    double Width, double Height, double Radius ) {
     public bool IsEmpty => Seats.Count == 0;
 }
 
@@ -36,7 +38,7 @@ public static class Chamber {
 
     public static ChamberPlan Arrange( IReadOnlyList<IndividualVote> ballots ) {
         if ( ballots.Count == 0 )
-            return new ChamberPlan( [], 0, 0, SeatRadius );
+            return new ChamberPlan( [], [], 0, 0, SeatRadius );
 
         var seated = ballots
             .OrderBy( b => Party.SeatingRank( b.Party ) )
@@ -68,8 +70,65 @@ public static class Chamber {
             .Select( s => s with { X = Round( s.X - minX ), Y = Round( s.Y - minY ) } )
             .ToList();
 
-        return new ChamberPlan( shifted, Round( maxX - minX ), Round( maxY - minY ), SeatRadius );
+        return new ChamberPlan( shifted, Dividers( shifted ),
+                                Round( maxX - minX ), Round( maxY - minY ), SeatRadius );
     }
+
+    // A line along each boundary between two groups, so the blocks are bounded rather than
+    // left to be inferred from where the colour happens to change — a group that votes the
+    // same way as its neighbour is otherwise invisible as a group at all.
+    //
+    // The layout is a lattice of vertical columns, so a boundary usually falls in the gap
+    // between two of them and the line is straight. It does not always: a group rarely ends
+    // exactly where a column does, and then the boundary runs partway down inside one column
+    // and the line has to step around it. Drawing the straight line in that case would put
+    // members on the wrong side of their own group.
+    private static List<string> Dividers( List<Seat> seats ) {
+        var columns = seats
+            .GroupBy( s => s.X )
+            .ToDictionary( g => g.Key, g => ( Top: g.Min( s => s.Y ), Bottom: g.Max( s => s.Y ) ) );
+
+        var halfColumn = SeatSpacing * Math.Cos( ArmAngle ) / 2;
+        var reach = SeatRadius + 6;
+        var paths = new List<string>();
+
+        for ( var i = 1; i < seats.Count; i++ ) {
+            var before = seats[ i - 1 ];
+            var after = seats[ i ];
+            if ( before.Party == after.Party ) continue;
+
+            if ( before.X < after.X ) {
+                // Clean break between columns: one straight line down the gap, long enough to
+                // clear the taller of the two columns it separates.
+                var x = ( before.X + after.X ) / 2;
+                var left = columns[ before.X ];
+                var right = columns[ after.X ];
+                var top = Math.Min( left.Top, right.Top ) - reach;
+                var bottom = Math.Max( left.Bottom, right.Bottom ) + reach;
+                paths.Add( $"M {N( x )} {N( top )} L {N( x )} {N( bottom )}" );
+            }
+            else {
+                // Split inside one column. Seats run down the column, so the earlier group is
+                // above the later one: the line comes down the column's right side, crosses
+                // between the two members, and continues down its left side.
+                var column = columns[ before.X ];
+                var split = ( before.Y + after.Y ) / 2;
+                var leftEdge = before.X - halfColumn;
+                var rightEdge = before.X + halfColumn;
+                paths.Add(
+                    $"M {N( rightEdge )} {N( column.Top - reach )} "
+                    + $"L {N( rightEdge )} {N( split )} "
+                    + $"L {N( leftEdge )} {N( split )} "
+                    + $"L {N( leftEdge )} {N( column.Bottom + reach )}" );
+            }
+        }
+
+        return paths;
+    }
+
+    // Path data is markup, not text: a decimal comma would silently break every coordinate.
+    private static string N( double value ) =>
+        Math.Round( value, 2 ).ToString( System.Globalization.CultureInfo.InvariantCulture );
 
     // Seat centres, ordered left to right across the whole chamber.
     private static List<(double X, double Y)> Positions( int total ) {

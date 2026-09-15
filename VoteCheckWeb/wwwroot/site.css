@@ -291,6 +291,16 @@ h2 {
     text-wrap: pretty;
 }
 
+/* Boundaries between groups. Muted rather than black: they should let you find where a group
+ * starts without competing with the seats, which are what the picture is about. */
+.chamber-divider {
+    fill: none;
+    stroke: var( --ink-muted );
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .seat-Jaa   { fill: var( --jaa-fill ); }
 .seat-Ei    { fill: var( --ei-fill ); }
 .seat-Tyhjä { fill: var( --neutral-fill ); }

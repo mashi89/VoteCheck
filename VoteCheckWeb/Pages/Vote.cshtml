@@ -99,6 +99,10 @@
                  role="img"
                  aria-label="Eduskunnan jakauma tässä äänestyksessä: Jaa @s.Yes, Ei @s.No, tyhjää @s.Blank, poissa @s.Absent."
                  preserveAspectRatio="xMidYMax meet">
+                @* Drawn before the seats so a line never sits on top of a member. *@
+                @foreach ( var divider in chamber.Dividers ) {
+                    <path class="chamber-divider" d="@divider" />
+                }
                 @foreach ( var seat in chamber.Seats ) {
                     <circle class="seat seat-@seat.Vote"
                             cx="@seat.X.ToString( "0.##", CultureInfo.InvariantCulture )"

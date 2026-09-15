@@ -126,6 +126,56 @@ public class ChamberTests {
             $"{plan.Width}x{plan.Height} is not a chevron" );
     }
 
+    // ---- boundaries between groups -------------------------------------------------
+
+    [TestMethod]
+    public void EveryBoundaryBetweenGroupsGetsExactlyOneLine() {
+        var plan = Chamber.Arrange( Division() );
+        var groups = plan.Seats.Select( s => s.Party ).Distinct().Count();
+
+        Assert.AreEqual( groups - 1, plan.Dividers.Count,
+            "ten groups meet at nine boundaries; a missing line leaves two groups merged" );
+    }
+
+    [TestMethod]
+    public void ASingleGroupHasNothingToDivide() {
+        var ballots = Enumerable.Range( 1, 40 )
+            .Select( i => Ballot( i, "kok", VoteValue.Yes ) ).ToList();
+        Assert.AreEqual( 0, Chamber.Arrange( ballots ).Dividers.Count );
+    }
+
+    [TestMethod]
+    public void BoundariesInsideAColumnStepAroundTheMembersRatherThanCuttingThrough() {
+        // A group almost never ends exactly where a column does, so some boundaries fall
+        // partway down one. Those are drawn as a step — two verticals joined by a horizontal —
+        // and a straight line there would put members on the wrong side of their own group.
+        var plan = Chamber.Arrange( Division() );
+
+        var straight = plan.Dividers.Count( d => d.Count( c => c == 'L' ) == 1 );
+        var stepped = plan.Dividers.Count( d => d.Count( c => c == 'L' ) == 3 );
+
+        Assert.AreEqual( plan.Dividers.Count, straight + stepped,
+            "a divider is either one straight line or one step, never anything else" );
+        Assert.IsTrue( stepped > 0,
+            "with ten groups over 49 columns at least one boundary must fall inside a column" );
+    }
+
+    [TestMethod]
+    public void DividerPathsAreValidInvariantCultureMarkup() {
+        var plan = Chamber.Arrange( Division() );
+
+        foreach ( var d in plan.Dividers ) {
+            StringAssert.StartsWith( d, "M " );
+            Assert.IsFalse( d.Contains( ',' ),
+                $"a decimal comma would silently break the path: {d}" );
+            foreach ( var token in d.Split( ' ', StringSplitOptions.RemoveEmptyEntries ) )
+                Assert.IsTrue( token is "M" or "L"
+                    || double.TryParse( token, System.Globalization.NumberStyles.Float,
+                                        System.Globalization.CultureInfo.InvariantCulture, out _ ),
+                    $"unexpected token '{token}' in {d}" );
+        }
+    }
+
     [TestMethod]
     public void ADivisionWithNoBallotsDrawsNothing() {
         var plan = Chamber.Arrange( [] );
