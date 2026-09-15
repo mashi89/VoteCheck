@@ -274,6 +274,39 @@ h2 {
 .swatch-ei      { background: var( --ei-fill ); }
 .swatch-neutral { background: var( --neutral-fill ); }
 
+/* ---- the chamber ----------------------------------------------------------- */
+
+.chamber { margin: var( --space-5 ) 0 0; }
+.chamber svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* The chevron is wide and shallow; without a ceiling it would dominate a large screen
+     * and push the group breakdown below the fold. */
+    max-height: 17rem;
+}
+.chamber figcaption {
+    margin-top: var( --space-3 );
+    font-size: var( --text-sm );
+    text-wrap: pretty;
+}
+
+.seat-Jaa   { fill: var( --jaa-fill ); }
+.seat-Ei    { fill: var( --ei-fill ); }
+.seat-Tyhjä { fill: var( --neutral-fill ); }
+
+/* Absent is drawn hollow rather than in a fifth colour — the same distinction the printed
+ * chamber graphics make, and a difference in shape rather than only in hue, so it survives
+ * for a reader who cannot separate the fills. */
+.seat-Poissa {
+    /* Matches the panel it sits on, not the page — the two differ, and filling with the page
+     * colour left every empty seat a shade off its own background. Filled rather than
+     * fill:none so the whole circle stays hoverable for its tooltip. */
+    fill: var( --surface );
+    stroke: var( --neutral-fill );
+    stroke-width: 1.4;
+}
+
 /* ---- the procedural question ---------------------------------------------- */
 
 .asettelu {

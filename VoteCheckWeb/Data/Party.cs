@@ -41,6 +41,21 @@ public static class Party {
         [ "tv" ]   = "Eduskuntaryhmä Timo Vornanen",
     };
 
+    // The conventional left-to-right ordering of the groups, used to seat the chamber diagram.
+    // It is the arrangement Finnish election graphics and the chamber itself use, and it is a
+    // convention rather than a measurement — nothing downstream depends on it being an exact
+    // account of any group's politics, only on the ordering being stable and familiar.
+    private static readonly string[] LeftToRight =
+        [ "vas", "sd", "vihr", "kesk", "liik", "r", "kd", "kok", "ps" ];
+
+    // Unplaced groups sort last rather than first: a new or one-member group appearing at the
+    // left edge would read as a claim about its politics that we have not made.
+    public static int SeatingRank( string? abbreviation ) {
+        var index = Array.FindIndex( LeftToRight,
+            a => a.Equals( ( abbreviation ?? "" ).Trim(), StringComparison.OrdinalIgnoreCase ) );
+        return index < 0 ? LeftToRight.Length : index;
+    }
+
     // An unknown abbreviation is returned as-is rather than replaced or dropped. Groups form
     // and split between elections, and showing "xyz" is honest about holding a member we
     // cannot name; showing nothing would lose the member from a tally that must still add up.

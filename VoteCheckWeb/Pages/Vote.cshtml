@@ -86,6 +86,37 @@
         <li><span class="swatch swatch-neutral"></span> Tyhjä <b>@s.Blank</b></li>
         <li><span class="swatch swatch-absent"></span> Poissa <b>@s.Absent</b></li>
     </ul>
+
+    @{
+        var chamber = Chamber.Arrange( Model.AllVotes );
+    }
+    @if ( !chamber.IsEmpty ) {
+        @* One circle per member, coloured by the ballot they cast, in the chevron the
+           Eduskunta sits in. role="img" with a label means assistive technology hears one
+           summary instead of two hundred shapes — the counts above already carry the fact. *@
+        <figure class="chamber">
+            <svg viewBox="0 0 @chamber.Width.ToString( "0.##", CultureInfo.InvariantCulture ) @chamber.Height.ToString( "0.##", CultureInfo.InvariantCulture )"
+                 role="img"
+                 aria-label="Eduskunnan jakauma tässä äänestyksessä: Jaa @s.Yes, Ei @s.No, tyhjää @s.Blank, poissa @s.Absent."
+                 preserveAspectRatio="xMidYMax meet">
+                @foreach ( var seat in chamber.Seats ) {
+                    <circle class="seat seat-@seat.Vote"
+                            cx="@seat.X.ToString( "0.##", CultureInfo.InvariantCulture )"
+                            cy="@seat.Y.ToString( "0.##", CultureInfo.InvariantCulture )"
+                            r="@chamber.Radius.ToString( "0.##", CultureInfo.InvariantCulture )">
+                        <title>@seat.Member (@Party.Name( seat.Party )) — @seat.Vote</title>
+                    </circle>
+                }
+            </svg>
+            @* Said plainly rather than buried: upstream publishes how members voted, not
+               where they sit, so the arrangement is conventional and the seats are not real. *@
+            <figcaption class="muted">
+                Kaavio eduskunnan istuntosalin muodossa. Paikkajako on havainnollistava:
+                avoin data kertoo äänet, ei istumajärjestystä. Ryhmät ovat vakiintuneessa
+                vasemmalta oikealle -järjestyksessä.
+            </figcaption>
+        </figure>
+    }
 </section>
 
 @if ( hasSubject ) {
