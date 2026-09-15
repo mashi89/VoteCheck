@@ -1,0 +1,53 @@
+@using System.Globalization
+@model SessionSummary
+
+@* One division in a list. Shared by the front page and search so a division looks the same
+   wherever it is met, and reads in the same order as the vote page: when, what, what happened.
+
+   The subject is the link text, not the procedural title — the same inversion made on the
+   vote page in #37. Upstream leaves the subject empty on a few divisions, and then the
+   procedural title is the only description there is. *@
+
+@{
+    var subject = string.IsNullOrWhiteSpace( Model.Subject ) ? Model.Title : Model.Subject;
+
+    string Width( int n ) =>
+        ( Model.Total == 0 ? 0 : 100.0 * n / Model.Total )
+            .ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
+}
+
+<li class="division">
+    <p class="eyebrow">
+        <time datetime="@Format.Iso( Model.Date )">@Format.Date( Model.Date )</time>
+        @if ( Model.SessionNumber != null && Model.VoteNumber != null ) {
+            <span class="sep">·</span>
+            <span>Täysistunto @Model.SessionNumber, äänestys @Model.VoteNumber</span>
+        }
+    </p>
+
+    <h3 class="division-subject"><a href="/vote/@Model.Id">@subject</a></h3>
+
+    <p class="division-outcome">
+        <span class="verdict">
+            @if ( Model.Majority == VoteValue.Yes ) {
+                @:Enemmistö äänesti <span class="v-jaa">Jaa</span>
+            } else if ( Model.Majority == VoteValue.No ) {
+                @:Enemmistö äänesti <span class="v-ei">Ei</span>
+            } else {
+                @:Äänet menivät tasan
+            }
+        </span>
+        <span class="division-score">
+            <span class="s-jaa">@Model.Yes</span><span class="s-dash">–</span><span class="s-ei">@Model.No</span>
+        </span>
+    </p>
+
+    @* The numbers either side of it say the same thing in words, so the bar is decoration
+       to a screen reader and is hidden from one. *@
+    <div class="tally-bar tally-bar-slim" aria-hidden="true">
+        @if ( Model.Yes > 0 ) { <span class="seg seg-jaa" style="width:@Width( Model.Yes )"></span> }
+        @if ( Model.No > 0 ) { <span class="seg seg-ei" style="width:@Width( Model.No )"></span> }
+        @if ( Model.Blank > 0 ) { <span class="seg seg-neutral" style="width:@Width( Model.Blank )"></span> }
+        @if ( Model.Absent > 0 ) { <span class="seg seg-absent" style="width:@Width( Model.Absent )"></span> }
+    </div>
+</li>

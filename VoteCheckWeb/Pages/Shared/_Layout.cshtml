@@ -37,15 +37,37 @@
     <link rel="stylesheet" href="~/site.css" asp-append-version="true" />
 </head>
 <body>
+    @{
+        // A section is current when the path is inside it, so /mp/1109 lights up
+        // "Kansanedustajat" rather than nothing at all.
+        var path = Context.Request.Path.Value ?? "/";
+        string Current( params string[] prefixes ) =>
+            prefixes.Any( p => path.StartsWith( p, StringComparison.OrdinalIgnoreCase ) )
+                ? "page" : null!;
+    }
     <header class="site-header">
-        <nav>
+        <nav aria-label="Sivuston osiot">
             <a class="brand" href="/">Edustajavahti</a>
-            <a href="/mps">Kansanedustajat</a>
-            <a href="/search">Haku</a>
+            <a href="/mps" aria-current="@Current( "/mps", "/mp/" )">Kansanedustajat</a>
+            <a href="/search" aria-current="@Current( "/search" )">Haku</a>
         </nav>
     </header>
     <main>
         @RenderBody()
     </main>
+    @* Where the numbers come from, and how fresh they are. A site that asks people to check
+       what their representative did has to be checkable itself. *@
+    <footer class="site-footer">
+        <p>
+            Tiedot ovat peräisin eduskunnan avoimesta datasta
+            (<a href="https://avoindata.eduskunta.fi/" rel="noopener">avoindata.eduskunta.fi</a>),
+            ja ne haetaan rajapinnasta <code>api.eduskunta.fi</code>. Palvelu pitää omaa kopiota
+            aineistosta, joten uusin äänestys voi näkyä tässä pienellä viiveellä.
+        </p>
+        <p>
+            Edustajavahti ei ole eduskunnan palvelu.
+            <a href="https://github.com/mashi89/VoteCheck" rel="noopener">Lähdekoodi GitHubissa</a>.
+        </p>
+    </footer>
 </body>
 </html>

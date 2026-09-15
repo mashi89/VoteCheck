@@ -4,22 +4,33 @@
 @{
     ViewData["Title"] = "Kansanedustajat";
     ViewData["Description"] = "Hae kansanedustajaa sukunimellä ja katso hänen äänestyskäyttäytymisensä.";
+    var searching = !string.IsNullOrWhiteSpace( Model.Name );
 }
 
-<h1>Kansanedustajat</h1>
-<form class="search" method="get">
-    <input type="search" name="name" value="@Model.Name" placeholder="Sukunimi…" />
+<h1 class="page-title">Kansanedustajat</h1>
+
+<form class="search" method="get" role="search">
+    <label class="visually-hidden" for="name">Hae edustajaa sukunimellä</label>
+    <input id="name" type="search" name="name" value="@Model.Name" placeholder="Sukunimi…" />
     <button type="submit">Hae</button>
 </form>
 
-<table>
-    <thead><tr><th>Nimi</th><th>Ryhmä</th></tr></thead>
-    <tbody>
-    @foreach ( var mp in Model.Mps ) {
-        <tr>
-            <td><a href="/mp/@mp.PersonNumber">@mp.LastName, @mp.FirstName</a></td>
-            <td>@mp.Party</td>
-        </tr>
-    }
-    </tbody>
-</table>
+@if ( Model.Mps.Count == 0 ) {
+    <p class="empty">
+        @if ( searching ) {
+            @:Sukunimellä ”@Model.Name” ei löytynyt edustajaa. Kokeile nimen alkua.
+        } else {
+            @:Edustajia ei ole vielä haettu eduskunnan avoimen datan rajapinnasta.
+        }
+    </p>
+} else {
+    <p class="muted result-count">@Model.Mps.Count edustajaa</p>
+    <ul class="people">
+        @foreach ( var mp in Model.Mps ) {
+            <li class="person">
+                <a class="person-name" href="/mp/@mp.PersonNumber">@mp.LastName, @mp.FirstName</a>
+                <span class="person-party muted" title="@Party.FormalName( mp.Party )">@Party.Name( mp.Party )</span>
+            </li>
+        }
+    </ul>
+}
