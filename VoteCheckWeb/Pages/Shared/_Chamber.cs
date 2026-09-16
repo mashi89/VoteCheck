@@ -7,7 +7,7 @@ namespace VoteCheckWeb.Pages;
 // between groups are drawn along them.
 public sealed record Seat(
     double X, double Y, string Vote, string Party, string Member, int PersonNumber,
-    int Row, double Angle );
+    int Row, int Sector, double Angle );
 
 // A group's short name, set under the block of seats it belongs to.
 public sealed record ChamberLabel( double X, double Y, string Text );
@@ -24,8 +24,8 @@ public sealed record ChamberPlan(
 // Arranges one division's ballots into the shape of the Eduskunta chamber: a fan of
 // concentric arcs, cut by aisles into four sectors.
 //
-// The proportions are measured from the seating plan published on Wikimedia Commons
-// ("Eduskunta istumajärjestys 2023"), by fitting a common centre to the 200 seats in it:
+// The proportions are measured from the seating plan the Eduskunta publishes
+// (istumajarjestys-vaalikausi-2023-2026.pdf), by fitting a common centre to its 200 seats:
 // eight seating rows, an outer radius about 2.4 times the inner one, seats spanning 25° to
 // 154° about the centre, and aisles at roughly 62°, 90° and 117°. The four sectors those
 // aisles make hold 48, 52, 51 and 49 members — near enough equal that this splits the
@@ -47,6 +47,10 @@ public static class Chamber {
     private const double SeatRadius = 6.2;
     private const double Margin = 8;
     private const double LabelSize = 17;
+
+    // Extra steps of arc opened where one group meets the next, as a multiple of the step
+    // between two neighbouring seats. Enough for the line plus clear air either side.
+    private const double BoundaryGap = 1.1;
 
     // Sector bounds in degrees, measured from the plan. 0° is to the right of the centre and
     // 90° straight up, so the list runs right to left and the gaps between entries are the
@@ -111,8 +115,10 @@ public static class Chamber {
             var p = places[ i ];
             seats.Add( new Seat( p.X, p.Y, b.Vote, b.Party,
                                  $"{b.FirstName} {b.LastName}", b.PersonNumber,
-                                 p.Row, p.Angle ) );
+                                 p.Row, p.Sector, p.Angle ) );
         }
+
+        seats = Respace( seats );
 
         // Labels sit outside the outer row, so they are laid out before the box is measured
         // and counted in it. Measuring the seats alone clipped the ones above the top of the
@@ -148,7 +154,52 @@ public static class Chamber {
     // safe directions to be wrong in.
     private static double HalfWidth( string text ) => text.Length * LabelSize * 0.34;
 
-    private readonly record struct Place( double X, double Y, int Row, double Angle );
+    // Widen the step where one group gives way to the next, so the line between them has
+    // somewhere to go.
+    //
+    // Evenly spaced, the gap between two neighbours on an arc is about a seat and a half
+    // wide, and a line down the middle of it clips both. Worse, a line cannot be put at one
+    // angle for the whole boundary at all: each arc holds a different number of seats, so the
+    // groups change over at a different angle in every row, and a single spoke crossed a
+    // circle in all seven boundaries of a full chamber — twice straight through the centre of
+    // one. Each arc is respaced on its own, and each gets its own segment of the line.
+    private static List<Seat> Respace( List<Seat> seats ) {
+        var result = new List<Seat>( seats.Count );
+
+        foreach ( var cell in seats.GroupBy( s => ( s.Row, s.Sector ) ) ) {
+            var inCell = cell.OrderByDescending( s => s.Angle ).ToList();
+            var span = SectorIn( cell.Key.Row, cell.Key.Sector );
+            if ( span is null ) { result.AddRange( inCell ); continue; }
+
+            var ( from, to ) = span.Value;
+            var breaks = Enumerable.Range( 1, inCell.Count - 1 )
+                .Count( i => inCell[ i ].Party != inCell[ i - 1 ].Party );
+
+            // Seats take one step each, a change of group takes BoundaryGap extra.
+            var step = ( to - from ) / ( inCell.Count + breaks * BoundaryGap );
+            var radius = RowRadius( cell.Key.Row );
+
+            var cursor = 0.0;
+            for ( var i = 0; i < inCell.Count; i++ ) {
+                if ( i > 0 && inCell[ i ].Party != inCell[ i - 1 ].Party )
+                    cursor += step * BoundaryGap;
+
+                // Seats run right to left along the arc, from `to` down towards `from`.
+                var angle = to - ( cursor + step / 2 );
+                var radians = angle * Math.PI / 180;
+                result.Add( inCell[ i ] with {
+                    X = radius * Math.Cos( radians ),
+                    Y = -radius * Math.Sin( radians ),
+                    Angle = angle,
+                } );
+                cursor += step;
+            }
+        }
+
+        return result.OrderByDescending( s => s.Angle ).ThenBy( s => s.Row ).ToList();
+    }
+
+    private readonly record struct Place( double X, double Y, int Row, int Sector, double Angle );
 
     // Seat centres, ordered left to right across the whole chamber.
     private static List<Place> Places( int total ) {
@@ -193,7 +244,7 @@ public static class Chamber {
                     places.Add( new Place(
                         radius * Math.Cos( radians ),
                         -radius * Math.Sin( radians ),
-                        row, angle ) );
+                        row, sector, angle ) );
                 }
             }
         }
@@ -226,39 +277,27 @@ public static class Chamber {
         return counts;
     }
 
-    // A line along each boundary between two groups.
+    // A line along each boundary between two groups, one segment per arc.
     //
-    // One radial spoke each, and that is exact rather than approximate: seats are placed in
-    // order of decreasing angle and groups are assigned along that order, so every member of
-    // a group on the left has a greater angle than every member of the group to its right.
-    // A line anywhere between the two therefore separates them completely.
-    //
-    // The chevron this replaced needed a stepped line, because there seats shared columns and
-    // a boundary could fall partway down one. Nothing on a fan shares an angle, so the step
-    // is gone — and with it a line that read as a fence through the middle of the seating.
+    // It cannot be a single spoke. Each arc holds a different number of seats, so the groups
+    // change over at a different angle in every row, and a seat is wide in angle terms — about
+    // two degrees on the inner arcs. A spoke at one angle crossed a circle on all seven
+    // boundaries of a full chamber, twice straight through the middle of one. Each arc gets
+    // its own segment instead, placed in the gap Respace opened there.
     private static List<string> Dividers( List<Seat> seats, double cx, double cy ) {
         var paths = new List<string>();
 
-        for ( var i = 1; i < seats.Count; i++ ) {
-            var before = seats[ i - 1 ];
-            var after = seats[ i ];
-            if ( before.Party == after.Party ) continue;
+        foreach ( var cell in seats.GroupBy( s => ( s.Row, s.Sector ) )
+                                   .OrderBy( g => g.Key.Row ).ThenBy( g => g.Key.Sector ) ) {
+            var inCell = cell.OrderByDescending( s => s.Angle ).ToList();
+            var inner = RowRadius( cell.Key.Row ) - RowGap * 0.42;
+            var outer = RowRadius( cell.Key.Row ) + RowGap * 0.42;
 
-            var angle = ( before.Angle + after.Angle ) / 2;
-
-            // Only as long as the seating actually is at this angle. Run to the full outer
-            // radius, a spoke would carry on past the ends of the back rows, which stop short
-            // of the sides, and draw a line across empty floor.
-            var rows = Enumerable.Range( 0, RowCount )
-                .Where( r => Enumerable.Range( 0, Sectors.Length )
-                    .Select( x => SectorIn( r, x ) )
-                    .Any( x => x is not null && angle >= x.Value.From - 3 && angle <= x.Value.To + 3 ) )
-                .ToList();
-            if ( rows.Count == 0 ) continue;
-
-            var inner = RowRadius( rows.First() ) - RowGap * 0.55;
-            var outer = RowRadius( rows.Last() ) + RowGap * 0.55;
-            paths.Add( $"M {Point( cx, cy, inner, angle )} L {Point( cx, cy, outer, angle )}" );
+            for ( var i = 1; i < inCell.Count; i++ ) {
+                if ( inCell[ i ].Party == inCell[ i - 1 ].Party ) continue;
+                var angle = ( inCell[ i - 1 ].Angle + inCell[ i ].Angle ) / 2;
+                paths.Add( $"M {Point( cx, cy, inner, angle )} L {Point( cx, cy, outer, angle )}" );
+            }
         }
 
         return paths;
