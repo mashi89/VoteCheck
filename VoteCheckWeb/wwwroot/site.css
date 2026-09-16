@@ -136,11 +136,39 @@ h2 {
 }
 .site-header a { color: inherit; text-decoration: none; }
 .site-header a:hover { text-decoration: underline; }
+/* The current section, marked with aria-current so the styling and the announcement come
+ * from one source rather than drifting apart. */
+.site-header a[ aria-current="page" ] {
+    font-weight: 700;
+    box-shadow: inset 0 -2px 0 var( --jaa-text );
+}
 .site-header .brand {
     font-weight: 700;
     font-size: var( --text-lg );
     letter-spacing: -.02em;
     margin-right: auto;
+}
+
+.site-footer {
+    border-top: 1px solid var( --rule );
+    background: var( --surface );
+    margin-top: var( --space-7 );
+    padding: var( --space-5 ) var( --space-4 );
+}
+.site-footer p {
+    max-width: var( --measure );
+    margin: 0 auto var( --space-2 );
+    font-size: var( --text-sm );
+    color: var( --ink-muted );
+    text-wrap: pretty;
+}
+.site-footer p:last-child { margin-bottom: 0; }
+.site-footer code {
+    font-size: .9em;
+    background: var( --paper );
+    border: 1px solid var( --rule );
+    border-radius: 3px;
+    padding: 0 .25em;
 }
 
 /* ---- shared text ---------------------------------------------------------- */
@@ -172,6 +200,84 @@ h2 {
     margin-bottom: var( --space-3 );
 }
 .eyebrow .sep { color: var( --rule-strong ); }
+
+.page-title {
+    font-size: var( --text-2xl );
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin-bottom: var( --space-5 );
+}
+
+/* An empty result is a place to say what to do next, not a blank space. */
+.empty {
+    background: var( --surface );
+    border: 1px solid var( --rule );
+    border-radius: var( --radius-lg );
+    padding: var( --space-5 );
+    color: var( --ink-muted );
+    margin: 0 0 var( --space-5 );
+}
+.result-count { margin: 0 0 var( --space-4 ); font-size: var( --text-sm ); }
+
+/* ---- a division in a list -------------------------------------------------- */
+
+.divisions { list-style: none; margin: 0; padding: 0; }
+.division {
+    padding: var( --space-4 ) 0;
+    border-bottom: 1px solid var( --rule );
+}
+.division .eyebrow { margin-bottom: var( --space-1 ); }
+.division-subject {
+    font-size: var( --text-lg );
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0 0 var( --space-2 );
+}
+.division-subject a { color: var( --ink ); text-decoration: none; }
+.division-subject a:hover { text-decoration: underline; }
+
+.division-outcome {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var( --space-1 ) var( --space-3 );
+    margin: 0 0 var( --space-2 );
+    font-size: var( --text-sm );
+}
+.division-outcome .verdict { font-size: var( --text-base ); font-weight: 600; }
+.division-score {
+    font-size: var( --text-lg );
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.division-score .s-jaa { color: var( --jaa-text ); }
+.division-score .s-ei  { color: var( --ei-text ); }
+.division-score .s-dash { color: var( --ink-muted ); font-weight: 400; }
+
+/* Slimmer than the one on the vote page: here it is a glance, not the subject. Written with
+ * both classes because this block sits above the .tally-bar rule it overrides, and equal
+ * specificity would let source order decide — which it did, silently, at full height. */
+.tally-bar.tally-bar-slim { height: .5rem; margin-bottom: 0; }
+
+/* The member's own ballot list needs no bar — the vote itself is in the eyebrow. */
+.divisions-compact .division { padding: var( --space-3 ) 0; }
+.divisions-compact .division-subject { font-size: var( --text-base ); margin-bottom: 0; }
+
+/* ---- people ---------------------------------------------------------------- */
+
+.people { list-style: none; margin: 0; padding: 0; }
+.person {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var( --space-2 ) var( --space-4 );
+    padding: var( --space-3 ) 0;
+    border-bottom: 1px solid var( --rule );
+}
+.person-name { color: var( --ink ); text-decoration: none; font-weight: 600; }
+.person-name:hover { text-decoration: underline; }
+.person-party { font-size: var( --text-sm ); }
 
 /* ---- vote page: the subject leads ----------------------------------------- */
 
@@ -214,6 +320,13 @@ h2 {
 .score .s-jaa { color: var( --jaa-text ); }
 .score .s-ei  { color: var( --ei-text ); }
 .score .s-dash { color: var( --ink-muted ); font-weight: 400; }
+.score-unit {
+    margin-left: .35em;
+    font-size: var( --text-sm );
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var( --ink-muted );
+}
 
 /* ---- proportional tally --------------------------------------------------- */
 

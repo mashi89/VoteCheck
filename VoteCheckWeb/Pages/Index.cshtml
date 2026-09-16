@@ -1,31 +1,29 @@
 @page
 @model IndexModel
 
-<h1>Viimeisimmät äänestykset</h1>
-<form class="search" action="/search" method="get">
-    <input type="search" name="query" placeholder="Hae äänestyksiä aiheella…" />
+@{
+    ViewData["Description"] =
+        "Miten kansanedustajat ovat äänestäneet? Selaa eduskunnan viimeisimpiä "
+        + "täysistuntoäänestyksiä ja katso, miten oma edustajasi äänesti.";
+}
+
+<h1 class="page-title">Viimeisimmät äänestykset</h1>
+
+<form class="search" action="/search" method="get" role="search">
+    <label class="visually-hidden" for="q">Hae äänestyksiä aiheella</label>
+    <input id="q" type="search" name="query" placeholder="Hae äänestyksiä aiheella…" />
     <button type="submit">Hae</button>
 </form>
 
 @if ( Model.Sessions.Count == 0 ) {
-    <p class="muted">Tietokanta on tyhjä — synkronointi eduskunnan avoimen datan rajapinnasta on käynnissä. Päivitä sivu hetken kuluttua.</p>
+    <p class="empty">
+        Tietokanta on tyhjä — äänestyksiä haetaan parhaillaan eduskunnan avoimen datan
+        rajapinnasta. Päivitä sivu hetken kuluttua.
+    </p>
+} else {
+    <ol class="divisions">
+        @foreach ( var s in Model.Sessions ) {
+            <partial name="_Division" model="s" />
+        }
+    </ol>
 }
-
-<table>
-    <thead><tr><th>Pvm</th><th>Äänestys</th><th>Jaa</th><th>Ei</th><th>Tyhjä</th><th>Poissa</th></tr></thead>
-    <tbody>
-    @foreach ( var s in Model.Sessions ) {
-        <tr>
-            <td class="date">@s.Date[..Math.Min( 10, s.Date.Length )]</td>
-            <td>
-                <a href="/vote/@s.Id">@s.Title</a><br />
-                <span class="muted"><span class="label">Aihe:</span> @s.Subject</span>
-            </td>
-            <td class="vote-Jaa">@s.Yes</td>
-            <td class="vote-Ei">@s.No</td>
-            <td>@s.Blank</td>
-            <td>@s.Absent</td>
-        </tr>
-    }
-    </tbody>
-</table>

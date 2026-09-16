@@ -2,37 +2,40 @@
 @model SearchModel
 
 @{
-    if ( !string.IsNullOrWhiteSpace( Model.Query ) ) {
+    var hasQuery = !string.IsNullOrWhiteSpace( Model.Query );
+    if ( hasQuery ) {
         ViewData["Title"] = $"Haku: {Model.Query}";
-        ViewData["Description"] = $"Hakutulokset haulle \"{Model.Query}\" eduskunnan äänestyksistä.";
+        ViewData["Description"] = $"Hakutulokset haulle ”{Model.Query}” eduskunnan äänestyksistä.";
     } else {
         ViewData["Title"] = "Haku";
         ViewData["Description"] = "Hae eduskunnan täysistuntoäänestyksiä aiheen tai asian mukaan.";
     }
 }
 
-<h1>Haku</h1>
-<form class="search" method="get">
-    <input type="search" name="query" value="@Model.Query" placeholder="Hae äänestyksiä aiheella…" />
+<h1 class="page-title">Haku</h1>
+
+<form class="search" method="get" role="search">
+    <label class="visually-hidden" for="query">Hae äänestyksiä aiheella</label>
+    <input id="query" type="search" name="query" value="@Model.Query"
+           placeholder="Hae äänestyksiä aiheella…" autofocus />
     <button type="submit">Hae</button>
 </form>
 
-@if ( !string.IsNullOrWhiteSpace( Model.Query ) ) {
-    <p class="muted">@Model.Sessions.Count tulosta haulle ”@Model.Query”</p>
-    <table>
-        <thead><tr><th>Pvm</th><th>Äänestys</th><th>Jaa</th><th>Ei</th></tr></thead>
-        <tbody>
-        @foreach ( var s in Model.Sessions ) {
-            <tr>
-                <td class="date">@s.Date[..Math.Min( 10, s.Date.Length )]</td>
-                <td>
-                    <a href="/vote/@s.Id">@s.Title</a><br />
-                    <span class="muted"><span class="label">Aihe:</span> @s.Subject</span>
-                </td>
-                <td class="vote-Jaa">@s.Yes</td>
-                <td class="vote-Ei">@s.No</td>
-            </tr>
-        }
-        </tbody>
-    </table>
+@if ( hasQuery ) {
+    if ( Model.Sessions.Count == 0 ) {
+        @* An empty result is a place to say what to do next, not just that there is nothing. *@
+        <p class="empty">
+            Haku ”@Model.Query” ei osunut yhteenkään äänestykseen. Kokeile lyhyempää sanaa tai
+            asian nimeä — haku kohdistuu äänestysten otsikoihin ja aiheisiin.
+        </p>
+    } else {
+        <p class="muted result-count">
+            @Model.Sessions.Count tulosta haulle ”@Model.Query”
+        </p>
+        <ol class="divisions">
+            @foreach ( var s in Model.Sessions ) {
+                <partial name="_Division" model="s" />
+            }
+        </ol>
+    }
 }

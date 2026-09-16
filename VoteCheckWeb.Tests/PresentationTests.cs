@@ -130,6 +130,39 @@ public class PresentationTests {
         Assert.AreEqual( "ei tiedossa", Format.Date( "ei tiedossa" ) );
     }
 
+    // ---- percentages ----------------------------------------------------------------
+
+    [TestMethod]
+    public void Percent_UsesTheFinnishDecimalComma() {
+        Assert.AreEqual( "95,1", Format.Percent( 95.14 ) );
+        Assert.AreEqual( "66,7", Format.Percent( 200.0 / 3 ) );
+    }
+
+    [TestMethod]
+    public void Percent_DropsADecimalThatIsNotThere() {
+        // "100,0 %" reads as precision the figure does not have, and an attendance of exactly
+        // 100 is common enough to be worth the special case.
+        Assert.AreEqual( "100", Format.Percent( 100 ) );
+        Assert.AreEqual( "0", Format.Percent( 0 ) );
+        Assert.AreEqual( "50", Format.Percent( 50.04 ) );
+    }
+
+    [TestMethod]
+    public void Percent_DoesNotDependOnTheRuntimeHavingFinnishAvailable() {
+        // The separator is built explicitly rather than read from a "fi-FI" culture, because a
+        // runtime without ICU — an alpine base image, or InvariantGlobalization — hands back
+        // the invariant culture for any name asked for, and the comma would quietly become a
+        // full stop. Pinning en-US here stands in for that.
+        var original = CultureInfo.CurrentCulture;
+        try {
+            CultureInfo.CurrentCulture = new CultureInfo( "en-US" );
+            Assert.AreEqual( "95,1", Format.Percent( 95.14 ) );
+        }
+        finally {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
     [TestMethod]
     public void Iso_KeepsTheDatePartForMachineReadableAttributes() {
         Assert.AreEqual( "2026-09-11", Format.Iso( "2026-09-11T14:03:00+03:00" ) );
