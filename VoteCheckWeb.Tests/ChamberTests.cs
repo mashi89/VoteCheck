@@ -59,10 +59,9 @@ public class ChamberTests {
 
     [TestMethod]
     public void EveryChamberSizeGetsASeatForEachBallot() {
-        // The Speaker does not vote, so a full chamber is 199 ballots rather than 200. Rows
-        // are laid out along a path rather than split into two arms precisely so an odd count
-        // needs no special case, and the row distribution hands out its remainder so no
-        // member is rounded away.
+        // The Speaker does not vote, so a full chamber is 199 ballots rather than 200. Seats
+        // are apportioned across rows and sectors by largest remainder, so an odd count needs
+        // no special case and nobody is rounded away.
         foreach ( var n in new[] { 1, 2, 7, 8, 9, 99, 198, 199, 200, 201, 240 } ) {
             var plan = Chamber.Arrange( Ballots( n ) );
             Assert.AreEqual( n, plan.Seats.Count, $"{n} ballots" );
@@ -70,15 +69,16 @@ public class ChamberTests {
     }
 
     [TestMethod]
-    public void SeatsRunLeftToRightSoEachGroupIsOneBand() {
-        // Seats come back in the order the groups are seated, and their x coordinates must
-        // increase with it. That is what makes a group a contiguous band across the rows
-        // instead of scattered dots.
+    public void SeatsRunLeftToRightSoEachGroupIsOneWedge() {
+        // Seats come back in the order the groups are seated, running left to right. On a fan
+        // that is decreasing angle, not increasing x: at 120° an outer row sits further left
+        // than an inner one, so x is not monotonic and never was the property worth asserting.
         var plan = Chamber.Arrange( Division() );
 
         for ( var i = 1; i < plan.Seats.Count; i++ )
-            Assert.IsTrue( plan.Seats[ i ].X >= plan.Seats[ i - 1 ].X,
-                $"seat {i} at x={plan.Seats[ i ].X} sits left of seat {i - 1} at x={plan.Seats[ i - 1 ].X}" );
+            Assert.IsTrue( plan.Seats[ i ].Angle <= plan.Seats[ i - 1 ].Angle,
+                $"seat {i} at {plan.Seats[ i ].Angle:0.0}° sits right of seat {i - 1} "
+                + $"at {plan.Seats[ i - 1 ].Angle:0.0}°" );
     }
 
     [TestMethod]
@@ -106,6 +106,21 @@ public class ChamberTests {
     }
 
     [TestMethod]
+    public void LabelsFitInsideTheReportedBox() {
+        // Labels are set outside the outer row, so measuring the box from the seats alone cut
+        // the ones above the top of the fan clean off — silently, since SVG simply does not
+        // draw what falls outside its viewBox.
+        var plan = Chamber.Arrange( Division() );
+
+        foreach ( var label in plan.Labels ) {
+            Assert.IsTrue( label.Y - 17 >= 0 && label.Y <= plan.Height,
+                $"label {label.Text} at y={label.Y} escapes a {plan.Height}-tall viewBox" );
+            Assert.IsTrue( label.X > 0 && label.X < plan.Width,
+                $"label {label.Text} at x={label.X} escapes a {plan.Width}-wide viewBox" );
+        }
+    }
+
+    [TestMethod]
     public void NothingIsDrawnOutsideTheReportedBox() {
         var plan = Chamber.Arrange( Division() );
 
@@ -119,11 +134,11 @@ public class ChamberTests {
 
     [TestMethod]
     public void TheChamberIsWiderThanItIsTall() {
-        // The Eduskunta sits in a shallow chevron, not a horseshoe. If this inverts, the arm
-        // angle has drifted and the shape has stopped being recognisable.
+        // The seating spans 25° to 154°, so the fan is broad and shallow rather than a half
+        // circle. If this inverts, the angular span has drifted.
         var plan = Chamber.Arrange( Division() );
         Assert.IsTrue( plan.Width > plan.Height,
-            $"{plan.Width}x{plan.Height} is not a chevron" );
+            $"{plan.Width}x{plan.Height} is not the shape of the chamber" );
     }
 
     // ---- boundaries between groups -------------------------------------------------
@@ -144,52 +159,85 @@ public class ChamberTests {
         Assert.AreEqual( 0, Chamber.Arrange( ballots ).Dividers.Count );
     }
 
+    // The aisles measured from the published seating plan. Nothing may be drawn in them —
+    // they are the gangways, and seats standing in one would be the same class of error as
+    // the chevron was.
+    private static readonly (double From, double To)[] Aisles =
+        [ ( 59.2, 65.2 ), ( 88.6, 92.5 ), ( 114.4, 119.6 ) ];
+
     [TestMethod]
-    public void EveryRowSharesOneLatticeSoColumnsAreEvenlySpaced() {
-        // The dividers reach half a column either side, so the columns have to be a uniform
-        // distance apart. They were not: spacing seats along each row's own length put an odd
-        // row on integer steps from the apex and an even row on half-integer ones, and the two
-        // interleaved into columns half the expected distance apart — so a stepped divider
-        // reached exactly onto its neighbour. Nothing about the seats looked wrong, only the
-        // lines crossing each other.
+    public void NobodySitsInAnAisle() {
         foreach ( var n in new[] { 99, 150, 198, 199, 200 } ) {
-            var xs = Chamber.Arrange( Ballots( n ) )
-                .Seats.Select( s => s.X ).Distinct().OrderBy( x => x ).ToList();
-            var gaps = xs.Zip( xs.Skip( 1 ), ( a, b ) => Math.Round( b - a, 1 ) )
-                         .Distinct().ToList();
-            Assert.AreEqual( 1, gaps.Count,
-                $"{n} ballots produced columns at {gaps.Count} different spacings: "
-                + string.Join( ", ", gaps ) );
+            foreach ( var seat in Chamber.Arrange( Ballots( n ) ).Seats ) {
+                Assert.IsTrue( seat.Angle is >= 25 and <= 154,
+                    $"{seat.Angle:0.0}° is outside the chamber" );
+                foreach ( var ( from, to ) in Aisles )
+                    Assert.IsFalse( seat.Angle > from && seat.Angle < to,
+                        $"{seat.Angle:0.0}° stands in the aisle between {from}° and {to}°" );
+            }
         }
     }
 
     [TestMethod]
-    public void NoBoundaryIsDrawnTwice() {
+    public void SeatsLieOnEightConcentricRows() {
+        // A row is an arc, so every seat in it is the same distance from the centre of the
+        // fan — and the eight radii are distinct and increase with the row number.
         var plan = Chamber.Arrange( Division() );
+        var centre = Centre( plan.Seats );
 
-        CollectionAssert.AllItemsAreUnique( plan.Dividers.ToList() );
+        var radii = new Dictionary<int, double>();
+        foreach ( var seat in plan.Seats ) {
+            var r = Math.Sqrt( Math.Pow( seat.X - centre.X, 2 ) + Math.Pow( seat.Y - centre.Y, 2 ) );
+            if ( radii.TryGetValue( seat.Row, out var known ) )
+                Assert.AreEqual( known, r, 0.5,
+                    $"row {seat.Row} is not a single arc" );
+            else
+                radii[ seat.Row ] = r;
+        }
 
-        // Note that two *different* boundaries sharing a starting x is expected, not a fault:
-        // where one group ends partway down a column and the next ends at the foot of the same
-        // column, the step's right edge and the following straight line lie on one vertical,
-        // above and below the step. Together they read as the single continuous boundary they
-        // are. Asserting distinct x values here fails on correct output.
+        Assert.AreEqual( 8, radii.Count, "eight seating rows" );
+        var ordered = radii.OrderBy( kv => kv.Key ).Select( kv => kv.Value ).ToList();
+        for ( var i = 1; i < ordered.Count; i++ )
+            Assert.IsTrue( ordered[ i ] > ordered[ i - 1 ], "rows run outward" );
+
+        Assert.AreEqual( 2.43, ordered.Last() / ordered.First(), 0.02,
+            "the outer row sits about 2.4 times the inner radius, as measured from the plan" );
+    }
+
+    // The centre of the fan, solved from two seats whose angles differ. Each seat's polar
+    // coordinates are known, so two of them determine it exactly.
+    private static (double X, double Y) Centre( IReadOnlyList<Seat> seats ) {
+        var a = seats[ 0 ];
+        var b = seats.First( s => Math.Abs( s.Angle - a.Angle ) > 5 && s.Row == a.Row );
+        var ra = a.Angle * Math.PI / 180;
+        var rb = b.Angle * Math.PI / 180;
+        var radius = ( a.X - b.X ) / ( Math.Cos( ra ) - Math.Cos( rb ) );
+        return ( a.X - radius * Math.Cos( ra ), a.Y + radius * Math.Sin( ra ) );
     }
 
     [TestMethod]
-    public void BoundariesInsideAColumnStepAroundTheMembersRatherThanCuttingThrough() {
-        // A group almost never ends exactly where a column does, so some boundaries fall
-        // partway down one. Those are drawn as a step — two verticals joined by a horizontal —
-        // and a straight line there would put members on the wrong side of their own group.
+    public void EachBoundaryIsOneRadialLineAndItSeparatesTheGroupsExactly() {
+        // A single spoke suffices because seats are placed in order of decreasing angle and
+        // groups are assigned along that order: every member of a group on the left sits at a
+        // greater angle than every member of the group to its right. This asserts that
+        // ordering directly — it is what makes one line correct rather than approximate.
         var plan = Chamber.Arrange( Division() );
 
-        var straight = plan.Dividers.Count( d => d.Count( c => c == 'L' ) == 1 );
-        var stepped = plan.Dividers.Count( d => d.Count( c => c == 'L' ) == 3 );
+        foreach ( var d in plan.Dividers ) {
+            Assert.AreEqual( 1, d.Count( c => c == 'L' ), $"not a single straight line: {d}" );
+            Assert.AreEqual( 0, d.Count( c => c == 'A' ), $"a fan boundary needs no arc: {d}" );
+        }
 
-        Assert.AreEqual( plan.Dividers.Count, straight + stepped,
-            "a divider is either one straight line or one step, never anything else" );
-        Assert.IsTrue( stepped > 0,
-            "with ten groups over 49 columns at least one boundary must fall inside a column" );
+        var byGroup = plan.Seats
+            .GroupBy( s => s.Party )
+            .Select( g => ( Party: g.Key, Min: g.Min( s => s.Angle ), Max: g.Max( s => s.Angle ) ) )
+            .OrderByDescending( g => g.Max )
+            .ToList();
+
+        for ( var i = 1; i < byGroup.Count; i++ )
+            Assert.IsTrue( byGroup[ i ].Max < byGroup[ i - 1 ].Min,
+                $"{byGroup[ i ].Party} overlaps {byGroup[ i - 1 ].Party} in angle, so no single "
+                + "line could separate them" );
     }
 
     [TestMethod]
@@ -201,7 +249,7 @@ public class ChamberTests {
             Assert.IsFalse( d.Contains( ',' ),
                 $"a decimal comma would silently break the path: {d}" );
             foreach ( var token in d.Split( ' ', StringSplitOptions.RemoveEmptyEntries ) )
-                Assert.IsTrue( token is "M" or "L"
+                Assert.IsTrue( token is "M" or "L" or "A"
                     || double.TryParse( token, System.Globalization.NumberStyles.Float,
                                         System.Globalization.CultureInfo.InvariantCulture, out _ ),
                     $"unexpected token '{token}' in {d}" );
