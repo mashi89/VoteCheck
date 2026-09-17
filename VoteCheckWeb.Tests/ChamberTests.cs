@@ -95,14 +95,38 @@ public class ChamberTests {
 
     [TestMethod]
     public void WithinAGroupTheSidesAreBlocksRatherThanScatter() {
+        // Checked along each arc rather than across the whole chamber: a group spans several
+        // arcs, and reading them in one angular sweep interleaves the rows, which is the fan
+        // working as intended rather than the blocks breaking up.
         var plan = Chamber.Arrange( Division() );
-        var kok = plan.Seats.Where( s => s.Party == "kok" ).Select( s => s.Vote ).ToList();
 
-        // Each value appears in one run: Jaa, then Ei, then the ballots that decided nothing.
-        var runs = kok.Where( ( v, i ) => i == 0 || v != kok[ i - 1 ] ).ToList();
-        Assert.AreEqual( runs.Count, runs.Distinct().Count(),
-            "a vote value appearing twice means the group's block was broken up" );
-        Assert.AreEqual( VoteValue.Yes, runs.First() );
+        foreach ( var arc in plan.Seats.Where( s => s.Party == "kok" )
+                                 .GroupBy( s => ( s.Row, s.Sector ) ) ) {
+            var votes = arc.OrderByDescending( s => s.Angle ).Select( s => s.Vote ).ToList();
+            var runs = votes.Where( ( v, i ) => i == 0 || v != votes[ i - 1 ] ).ToList();
+            Assert.AreEqual( runs.Count, runs.Distinct().Count(),
+                $"a vote value appears twice along row {arc.Key.Row}, so the block was split" );
+        }
+    }
+
+    [TestMethod]
+    public void GroupsDoNotInterleaveAlongAnArc() {
+        // Asserted per arc, which is where it has to hold: each arc carries its groups in
+        // seating order with no member of another group among them.
+        //
+        // Not across the whole chamber. Every arc holds a different number of seats, so the
+        // groups change over at a different angle in each, and a group's seats in one row can
+        // reach past another group's seats in a different row. That is the fan, not a fault —
+        // and it is why each arc gets its own boundary line rather than one radial spoke.
+        var plan = Chamber.Arrange( Division() );
+
+        foreach ( var arc in plan.Seats.GroupBy( s => ( s.Row, s.Sector ) ) ) {
+            var order = arc.OrderByDescending( s => s.Angle ).Select( s => s.Party ).ToList();
+            var runs = order.Where( ( p, i ) => i == 0 || p != order[ i - 1 ] ).ToList();
+            Assert.AreEqual( runs.Count, runs.Distinct().Count(),
+                $"row {arc.Key.Row} sector {arc.Key.Sector} returns to a group it had left: "
+                + string.Join( " ", order ) );
+        }
     }
 
     [TestMethod]
@@ -144,12 +168,22 @@ public class ChamberTests {
     // ---- boundaries between groups -------------------------------------------------
 
     [TestMethod]
-    public void EveryBoundaryBetweenGroupsGetsExactlyOneLine() {
+    public void EveryPlaceTwoGroupsMeetOnAnArcGetsALine() {
+        // One segment per arc rather than one per boundary: a boundary crosses however many
+        // arcs it happens to cross, and each needs its own line.
         var plan = Chamber.Arrange( Division() );
-        var groups = plan.Seats.Select( s => s.Party ).Distinct().Count();
 
-        Assert.AreEqual( groups - 1, plan.Dividers.Count,
-            "ten groups meet at nine boundaries; a missing line leaves two groups merged" );
+        var changes = plan.Seats
+            .GroupBy( s => ( s.Row, s.Sector ) )
+            .Sum( arc => arc.OrderByDescending( s => s.Angle )
+                            .Select( s => s.Party )
+                            .Where( ( p, i ) => i > 0 )
+                            .Zip( arc.OrderByDescending( s => s.Angle ).Select( s => s.Party ),
+                                  ( a, b ) => a != b )
+                            .Count( x => x ) );
+
+        Assert.AreEqual( changes, plan.Dividers.Count );
+        Assert.IsTrue( plan.Dividers.Count > 0, "a ten-group chamber has boundaries to draw" );
     }
 
     [TestMethod]
@@ -216,28 +250,35 @@ public class ChamberTests {
     }
 
     [TestMethod]
-    public void EachBoundaryIsOneRadialLineAndItSeparatesTheGroupsExactly() {
-        // A single spoke suffices because seats are placed in order of decreasing angle and
-        // groups are assigned along that order: every member of a group on the left sits at a
-        // greater angle than every member of the group to its right. This asserts that
-        // ordering directly — it is what makes one line correct rather than approximate.
-        var plan = Chamber.Arrange( Division() );
+    public void NoBoundaryLineTouchesASeat() {
+        // The reason each arc is respaced and gets its own segment. A single spoke per boundary
+        // crossed a circle on all seven boundaries of a full chamber — twice through the middle
+        // of one — because a seat is about two degrees wide on the inner arcs and the groups
+        // change over at a different angle in every row.
+        foreach ( var n in new[] { 99, 150, 199, 200 } ) {
+            var plan = Chamber.Arrange( Ballots( n ) );
 
-        foreach ( var d in plan.Dividers ) {
-            Assert.AreEqual( 1, d.Count( c => c == 'L' ), $"not a single straight line: {d}" );
-            Assert.AreEqual( 0, d.Count( c => c == 'A' ), $"a fan boundary needs no arc: {d}" );
+            foreach ( var d in plan.Dividers ) {
+                var p = d.Split( ' ' );
+                Assert.AreEqual( "M", p[ 0 ] );
+                Assert.AreEqual( "L", p[ 3 ] );
+                var ( ax, ay, bx, by ) = ( Num( p[ 1 ] ), Num( p[ 2 ] ), Num( p[ 4 ] ), Num( p[ 5 ] ) );
+
+                foreach ( var seat in plan.Seats )
+                    Assert.IsTrue( DistanceToSegment( seat.X, seat.Y, ax, ay, bx, by ) >= plan.Radius,
+                        $"{n} ballots: a boundary line crosses {seat.Member}'s seat" );
+            }
         }
+    }
 
-        var byGroup = plan.Seats
-            .GroupBy( s => s.Party )
-            .Select( g => ( Party: g.Key, Min: g.Min( s => s.Angle ), Max: g.Max( s => s.Angle ) ) )
-            .OrderByDescending( g => g.Max )
-            .ToList();
+    private static double Num( string s ) =>
+        double.Parse( s, System.Globalization.CultureInfo.InvariantCulture );
 
-        for ( var i = 1; i < byGroup.Count; i++ )
-            Assert.IsTrue( byGroup[ i ].Max < byGroup[ i - 1 ].Min,
-                $"{byGroup[ i ].Party} overlaps {byGroup[ i - 1 ].Party} in angle, so no single "
-                + "line could separate them" );
+    private static double DistanceToSegment(
+        double px, double py, double ax, double ay, double bx, double by ) {
+        double vx = bx - ax, vy = by - ay, wx = px - ax, wy = py - ay;
+        var t = Math.Clamp( ( wx * vx + wy * vy ) / ( vx * vx + vy * vy ), 0, 1 );
+        return Math.Sqrt( Math.Pow( px - ( ax + t * vx ), 2 ) + Math.Pow( py - ( ay + t * vy ), 2 ) );
     }
 
     [TestMethod]
