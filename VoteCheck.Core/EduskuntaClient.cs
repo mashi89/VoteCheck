@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -168,6 +169,49 @@ namespace VoteCheck.Core
                 .ConfigureAwait(false);
 
             return JsonConvert.DeserializeObject<T>(json);
+        }
+
+        public async Task<Valtiopaivaasia?> GetMatterAsync(
+            string eduskuntatunnus, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(eduskuntatunnus))
+                return null;
+
+            // Free text rather than a filter: this category rejects an expression on
+            // eduskuntatunnus. The identifier is distinctive enough that one result comes back,
+            // but the match is confirmed below rather than trusted.
+            var request = new
+            {
+                category = "valtiopaivaasia",
+                maxResults = 1,
+                startFromIndex = 0,
+                query = eduskuntatunnus,
+            };
+
+            var response = await PostAsync<MatterSearchResponse>("search", request, cancellationToken)
+                .ConfigureAwait(false);
+
+            var matter = response?.Results?.FirstOrDefault()?.Valtiopaivaasia;
+            if (matter is null)
+                return null;
+
+            // A free-text search can return a near miss — a matter that merely cites the one
+            // asked for. Returning that would attach the wrong subject to a division, which is
+            // worse than attaching none, so an identifier that does not match is discarded.
+            string? found = matter.Eduskuntatunnus?.Fi?.Trim();
+            return string.Equals(found, eduskuntatunnus.Trim(), StringComparison.OrdinalIgnoreCase)
+                ? matter
+                : null;
+        }
+
+        private sealed class MatterSearchResponse
+        {
+            public List<MatterSearchHit>? Results { get; set; }
+        }
+
+        private sealed class MatterSearchHit
+        {
+            public Valtiopaivaasia? Valtiopaivaasia { get; set; }
         }
 
         // Search returns category-tagged envelopes rather than bare objects.

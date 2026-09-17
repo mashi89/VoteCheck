@@ -135,6 +135,45 @@
     }
 </section>
 
+@* What was being decided, before how the chamber split over it. The subject above is the
+   bill's legal title; this is the part a reader can act on — the topics in ordinary words,
+   and a way through to the bill itself. *@
+@if ( Model.DocumentId != null ) {
+    <section class="matter" aria-labelledby="asia">
+        <h2 id="asia">Mistä äänestettiin</h2>
+
+        <p class="matter-doc">
+            @if ( !string.IsNullOrEmpty( Model.Matter?.TypeName ) ) {
+                <span class="matter-type">@Model.Matter.TypeName</span>
+            }
+            @if ( !string.IsNullOrEmpty( Model.Matter?.Url ) ) {
+                <a href="@Model.Matter.Url" rel="noopener">@Model.DocumentId</a>
+                <span class="muted">— eduskunta.fi</span>
+            } else {
+                <span>@Model.DocumentId</span>
+            }
+        </p>
+
+        @if ( Model.Matter?.Keywords.Count > 0 ) {
+            @* Upstream's own subject terms, in its order — the first are the headline ones. *@
+            <ul class="topics">
+                @foreach ( var topic in Model.Matter.Keywords.Take( 8 ) ) {
+                    <li class="topic">@topic</li>
+                }
+            </ul>
+        }
+
+        @if ( !string.IsNullOrEmpty( Model.Matter?.Outcome ) ) {
+            @* Said as the matter's fate, not this division's. A bill can lose an amendment
+               vote and pass anyway, so the two must not be run together. *@
+            <p class="muted matter-outcome">
+                Asian lopputulos eduskunnassa: <strong>@Model.Matter.Outcome</strong>.
+                Tämä äänestys on yksi vaihe asian käsittelyssä.
+            </p>
+        }
+    </section>
+}
+
 @if ( hasSubject ) {
     <p class="asettelu">
         <span class="label">Äänestysasettelu</span>
