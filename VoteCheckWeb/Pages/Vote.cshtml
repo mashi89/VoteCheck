@@ -44,6 +44,17 @@
 
 <h1 class="subject">@headline</h1>
 
+@* The topics sit here, above the tally, because the headline is the bill's legal title and
+   says which statute is being amended rather than what the change does. Together with the
+   result below, this is the first screen's whole job: what it was about, and what happened. *@
+@if ( Model.Matter?.Keywords.Count > 0 ) {
+    <ul class="topics topics-lead">
+        @foreach ( var topic in Model.Matter.Keywords.Take( 6 ) ) {
+            <li class="topic">@topic</li>
+        }
+    </ul>
+}
+
 <section class="outcome" aria-labelledby="tulos">
     <h2 id="tulos" class="visually-hidden">Äänestyksen tulos</h2>
     <div class="outcome-headline">
@@ -154,10 +165,11 @@
             }
         </p>
 
-        @if ( Model.Matter?.Keywords.Count > 0 ) {
-            @* Upstream's own subject terms, in its order — the first are the headline ones. *@
+        @* Any terms beyond the six shown at the top. The leading ones are upstream's own
+           headline subjects, so repeating them here would be noise. *@
+        @if ( Model.Matter?.Keywords.Count > 6 ) {
             <ul class="topics">
-                @foreach ( var topic in Model.Matter.Keywords.Take( 8 ) ) {
+                @foreach ( var topic in Model.Matter.Keywords.Skip( 6 ) ) {
                     <li class="topic">@topic</li>
                 }
             </ul>
