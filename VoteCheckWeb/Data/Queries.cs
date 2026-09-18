@@ -39,6 +39,19 @@ public sealed record MpSummary( int PersonNumber, string FirstName, string LastN
 
 public sealed record MpVote( string SessionId, string Date, string Title, string Vote );
 
+// The matter a division decides a step of, as held in the mirror. Null keywords or outcome
+// simply mean upstream had none, or the matter has not been fetched yet — the page shows what
+// it has and says nothing about what it does not.
+public sealed record Matter(
+    string Id, string TypeName, string Title, string Outcome,
+    IReadOnlyList<string> Keywords, string Url ) {
+
+    // A matter row exists but holds nothing worth showing: recorded so it stops being retried,
+    // which is not the same as having something to say about it.
+    public bool IsEmpty =>
+        Keywords.Count == 0 && Outcome.Length == 0 && Url.Length == 0 && TypeName.Length == 0;
+}
+
 public sealed record PartyDistribution( string Party, int Yes, int No, int Blank, int Absent );
 
 public sealed record IndividualVote( int PersonNumber, string FirstName, string LastName, string Party, string Vote );
@@ -122,6 +135,39 @@ public sealed class Queries {
         cmd.Parameters.AddWithValue( "$id", id );
         cmd.Parameters.AddWithValue( "$sv", IsSwedish( lang ) ? 1 : 0 );
         return ReadSessions( cmd ).FirstOrDefault();
+    }
+
+    // The matter a division decides a step of, or null when the division records no document
+    // or the matter has not been fetched yet. Both are ordinary states early in a sync, so the
+    // page has to render without one rather than treat it as an error.
+    public Matter? GetMatterForSession( string sessionId ) {
+        using var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT m.id, m.type_name, m.title, m.outcome, m.keywords, m.url
+            FROM session s JOIN matter m ON m.id = s.doc_id
+            WHERE s.id = $id
+            """;
+        cmd.Parameters.AddWithValue( "$id", sessionId );
+
+        using var r = cmd.ExecuteReader();
+        if ( !r.Read() ) return null;
+
+        var keywords = r.GetString( 4 )
+            .Split( '\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries );
+
+        return new Matter( r.GetString( 0 ), r.GetString( 1 ), r.GetString( 2 ),
+                           r.GetString( 3 ), keywords, r.GetString( 5 ) );
+    }
+
+    // The document identifier a division carries, even when its matter has not been fetched.
+    // Enough to name and link the thing being decided on its own.
+    public string? GetDocumentId( string sessionId ) {
+        using var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT doc_id FROM session WHERE id = $id AND doc_id <> ''";
+        cmd.Parameters.AddWithValue( "$id", sessionId );
+        return cmd.ExecuteScalar() as string;
     }
 
     public IReadOnlyList<PartyDistribution> GetPartyDistribution( string sessionId ) {

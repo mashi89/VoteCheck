@@ -16,15 +16,28 @@ namespace VoteCheck.Core.Tests
         public int MatterVotesCalls { get; private set; }
         public int RecentVotesCalls { get; private set; }
         public int VotePageCalls { get; private set; }
+        public int MatterCalls { get; private set; }
 
         public IReadOnlyList<Mp> Mps { get; set; } = new List<Mp>();
         public Mp? Mp { get; set; } = new Mp { Henkilonro = 1109 };
         public Aanestys? Vote { get; set; } = new Aanestys { Id = "2026-60-1" };
         public IReadOnlyList<Aanestys> Votes { get; set; } = new List<Aanestys>();
+        public Valtiopaivaasia? Matter { get; set; } = new Valtiopaivaasia
+        {
+            Eduskuntatunnus = new LocalizedText { Fi = "HE 113/2026 vp" },
+        };
 
         // Optional gate so tests can hold a fetch open and prove concurrent callers collapse
         // onto a single upstream request.
         public TaskCompletionSource<bool>? Gate { get; set; }
+
+        public async Task<Valtiopaivaasia?> GetMatterAsync(
+            string eduskuntatunnus, CancellationToken cancellationToken = default)
+        {
+            MatterCalls++;
+            await WaitForGateAsync().ConfigureAwait(false);
+            return Matter;
+        }
 
         public async Task<IReadOnlyList<Mp>> GetMpsAsync(CancellationToken cancellationToken = default)
         {

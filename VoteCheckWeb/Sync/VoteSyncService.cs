@@ -24,6 +24,11 @@ public sealed class VoteSyncService : BackgroundService {
     private readonly TimeSpan _pollInterval;
     private readonly TimeSpan _requestDelay;
 
+    // Matters fetched per cycle. One request each, so this is the only part of the sync that
+    // scales with the archive rather than with what is new: about 875 for the 2023+ window,
+    // filled in over a few cycles rather than in one burst against upstream's rate cap.
+    private const int MatterBatch = 60;
+
     public VoteSyncService( Db db, IEduskuntaClient api, IConfiguration config, ILogger<VoteSyncService> log ) {
         _db = db;
         _api = api;
@@ -54,6 +59,16 @@ public sealed class VoteSyncService : BackgroundService {
 
     private async Task SyncAsync( CancellationToken ct ) {
         using var conn = _db.Open();
+
+        // Rows imported before the document columns existed carry no matter, and the cursor
+        // sits past them, so nothing would ever go back for them. Rewinding once is cheap —
+        // the archive re-walks 50 divisions to a request, so a few dozen calls — and the
+        // import updates only the document on a row it already has.
+        if ( GetState( conn, "doc_backfill" ) == null ) {
+            SetState( conn, "vote_cursor", "0" );
+            SetState( conn, "doc_backfill", DateTimeOffset.UtcNow.ToString( "o" ) );
+            _log.LogInformation( "Rewinding once to record which matter each division decides" );
+        }
 
         var cursor = int.TryParse( GetState( conn, "vote_cursor" ), out var stored ) ? stored : 0;
         var imported = 0;
@@ -95,6 +110,77 @@ public sealed class VoteSyncService : BackgroundService {
             SetState( conn, "backfill_complete", DateTimeOffset.UtcNow.ToString( "o" ) );
             _log.LogInformation( "Backfill complete: {Total} divisions from {MinYear} onward", total, _minYear );
         }
+
+        await SyncMattersAsync( conn, ct );
+    }
+
+    // Fetch the matters the divisions point at — what a bill is about, in words a reader
+    // recognises, rather than only its legal title.
+    //
+    // Deliberately last, and in its own bounded batch. A division is the thing this site
+    // exists to show; its matter is context. So nothing here may abort the cycle: if upstream
+    // refuses a matter, divisions still arrive, and the matter is simply retried next time.
+    private async Task SyncMattersAsync( SqliteConnection conn, CancellationToken ct ) {
+        var pending = new List<string>();
+        using ( var cmd = conn.CreateCommand() ) {
+            cmd.CommandText = """
+                SELECT DISTINCT s.doc_id
+                FROM session s
+                LEFT JOIN matter m ON m.id = s.doc_id
+                WHERE s.doc_id <> '' AND m.id IS NULL
+                LIMIT $limit
+                """;
+            cmd.Parameters.AddWithValue( "$limit", MatterBatch );
+            using var r = cmd.ExecuteReader();
+            while ( r.Read() ) pending.Add( r.GetString( 0 ) );
+        }
+
+        if ( pending.Count == 0 ) return;
+
+        var stored = 0;
+        foreach ( var id in pending ) {
+            if ( ct.IsCancellationRequested ) break;
+
+            try {
+                var matter = await _api.GetMatterAsync( id, ct );
+
+                // A null is recorded too. Some identifiers name several documents at once
+                // ("LA 1, 18/2023 vp") and have no single matter; writing the miss stops them
+                // being retried every cycle for ever.
+                StoreMatter( conn, id, matter );
+                if ( matter != null ) stored++;
+            } catch ( Exception ex ) when ( ex is not OperationCanceledException ) {
+                _log.LogWarning( ex, "Could not fetch matter {Matter}; will retry next cycle", id );
+            }
+
+            await Task.Delay( _requestDelay, ct );
+        }
+
+        if ( stored > 0 )
+            _log.LogInformation( "Recorded {Count} matters", stored );
+    }
+
+    private static void StoreMatter( SqliteConnection conn, string id, Valtiopaivaasia? matter ) {
+        using var tx = conn.BeginTransaction();
+        Exec( conn, tx, """
+            INSERT INTO matter ( id, type_name, title, outcome, keywords, url, fetched_at )
+            VALUES ( $id, $type, $title, $outcome, $keywords, $url, $at )
+            ON CONFLICT ( id ) DO UPDATE SET
+                type_name  = excluded.type_name,
+                title      = excluded.title,
+                outcome    = excluded.outcome,
+                keywords   = excluded.keywords,
+                url        = excluded.url,
+                fetched_at = excluded.fetched_at
+            """,
+            ( "$id", id ),
+            ( "$type", matter?.Asiakirjatyyppinimi?.Fi ?? "" ),
+            ( "$title", matter?.Nimeke?.Fi ?? "" ),
+            ( "$outcome", matter?.Kokonaispaatosnimi?.Fi ?? "" ),
+            ( "$keywords", matter == null ? "" : string.Join( "\n", matter.Keywords() ) ),
+            ( "$url", matter?.PublicUrl()?.ToString() ?? "" ),
+            ( "$at", DateTimeOffset.UtcNow.ToString( "o" ) ) );
+        tx.Commit();
     }
 
     // One page, one transaction: a crash mid-page leaves the cursor where it was, and the
@@ -111,11 +197,18 @@ public sealed class VoteSyncService : BackgroundService {
             Exec( conn, tx, """
                 INSERT INTO session ( id, date, title, subject, title_sv, subject_sv,
                                       vp_year, session_number, vote_number,
-                                      result_yes, result_no, result_blank, result_absent, cancelled )
+                                      result_yes, result_no, result_blank, result_absent, cancelled,
+                                      doc_id, doc_type )
                 VALUES ( $id, $date, $title, $subject, $titleSv, $subjectSv,
                          $year, $session, $number,
-                         $yes, $no, $blank, $absent, $cancelled )
-                ON CONFLICT ( id ) DO NOTHING
+                         $yes, $no, $blank, $absent, $cancelled,
+                         $docId, $docType )
+                -- Only the document is updated on a re-import. A division's result never
+                -- changes, but rows imported before these columns existed carry none, and
+                -- re-walking the archive is how they get one.
+                ON CONFLICT ( id ) DO UPDATE SET
+                    doc_id = excluded.doc_id,
+                    doc_type = excluded.doc_type
                 """,
                 ( "$id", vote.Id ),
                 // istuntopvm carries a UTC offset ("2026-06-03+03:00") and does not parse as
@@ -132,7 +225,10 @@ public sealed class VoteSyncService : BackgroundService {
                 ( "$no", tulos?.Ei ?? 0 ),
                 ( "$blank", tulos?.Tyhjia ?? 0 ),
                 ( "$absent", tulos?.Poissa ?? 0 ),
-                ( "$cancelled", vote.Aanestysmitatoity ? 1 : 0 ) );
+                ( "$cancelled", vote.Aanestysmitatoity ? 1 : 0 ),
+                // "HE 113/2026 vp" — the matter this division decides a step of.
+                ( "$docId", vote.Kohta?.Asiakirjat?.PaaasiakirjaEduskuntatunnus?.Fi?.Trim() ?? "" ),
+                ( "$docType", vote.Kohta?.Asiakirjat?.PaaasiakirjaAsiatyyppi?.Trim() ?? "" ) );
 
             foreach ( var ballot in vote.Aanestystapahtumat ) {
                 var party = ballot.Edkryhmalyhenne?.Fi?.Trim() ?? "";

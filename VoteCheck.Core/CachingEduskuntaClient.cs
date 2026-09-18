@@ -55,6 +55,15 @@ namespace VoteCheck.Core
             CancellationToken cancellationToken = default) =>
             _inner.GetVotePageAsync(fromVpYear, startFromIndex, maxResults, cancellationToken);
 
+        // A matter's keywords and title are settled long before anyone reads them here, and
+        // roughly three divisions share each one, so this is the same win as a completed vote:
+        // a page showing several divisions of one bill fetches it once.
+        public Task<Valtiopaivaasia?> GetMatterAsync(
+            string eduskuntatunnus, CancellationToken cancellationToken = default) =>
+            GetOrCreateAsync(
+                $"matter:{eduskuntatunnus}", _immutableTtl,
+                ct => _inner.GetMatterAsync(eduskuntatunnus, ct), cancellationToken);
+
         public Task<IReadOnlyList<Mp>> GetMpsAsync(CancellationToken cancellationToken = default) =>
             GetOrCreateAsync("mps", _volatileTtl, ct => _inner.GetMpsAsync(ct), cancellationToken);
 

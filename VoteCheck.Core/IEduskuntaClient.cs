@@ -42,5 +42,19 @@ namespace VoteCheck.Core
             int startFromIndex,
             int maxResults,
             CancellationToken cancellationToken = default);
+
+        // The matter behind a division, by the identifier the division carries in
+        // kohta.asiakirjat.paaasiakirjaEduskuntatunnus — "HE 113/2026 vp".
+        //
+        // This is where a division's subject stops being a legal title and becomes something a
+        // reader recognises: the keywords, the document type in plain Finnish, and how the
+        // matter ended. Divisions share matters — about three divisions to each — so a caller
+        // walking the archive should look up each identifier once.
+        //
+        // Goes through the search index because there is no addressable endpoint for a matter,
+        // and note that this category accepts only a free-text `query`: an `expression` with
+        // `eq` or `value` on eduskuntatunnus is rejected outright.
+        Task<Valtiopaivaasia?> GetMatterAsync(
+            string eduskuntatunnus, CancellationToken cancellationToken = default);
     }
 }

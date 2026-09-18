@@ -83,11 +83,59 @@ public sealed class Db {
                 VALUES ( new.seq, new.title, new.subject );
             END;
 
+            -- A matter before parliament: the bill, report or interpellation a division
+            -- decides a step of. Several divisions share one — about three to each — so this
+            -- is keyed on the parliamentary identifier rather than repeated per division.
+            CREATE TABLE IF NOT EXISTS matter (
+                id         TEXT PRIMARY KEY,             -- "HE 113/2026 vp"
+                type_name  TEXT NOT NULL DEFAULT '',     -- "Hallituksen esitys", not the code
+                title      TEXT NOT NULL DEFAULT '',
+                -- How the matter ended overall. NOT the result of any one division: a bill can
+                -- lose an amendment vote and pass anyway, so whatever renders this has to say
+                -- which of the two it is showing.
+                outcome    TEXT NOT NULL DEFAULT '',
+                keywords   TEXT NOT NULL DEFAULT '',     -- newline separated, in upstream's order
+                url        TEXT NOT NULL DEFAULT '',
+                fetched_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS sync_state (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
             """;
         cmd.ExecuteNonQuery();
+
+        Migrate( conn );
+    }
+
+    // Columns added to a table that already exists.
+    //
+    // CREATE TABLE IF NOT EXISTS does nothing to a table that is already there, so a column
+    // added later never reaches a database that predates it. The mirror is rebuildable, but a
+    // rebuild costs thousands of upstream requests and leaves the site half-empty while it
+    // runs — a poor trade for adding a column. SQLite's ADD COLUMN is cheap and does not
+    // rewrite the table.
+    private static void Migrate( SqliteConnection conn ) {
+        AddColumn( conn, "session", "doc_id", "TEXT NOT NULL DEFAULT ''" );
+        AddColumn( conn, "session", "doc_type", "TEXT NOT NULL DEFAULT ''" );
+    }
+
+    private static void AddColumn(
+        SqliteConnection conn, string table, string column, string definition ) {
+
+        using ( var check = conn.CreateCommand() ) {
+            check.CommandText =
+                "SELECT COUNT(*) FROM pragma_table_info( $table ) WHERE name = $column";
+            check.Parameters.AddWithValue( "$table", table );
+            check.Parameters.AddWithValue( "$column", column );
+            if ( Convert.ToInt64( check.ExecuteScalar() ) > 0 ) return;
+        }
+
+        // The table and column names here are literals from Migrate, never input — ALTER TABLE
+        // takes no parameters for them.
+        using var add = conn.CreateCommand();
+        add.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition}";
+        add.ExecuteNonQuery();
     }
 }
