@@ -112,7 +112,12 @@ public sealed class Queries {
                    s.result_yes, s.result_no, s.result_blank, s.result_absent
             FROM session_fts f JOIN session s ON s.seq = f.rowid
             WHERE session_fts MATCH $query AND s.cancelled = 0
-            ORDER BY rank LIMIT $count
+            -- Rank the curated subject terms above the legal wording. A term was assigned to a
+            -- matter because the matter is about it; a title merely containing the same word is
+            -- usually a weaker match, and bill titles are long enough to collect words
+            -- incidentally. bm25 takes a weight per column, so this needs no special case in
+            -- the query itself. Negated because bm25 returns lower-is-better.
+            ORDER BY bm25( session_fts, 1.0, 1.0, 3.0 ) LIMIT $count
             """;
         // Finnish compounds ("lakiehdotus") mean exact-token match misses most hits;
         // turn each word into a quoted prefix term: laki muutos -> "laki"* "muutos"*

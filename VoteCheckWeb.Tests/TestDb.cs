@@ -25,6 +25,34 @@ internal sealed class TestDb : IDisposable {
         Queries = new Queries( Db );
     }
 
+    // A matter, and the keywords that let a division be found by what it is about. Written
+    // the way the sync writes it: the row, then the index, because a division is indexed when
+    // it arrives and its matter is not known until later.
+    public void AddMatter(
+        string id, string typeName = "Hallituksen esitys", string title = "",
+        string outcome = "", string keywords = "", string url = "" ) {
+        Exec( """
+            INSERT INTO matter ( id, type_name, title, outcome, keywords, url, fetched_at )
+            VALUES ( $id, $type, $title, $outcome, $keywords, $url, $at )
+            ON CONFLICT ( id ) DO UPDATE SET keywords = excluded.keywords
+            """,
+            ( "$id", id ), ( "$type", typeName ), ( "$title", title ),
+            ( "$outcome", outcome ), ( "$keywords", keywords ), ( "$url", url ),
+            ( "$at", DateTimeOffset.UtcNow.ToString( "o" ) ) );
+
+        Exec( """
+            UPDATE session_fts SET keywords = $keywords
+            WHERE rowid IN ( SELECT seq FROM session WHERE doc_id = $id )
+            """,
+            ( "$keywords", keywords ), ( "$id", id ) );
+    }
+
+    // Attach a division to the matter it decides a step of.
+    public void SetDocument( string sessionId, string docId, string docType = "HE" ) {
+        Exec( "UPDATE session SET doc_id = $doc, doc_type = $type WHERE id = $id",
+            ( "$doc", docId ), ( "$type", docType ), ( "$id", sessionId ) );
+    }
+
     public void AddSession(
         string id, string date, string title, string subject,
         int year, int sessionNumber, int voteNumber,

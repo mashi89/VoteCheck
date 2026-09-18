@@ -73,14 +73,21 @@ public sealed class Db {
             CREATE INDEX IF NOT EXISTS ix_session_chrono
                 ON session ( vp_year DESC, session_number DESC, vote_number DESC );
 
-            CREATE VIRTUAL TABLE IF NOT EXISTS session_fts USING fts5 (
-                title, subject, content='session', content_rowid='seq'
-            );
+            -- Holds its own copy of the text rather than pointing at `session`, which an
+            -- external-content index would. Two reasons, both about the keywords: they live in
+            -- `matter`, which an index over `session` cannot reach, and they arrive after the
+            -- division does — the matter is fetched in a later pass — so no insert trigger
+            -- could ever fill them. The copy costs about a megabyte over the whole window.
+            CREATE VIRTUAL TABLE IF NOT EXISTS session_fts USING fts5 ( title, subject, keywords );
 
-            -- Voting history is append-only, so an insert trigger is sufficient.
+            -- Voting history is append-only, so an insert trigger is enough. It looks the
+            -- keywords up rather than writing a blank: a division can arrive after the matter
+            -- it belongs to is already held, and then they are known at insert time. A matter
+            -- arriving later fills them in itself.
             CREATE TRIGGER IF NOT EXISTS session_ai AFTER INSERT ON session BEGIN
-                INSERT INTO session_fts ( rowid, title, subject )
-                VALUES ( new.seq, new.title, new.subject );
+                INSERT INTO session_fts ( rowid, title, subject, keywords )
+                VALUES ( new.seq, new.title, new.subject,
+                         COALESCE( ( SELECT keywords FROM matter WHERE id = new.doc_id ), '' ) );
             END;
 
             -- A matter before parliament: the bill, report or interpellation a division
@@ -119,6 +126,42 @@ public sealed class Db {
     private static void Migrate( SqliteConnection conn ) {
         AddColumn( conn, "session", "doc_id", "TEXT NOT NULL DEFAULT ''" );
         AddColumn( conn, "session", "doc_type", "TEXT NOT NULL DEFAULT ''" );
+        RebuildSearchIndexForKeywords( conn );
+    }
+
+    // The search index predates the keywords and cannot gain a column: an FTS5 table's shape
+    // is fixed at creation, and CREATE ... IF NOT EXISTS leaves an existing one alone. So an
+    // index without a keywords column is dropped and built again.
+    //
+    // Nothing is fetched to do it. Every value is already in the mirror, so the index is
+    // repopulated from session joined to matter in a single statement — unlike the columns
+    // above, this costs no upstream traffic at all.
+    private static void RebuildSearchIndexForKeywords( SqliteConnection conn ) {
+        using ( var check = conn.CreateCommand() ) {
+            check.CommandText =
+                "SELECT COUNT(*) FROM pragma_table_info( 'session_fts' ) WHERE name = 'keywords'";
+            if ( Convert.ToInt64( check.ExecuteScalar() ) > 0 ) return;
+        }
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            DROP TRIGGER IF EXISTS session_ai;
+            DROP TABLE IF EXISTS session_fts;
+
+            CREATE VIRTUAL TABLE session_fts USING fts5 ( title, subject, keywords );
+
+            CREATE TRIGGER session_ai AFTER INSERT ON session BEGIN
+                INSERT INTO session_fts ( rowid, title, subject, keywords )
+                VALUES ( new.seq, new.title, new.subject,
+                         COALESCE( ( SELECT keywords FROM matter WHERE id = new.doc_id ), '' ) );
+            END;
+
+            INSERT INTO session_fts ( rowid, title, subject, keywords )
+            SELECT s.seq, s.title, s.subject, COALESCE( m.keywords, '' )
+            FROM session s
+            LEFT JOIN matter m ON m.id = s.doc_id;
+            """;
+        cmd.ExecuteNonQuery();
     }
 
     private static void AddColumn(
