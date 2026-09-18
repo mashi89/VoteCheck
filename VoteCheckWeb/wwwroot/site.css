@@ -284,11 +284,24 @@ h2 {
 /* The division's subject is the headline. Upstream's own title is procedural
  * ("1. lakiehdotus 8 d §: mietintö JAA / …") and belongs further down, labelled — it is
  * what parliament called the question, not what the question was about. */
+/* Smaller than a page title, because it is not one. This is the bill's legal title — which
+ * statute is being amended, not what the change does — and at the old size it ran to four
+ * lines on a phone and pushed both the result and the topics off the first screen. The things
+ * that answer the reader's question get the room instead. */
 .subject {
-    font-size: var( --text-2xl );
+    font-size: var( --text-xl );
     font-weight: 700;
-    letter-spacing: -.02em;
-    margin-bottom: var( --space-5 );
+    line-height: 1.25;
+    letter-spacing: -.01em;
+    margin-bottom: var( --space-3 );
+}
+
+/* The topics, directly under the title. Tighter than the set further down: here they are
+ * read as one line of context, not browsed. */
+.topics-lead { margin-bottom: var( --space-5 ); }
+.topics-lead .topic {
+    background: var( --surface );
+    font-weight: 600;
 }
 
 .outcome {
