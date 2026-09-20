@@ -180,6 +180,21 @@ public sealed class VoteSyncService : BackgroundService {
             ( "$keywords", matter == null ? "" : string.Join( "\n", matter.Keywords() ) ),
             ( "$url", matter?.PublicUrl()?.ToString() ?? "" ),
             ( "$at", DateTimeOffset.UtcNow.ToString( "o" ) ) );
+
+        // Put the subject terms in the search index, for every division of this matter.
+        //
+        // The division was indexed when it arrived, before its matter was known, so the
+        // keywords have to be written in afterwards — this is the step that makes searching
+        // "alkoholipolitiikka" find the divisions about it rather than only the ones whose
+        // legal title happens to contain the word.
+        Exec( conn, tx, """
+            UPDATE session_fts
+            SET keywords = $keywords
+            WHERE rowid IN ( SELECT seq FROM session WHERE doc_id = $id )
+            """,
+            ( "$keywords", matter == null ? "" : string.Join( "\n", matter.Keywords() ) ),
+            ( "$id", id ) );
+
         tx.Commit();
     }
 
