@@ -51,9 +51,9 @@ namespace VoteCheck.Core
         // matter ended. Divisions share matters — about three divisions to each — so a caller
         // walking the archive should look up each identifier once.
         //
-        // Goes through the search index because there is no addressable endpoint for a matter,
-        // and note that this category accepts only a free-text `query`: an `expression` with
-        // `eq` or `value` on eduskuntatunnus is rejected outright.
+        // An unknown identifier comes back as null rather than an error — a combined identifier
+        // such as "LA 1, 18/2023 vp" names two documents at once and has no single matter, so
+        // "no such thing" is an ordinary answer here and the caller records it as one.
         Task<Valtiopaivaasia?> GetMatterAsync(
             string eduskuntatunnus, CancellationToken cancellationToken = default);
     }
