@@ -1,0 +1,1103 @@
+{
+  "kansanedustajat": [
+    {
+      "henkilonro": "1443",
+      "etunimet": "Kim Kristoffer",
+      "sukunimi": "Berg",
+      "kutsumanimi": "Kim",
+      "kotikunta": "Vaasa",
+      "syntymavuosi": 1974,
+      "kuolemavuosi": null,
+      "syntymapaikka": "Vaasa",
+      "sukupuolikoodi": "Mies",
+      "ammatti": {
+        "fi": "röntgenhoitaja, pääluottamusmies",
+        "sv": "röntgenskötare, huvudförtroendeman",
+        "en": "radiographer, chief shop steward"
+      },
+      "sahkoposti": "kim.berg@eduskunta.fi",
+      "puhelinnumero": "09 432 3019",
+      "kansanedustajuusPaattynytPvm": null,
+      "edustajantoimenTila": "Nykyinen",
+      "viimeisinEduskuntaryhma": {
+        "nimi": {
+          "fi": "Sosialidemokraattinen eduskuntaryhmä",
+          "sv": "Socialdemokratiska riksdagsgruppen",
+          "en": "Social Democratic Parliamentary Group"
+        },
+        "tunnus": "SD01~SOSIALIDEMOKRAATTINEN EDUSKUNTARYHMÄ",
+        "alkupvm": "2019-04-17",
+        "loppupvm": null
+      },
+      "eduskuntaryhmat": [
+        {
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä",
+            "sv": "Socialdemokratiska riksdagsgruppen",
+            "en": "Social Democratic Parliamentary Group"
+          },
+          "tunnus": "SD01~SOSIALIDEMOKRAATTINEN EDUSKUNTARYHMÄ",
+          "alkupvm": "2019-04-17",
+          "loppupvm": null
+        }
+      ],
+      "edustajatoimet": [
+        {
+          "alkupvm": "2019-04-17",
+          "loppupvm": null
+        }
+      ],
+      "viimeisinVaalipiiri": {
+        "nimi": {
+          "fi": "Vaasan vaalipiiri",
+          "sv": "Vasa valkrets",
+          "en": "Electoral District of Vaasa"
+        },
+        "tunnus": "VAA04",
+        "alkupvm": "2019-04-17",
+        "loppupvm": null
+      },
+      "vaalipiirit": [
+        {
+          "nimi": {
+            "fi": "Vaasan vaalipiiri",
+            "sv": "Vasa valkrets",
+            "en": "Electoral District of Vaasa"
+          },
+          "tunnus": "VAA04",
+          "alkupvm": "2019-04-17",
+          "loppupvm": null
+        }
+      ],
+      "sidonnaisuudet": {
+        "fi": [
+          {
+            "sidonta": "Alko Oy, hallintoneuvoston jäsen",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 6
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Valtion, kunnan ja muiden julkisyhteisöjen virat",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 2
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Palkatut toimet yksityisissä yrityksissä tai yhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 3
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Ammatin ja elinkeinon harjoittaminen",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 9
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Liike- tai sijoitustoimintaa varten hankitut merkittävät välittömät ja välilliset omistukset",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 10
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Liike- tai sijoitustoimintaa varten otetut merkittävät velat sekä samassa tarkoituksessa annetut merkittävät takaukset tai muut vastuut",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 11
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Muut sidonnaisuudet",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 12
+          },
+          {
+            "sidonta": "Ei ilmoitettavia tuloja",
+            "ryhmaotsikko": "Elinkeinotoiminnasta saadut tulot",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 16
+          },
+          {
+            "sidonta": "Ilmoitettu: 06.07.2025. Antaja: Turun kaupunki . Kuvaus: Ruisrock VIP-liput, 678,00 euroa. Käyttöaika: 05.07.2025. ",
+            "ryhmaotsikko": "Lahjailmoitus",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "lahjailmoitus",
+            "jarjestys": 18
+          },
+          {
+            "sidonta": "Kansaneläkelaitoksen valtuutetut, varajäsen",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 5
+          },
+          {
+            "sidonta": "Kvarken Link, hallitus",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 4
+          },
+          {
+            "sidonta": "Pohjanmaan hyvinvointialue 15 615,00 euroa",
+            "ryhmaotsikko": "Edustajantoimeen kuulumattomista tehtävistä saadut tulot",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 15
+          },
+          {
+            "sidonta": "Pohjanmaan hyvinvointialue, valtuuston puheenjohtaja",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 8
+          },
+          {
+            "sidonta": "Vaasan sähkö 5 500,00 euroa",
+            "ryhmaotsikko": "Edustajantoimeen kuulumattomista tehtävistä saadut tulot",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 14
+          },
+          {
+            "sidonta": "Vaasan sähkö, hallitus",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 7
+          },
+          {
+            "sidonta": null,
+            "ryhmaotsikko": "Sidonnaisuusilmoitus on vuodelta 2026",
+            "vuosi": "Sidonnaisuusilmoitus on vuodelta 2026",
+            "ilmoitusTyyppi": null,
+            "jarjestys": 1
+          },
+          {
+            "sidonta": null,
+            "ryhmaotsikko": "Tuloilmoitus on vuodelta 2025",
+            "vuosi": "Tuloilmoitus on vuodelta 2025",
+            "ilmoitusTyyppi": null,
+            "jarjestys": 13
+          }
+        ],
+        "sv": [
+          {
+            "sidonta": "Alko Ab, förvaltningsrådet",
+            "ryhmaotsikko": "Förvaltnings- eller förtroendeuppdrag i privata företag, organisationer eller offentliga samfund",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 6
+          },
+          {
+            "sidonta": "Folkpensionsanstalten, fullmäktige, ers",
+            "ryhmaotsikko": "Förvaltnings- eller förtroendeuppdrag i privata företag, organisationer eller offentliga samfund",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 5
+          },
+          {
+            "sidonta": "Ilmoitettu: 06.07.2025. Antaja: Turun kaupunki . Kuvaus: Ruisrock VIP-liput, 678,00 euroa. Käyttöaika: 05.07.2025. ",
+            "ryhmaotsikko": "Lahjailmoitus",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "lahjailmoitus",
+            "jarjestys": 18
+          },
+          {
+            "sidonta": "Inga bindningar att anmäla",
+            "ryhmaotsikko": "Tjänst inom stat, kommun eller andra offentliga samfund",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 2
+          },
+          {
+            "sidonta": "Inga bindningar att anmäla",
+            "ryhmaotsikko": "Avlönad anställning i privata företag eller organisationer",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 3
+          },
+          {
+            "sidonta": "Inga bindningar att anmäla",
+            "ryhmaotsikko": "Yrkesutövning och näringsverksamhet",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 9
+          },
+          {
+            "sidonta": "Inga bindningar att anmäla",
+            "ryhmaotsikko": "Betydande direkt eller indirekt innehav som förvärvats i affärs- eller investeringssyfte",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 10
+          },
+          {
+            "sidonta": "Inga bindningar att anmäla",
+            "ryhmaotsikko": "Betydande lån för affärs- och investeringsverksamhet samt borgen eller andra betydande åtaganden för samma syfte",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 11
+          },
+          {
+            "sidonta": "Inga bindningar att anmäla",
+            "ryhmaotsikko": "Övriga bindningar",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 12
+          },
+          {
+            "sidonta": "Inga inkomster att anmäla",
+            "ryhmaotsikko": "Inkomster från näringsverksamhet",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 16
+          },
+          {
+            "sidonta": "Kvarken Link Ab, styrelsen",
+            "ryhmaotsikko": "Förvaltnings- eller förtroendeuppdrag i privata företag, organisationer eller offentliga samfund",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 4
+          },
+          {
+            "sidonta": "Österbottens välfärdsområde 15 615,00 euro",
+            "ryhmaotsikko": "Inkomster från uppdrag som inte hör till ledamotsuppdraget",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 15
+          },
+          {
+            "sidonta": "Österbottens välfärdsområde, fullmäktige, ordf",
+            "ryhmaotsikko": "Förvaltnings- eller förtroendeuppdrag i privata företag, organisationer eller offentliga samfund",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 8
+          },
+          {
+            "sidonta": "Vasa Elektriska Ab 5 500,00 euro",
+            "ryhmaotsikko": "Inkomster från uppdrag som inte hör till ledamotsuppdraget",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 14
+          },
+          {
+            "sidonta": "Vasa Elektriska Ab, styrelsen",
+            "ryhmaotsikko": "Förvaltnings- eller förtroendeuppdrag i privata företag, organisationer eller offentliga samfund",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 7
+          }
+        ],
+        "en": [
+          {
+            "sidonta": "Alko Oy, hallintoneuvoston jäsen",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 6
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Valtion, kunnan ja muiden julkisyhteisöjen virat",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 2
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Palkatut toimet yksityisissä yrityksissä tai yhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 3
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Ammatin ja elinkeinon harjoittaminen",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 9
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Liike- tai sijoitustoimintaa varten hankitut merkittävät välittömät ja välilliset omistukset",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 10
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Liike- tai sijoitustoimintaa varten otetut merkittävät velat sekä samassa tarkoituksessa annetut merkittävät takaukset tai muut vastuut",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 11
+          },
+          {
+            "sidonta": "Ei ilmoitettavia sidonnaisuuksia",
+            "ryhmaotsikko": "Muut sidonnaisuudet",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 12
+          },
+          {
+            "sidonta": "Ei ilmoitettavia tuloja",
+            "ryhmaotsikko": "Elinkeinotoiminnasta saadut tulot",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 16
+          },
+          {
+            "sidonta": "Ilmoitettu: 06.07.2025. Antaja: Turun kaupunki . Kuvaus: Ruisrock VIP-liput, 678,00 euroa. Käyttöaika: 05.07.2025. ",
+            "ryhmaotsikko": "Lahjailmoitus",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "lahjailmoitus",
+            "jarjestys": 18
+          },
+          {
+            "sidonta": "Kansaneläkelaitoksen valtuutetut, varajäsen",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 5
+          },
+          {
+            "sidonta": "Kvarken Link, hallitus",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 4
+          },
+          {
+            "sidonta": "Pohjanmaan hyvinvointialue 15 615,00 euroa",
+            "ryhmaotsikko": "Edustajantoimeen kuulumattomista tehtävistä saadut tulot",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 15
+          },
+          {
+            "sidonta": "Pohjanmaan hyvinvointialue, valtuuston puheenjohtaja",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 8
+          },
+          {
+            "sidonta": "Vaasan sähkö 5 500,00 euroa",
+            "ryhmaotsikko": "Edustajantoimeen kuulumattomista tehtävistä saadut tulot",
+            "vuosi": "2025",
+            "ilmoitusTyyppi": "tuloilmoitus",
+            "jarjestys": 14
+          },
+          {
+            "sidonta": "Vaasan sähkö, hallitus",
+            "ryhmaotsikko": "Hallinto- ja luottamustehtävät yksityisissä yrityksissä, yhteisöissä sekä julkisyhteisöissä",
+            "vuosi": "2026",
+            "ilmoitusTyyppi": "sidonnaisuusilmoitus",
+            "jarjestys": 7
+          }
+        ]
+      },
+      "valtioneuvostonJasenyydet": {
+        "fi": [],
+        "sv": [],
+        "en": []
+      },
+      "valiokuntajasenyydet": [
+        {
+          "rooli": {
+            "fi": "Jäsen",
+            "sv": "medlem",
+            "en": "member"
+          },
+          "valiokuntaTunnus": "STV01",
+          "valiokuntaNimi": {
+            "fi": "Sosiaali- ja terveysvaliokunta",
+            "sv": "Social- och hälsovårdsutskottet",
+            "en": "Social Affairs and Health Committee"
+          },
+          "alkupvm": "2023-04-19",
+          "loppupvm": null
+        },
+        {
+          "rooli": {
+            "fi": "Varajäsen",
+            "sv": "ersättare",
+            "en": "alternate member"
+          },
+          "valiokuntaTunnus": "TYV01",
+          "valiokuntaNimi": {
+            "fi": "Työelämä- ja tasa-arvovaliokunta",
+            "sv": "Arbetslivs- och jämställdhetsutskottet",
+            "en": "Employment and Equality Committee"
+          },
+          "alkupvm": "2023-06-28",
+          "loppupvm": null
+        }
+      ],
+      "toimielinjasenyydet": {
+        "fi": [
+          {
+            "nimi": "Hallintovaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Kansaneläkelaitoksen valtuutetut",
+            "rooli": "Varajäsen",
+            "alkupvm": "2019-06-18",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Kansliatoimikunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2023-09-26",
+            "loppupvm": "2026-02-13"
+          },
+          {
+            "nimi": "Lakivaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Lakivaliokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Maa- ja metsätalousvaliokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Pohjoismaiden neuvoston Suomen valtuuskunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2021-07-02",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Pohjoismaiden neuvoston Suomen valtuuskunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Pohjoismaiden neuvoston Suomen valtuuskunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2021-07-01"
+          },
+          {
+            "nimi": "Pohjoismaiden neuvoston Suomen valtuuskunta",
+            "rooli": "Varapuheenjohtaja",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Sosiaali- ja terveysvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Sosiaali- ja terveysvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2023-04-19",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Työelämä- ja tasa-arvovaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Työelämä- ja tasa-arvovaliokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Valtiovarainvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2023-04-19",
+            "loppupvm": "2023-06-27"
+          }
+        ],
+        "sv": [
+          {
+            "nimi": "Arbetslivs- och jämställdhetsutskottet",
+            "rooli": "ersättare",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Arbetslivs- och jämställdhetsutskottet",
+            "rooli": "medlem",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Finansutskottet",
+            "rooli": "medlem",
+            "alkupvm": "2023-04-19",
+            "loppupvm": "2023-06-27"
+          },
+          {
+            "nimi": "Finlands delegation i Nordiska rådet",
+            "rooli": "ersättare",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2021-07-01"
+          },
+          {
+            "nimi": "Finlands delegation i Nordiska rådet",
+            "rooli": "medlem",
+            "alkupvm": "2021-07-02",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Finlands delegation i Nordiska rådet",
+            "rooli": "medlem",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Finlands delegation i Nordiska rådet",
+            "rooli": "Vice ordförande",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Folkpensionsanstaltens fullmäktige",
+            "rooli": "ersättare",
+            "alkupvm": "2019-06-18",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Förvaltningsutskottet",
+            "rooli": "medlem",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Jord- och skogsbruksutskottet",
+            "rooli": "ersättare",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Kanslikommissionen",
+            "rooli": "medlem",
+            "alkupvm": "2023-09-26",
+            "loppupvm": "2026-02-13"
+          },
+          {
+            "nimi": "Lagutskottet",
+            "rooli": "ersättare",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Lagutskottet",
+            "rooli": "medlem",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Social- och hälsovårdsutskottet",
+            "rooli": "medlem",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Social- och hälsovårdsutskottet",
+            "rooli": "medlem",
+            "alkupvm": "2023-04-19",
+            "loppupvm": null
+          }
+        ],
+        "en": [
+          {
+            "nimi": "Administration Committee",
+            "rooli": "member",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Agriculture and Forestry Committee",
+            "rooli": "alternate member",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Chancellery Commission",
+            "rooli": "member",
+            "alkupvm": "2023-09-26",
+            "loppupvm": "2026-02-13"
+          },
+          {
+            "nimi": "Employment and Equality Committee",
+            "rooli": "alternate member",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Employment and Equality Committee",
+            "rooli": "member",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Finance Committee",
+            "rooli": "member",
+            "alkupvm": "2023-04-19",
+            "loppupvm": "2023-06-27"
+          },
+          {
+            "nimi": "Finnish Delegation to the Nordic Council",
+            "rooli": "alternate member",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2021-07-01"
+          },
+          {
+            "nimi": "Finnish Delegation to the Nordic Council",
+            "rooli": "member",
+            "alkupvm": "2021-07-02",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Finnish Delegation to the Nordic Council",
+            "rooli": "member",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Finnish Delegation to the Nordic Council",
+            "rooli": "vice chair",
+            "alkupvm": "2023-06-28",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Legal Affairs Committee",
+            "rooli": "alternate member",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Legal Affairs Committee",
+            "rooli": "member",
+            "alkupvm": "2019-05-02",
+            "loppupvm": "2019-06-17"
+          },
+          {
+            "nimi": "Parliamentary Trustees of the Social Insurance Institution of Finland",
+            "rooli": "alternate member",
+            "alkupvm": "2019-06-18",
+            "loppupvm": null
+          },
+          {
+            "nimi": "Social Affairs and Health Committee",
+            "rooli": "member",
+            "alkupvm": "2019-06-18",
+            "loppupvm": "2023-04-04"
+          },
+          {
+            "nimi": "Social Affairs and Health Committee",
+            "rooli": "member",
+            "alkupvm": "2023-04-19",
+            "loppupvm": null
+          }
+        ]
+      },
+      "eduskuntaryhmaTehtavat": [
+        {
+          "alkupvm": "2022-02-01",
+          "loppupvm": "2023-06-27",
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä",
+            "sv": "Socialdemokratiska riksdagsgrupp",
+            "en": "Social Democratic Parliamentary Group"
+          },
+          "tehtava": {
+            "fi": "2. varapuheenjohtaja",
+            "sv": "2:a vice ordförande",
+            "en": "2nd vice chair"
+          }
+        },
+        {
+          "alkupvm": "2023-06-27",
+          "loppupvm": "2026-02-02",
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä",
+            "sv": "Socialdemokratiska riksdagsgrupp",
+            "en": "Social Democratic Parliamentary Group"
+          },
+          "tehtava": {
+            "fi": "1. varapuheenjohtaja",
+            "sv": "1:a vice ordförande",
+            "en": "1st vice chair"
+          }
+        },
+        {
+          "alkupvm": "2019-04-18",
+          "loppupvm": null,
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä, työvaliokunta",
+            "sv": "Socialdemokratiska riksdagsgrupp, arbetsutskottet",
+            "en": "Social Democratic Parliamentary Group, working committee"
+          },
+          "tehtava": {
+            "fi": "jäsen",
+            "sv": "medlem",
+            "en": "member"
+          }
+        },
+        {
+          "alkupvm": "2022-02-01",
+          "loppupvm": "2023-06-27",
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä, työvaliokunta",
+            "sv": "Socialdemokratiska riksdagsgrupp, arbetsutskottet",
+            "en": "Social Democratic Parliamentary Group, working committee"
+          },
+          "tehtava": {
+            "fi": "2. varapuheenjohtaja",
+            "sv": "2:a vice ordförande",
+            "en": "2nd vice chair"
+          }
+        },
+        {
+          "alkupvm": "2023-06-27",
+          "loppupvm": null,
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä, työvaliokunta",
+            "sv": "Socialdemokratiska riksdagsgrupp, arbetsutskottet",
+            "en": "Social Democratic Parliamentary Group, working committee"
+          },
+          "tehtava": {
+            "fi": "1. varapuheenjohtaja",
+            "sv": "1:a vice ordförande",
+            "en": "1st vice chair"
+          }
+        }
+      ],
+      "koulutukset": [
+        {
+          "vuosi": 1998,
+          "nimi": {
+            "fi": "röntgenhoitaja",
+            "sv": "röntgenskötare",
+            "en": "radiographer"
+          },
+          "oppilaitos": {
+            "fi": "Turun terveydenhoito-oppilaitos",
+            "sv": "Turun terveydenhoito-oppilaitos",
+            "en": "Turun terveydenhoito-oppilaitos (vocational school)"
+          }
+        }
+      ],
+      "edustajatoimiKeskeytynyt": [],
+      "edustajatoimiSijaisuus": [],
+      "tyoura": {
+        "fi": [
+          {
+            "tyopaikka": "Vaasan sairaanhoitopiiri, röntgenhoitaja / pääluottamusmies",
+            "aikajakso": "1999-2019"
+          }
+        ],
+        "sv": [
+          {
+            "tyopaikka": "Vasa sjukvårdsdistrikt, röntgenskötare/huvudförtroendeman",
+            "aikajakso": "1999-2019"
+          }
+        ],
+        "en": [
+          {
+            "tyopaikka": "Radiographer/Chief Shop Steward at the Vaasa Hospital District",
+            "aikajakso": "1999-2019"
+          }
+        ]
+      },
+      "nykyinenMinisteriys": {
+        "fi": null,
+        "sv": null,
+        "en": null
+      }
+    },
+    {
+      "henkilonro": "247",
+      "etunimet": "Jukka Antero",
+      "sukunimi": "Roos",
+      "kutsumanimi": "Jukka",
+      "kotikunta": null,
+      "syntymavuosi": 1948,
+      "kuolemavuosi": null,
+      "syntymapaikka": "Perniö",
+      "sukupuolikoodi": "Mies",
+      "ammatti": {
+        "fi": "levyseppä",
+        "sv": null,
+        "en": null
+      },
+      "sahkoposti": null,
+      "puhelinnumero": null,
+      "kansanedustajuusPaattynytPvm": "2007-03-20",
+      "edustajantoimenTila": "Entinen",
+      "viimeisinEduskuntaryhma": {
+        "nimi": {
+          "fi": "Sosialidemokraattinen eduskuntaryhmä",
+          "sv": null,
+          "en": null
+        },
+        "tunnus": "SD01~SOSIALIDEMOKRAATTINEN EDUSKUNTARYHMÄ",
+        "alkupvm": "2003-03-19",
+        "loppupvm": "2007-03-20"
+      },
+      "eduskuntaryhmat": [
+        {
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä",
+            "sv": "Sosialidemokraattinen eduskuntaryhmä",
+            "en": "Sosialidemokraattinen eduskuntaryhmä"
+          },
+          "tunnus": "SD01~SOSIALIDEMOKRAATTINEN EDUSKUNTARYHMÄ",
+          "alkupvm": "1987-03-21",
+          "loppupvm": "1999-03-23"
+        },
+        {
+          "nimi": {
+            "fi": "Sosialidemokraattinen eduskuntaryhmä",
+            "sv": "Sosialidemokraattinen eduskuntaryhmä",
+            "en": "Sosialidemokraattinen eduskuntaryhmä"
+          },
+          "tunnus": "SD01~SOSIALIDEMOKRAATTINEN EDUSKUNTARYHMÄ",
+          "alkupvm": "2003-03-19",
+          "loppupvm": "2007-03-20"
+        }
+      ],
+      "edustajatoimet": [
+        {
+          "alkupvm": "1987-03-21",
+          "loppupvm": "1999-03-23"
+        },
+        {
+          "alkupvm": "2003-03-19",
+          "loppupvm": "2007-03-20"
+        }
+      ],
+      "viimeisinVaalipiiri": {
+        "nimi": {
+          "fi": "Varsinais-Suomen vaalipiiri",
+          "sv": "Egentliga Finlands valkrets",
+          "en": "Electoral District of Varsinais-Suomi"
+        },
+        "tunnus": "VARS02",
+        "alkupvm": "2003-03-19",
+        "loppupvm": "2007-03-20"
+      },
+      "vaalipiirit": [
+        {
+          "nimi": {
+            "fi": "Varsinais-Suomen vaalipiiri",
+            "sv": "Egentliga Finlands valkrets",
+            "en": "Electoral District of Varsinais-Suomi"
+          },
+          "tunnus": "VARS02",
+          "alkupvm": "2003-03-19",
+          "loppupvm": "2007-03-20"
+        },
+        {
+          "nimi": {
+            "fi": "Turun läänin eteläinen vaalipiiri",
+            "sv": "Åbo läns södra valkrets",
+            "en": "Varsinais-Suomi constituency"
+          },
+          "tunnus": "VARS01",
+          "alkupvm": "1987-03-21",
+          "loppupvm": "1999-03-23"
+        }
+      ],
+      "sidonnaisuudet": {
+        "fi": [],
+        "sv": [],
+        "en": []
+      },
+      "valtioneuvostonJasenyydet": {
+        "fi": [],
+        "sv": [],
+        "en": []
+      },
+      "valiokuntajasenyydet": [],
+      "toimielinjasenyydet": {
+        "fi": [
+          {
+            "nimi": "Lakivaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2004-02-19",
+            "loppupvm": "2007-03-20"
+          },
+          {
+            "nimi": "Sosiaali- ja terveysvaliokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "1987-04-09",
+            "loppupvm": "1991-03-21"
+          },
+          {
+            "nimi": "Suuri valiokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "1987-04-07",
+            "loppupvm": "1991-03-21"
+          },
+          {
+            "nimi": "Talousvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "1987-04-09",
+            "loppupvm": "1991-03-21"
+          },
+          {
+            "nimi": "Tarkistajat",
+            "rooli": "Varajäsen",
+            "alkupvm": "1990-02-08",
+            "loppupvm": "1991-03-21"
+          },
+          {
+            "nimi": "Työasiainvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "1991-04-11",
+            "loppupvm": "1995-03-21"
+          },
+          {
+            "nimi": "Työasiainvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2003-04-02",
+            "loppupvm": "2007-03-20"
+          },
+          {
+            "nimi": "Työasiainvaliokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "1995-04-05",
+            "loppupvm": "1999-03-23"
+          },
+          {
+            "nimi": "Valitsijamiehet",
+            "rooli": "Varajäsen",
+            "alkupvm": "1987-04-07",
+            "loppupvm": "1991-03-21"
+          },
+          {
+            "nimi": "Valtiontilintarkastajat",
+            "rooli": "Varajäsen",
+            "alkupvm": "2004-01-01",
+            "loppupvm": "2007-03-20"
+          },
+          {
+            "nimi": "Valtiovarainvaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "1995-04-28",
+            "loppupvm": "1999-03-23"
+          },
+          {
+            "nimi": "Valtiovarainvaliokunta",
+            "rooli": "Varajäsen",
+            "alkupvm": "1995-04-05",
+            "loppupvm": "1995-04-26"
+          },
+          {
+            "nimi": "Ympäristövaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "1991-04-11",
+            "loppupvm": "1995-03-23"
+          },
+          {
+            "nimi": "Ympäristövaliokunta",
+            "rooli": "Jäsen",
+            "alkupvm": "2003-04-02",
+            "loppupvm": "2004-02-18"
+          }
+        ],
+        "sv": [],
+        "en": []
+      },
+      "eduskuntaryhmaTehtavat": [],
+      "koulutukset": [
+        {
+          "vuosi": null,
+          "nimi": {
+            "fi": "kansakoulu",
+            "sv": "kansakoulu",
+            "en": "kansakoulu"
+          },
+          "oppilaitos": {
+            "fi": null,
+            "sv": null,
+            "en": null
+          }
+        }
+      ],
+      "edustajatoimiKeskeytynyt": [],
+      "edustajatoimiSijaisuus": [],
+      "tyoura": {
+        "fi": [
+          {
+            "tyopaikka": "Teijon telakalla koneasentajana",
+            "aikajakso": "1964-1987"
+          },
+          {
+            "tyopaikka": "Teijon telakalla levyseppänä",
+            "aikajakso": "1964-1987"
+          },
+          {
+            "tyopaikka": "Teijon telakan pääluottamusmies",
+            "aikajakso": "1976-1987"
+          }
+        ],
+        "sv": [
+          {
+            "tyopaikka": "Teijon telakalla koneasentajana",
+            "aikajakso": "1964-1987"
+          },
+          {
+            "tyopaikka": "Teijon telakalla levyseppänä",
+            "aikajakso": "1964-1987"
+          },
+          {
+            "tyopaikka": "Teijon telakan pääluottamusmies",
+            "aikajakso": "1976-1987"
+          }
+        ],
+        "en": [
+          {
+            "tyopaikka": "Teijon telakalla koneasentajana",
+            "aikajakso": "1964-1987"
+          },
+          {
+            "tyopaikka": "Teijon telakalla levyseppänä",
+            "aikajakso": "1964-1987"
+          },
+          {
+            "tyopaikka": "Teijon telakan pääluottamusmies",
+            "aikajakso": "1976-1987"
+          }
+        ]
+      },
+      "nykyinenMinisteriys": {
+        "fi": null,
+        "sv": null,
+        "en": null
+      }
+    }
+  ],
+  "searchMetadata": null
+}

@@ -19,7 +19,10 @@ namespace VoteCheck.Core.Tests
         [TestMethod]
         public async Task GetMpsAsync_RequestsExpectedUrl()
         {
-            var handler = new StubHttpMessageHandler("[]");
+            // The stub body used to be "[]", which is not what this endpoint returns. That is
+            // how the deserialization bug survived: the only test touching this method fed it a
+            // shape the live service never sends, and passed.
+            var handler = new StubHttpMessageHandler("{\"kansanedustajat\":[]}");
             var client = CreateClient(handler);
 
             await client.GetMpsAsync();
@@ -137,6 +140,33 @@ namespace VoteCheck.Core.Tests
             new EduskuntaClient(new HttpClient(new StubHttpMessageHandler(body)));
 
         // ── Kansanedustaja ────────────────────────────────────────────────────
+
+        [TestMethod]
+        public async Task MpList_DeserializesTheEnvelopeRatherThanABareArray()
+        {
+            // Every other list endpoint here returns an array; this one wraps its records in an
+            // object. Asking for a bare List<Mp> binds to nothing against the live service, and
+            // the call had never worked — it went unseen because the product does not use it and
+            // no fixture existed, so the tests only ever proved the stub could return "[]".
+            var mps = await ClientReturning(Fixtures.MpList).GetMpsAsync();
+
+            Assert.AreEqual(2, mps.Count);
+            Assert.IsTrue(mps.All(m => m.Henkilonro > 0), "records bound, not defaults");
+            Assert.IsTrue(mps.Any(m => !string.IsNullOrWhiteSpace(m.Sukunimi)));
+        }
+
+        [TestMethod]
+        public async Task MpList_CarriesFormerMembersAsWellAsSitting()
+        {
+            // The fixture keeps one of each on purpose. The endpoint returns a slice of the
+            // whole history of the chamber, so a caller that treats the result as "parliament
+            // today" is wrong — and this is the assertion that says so out loud.
+            var mps = await ClientReturning(Fixtures.MpList).GetMpsAsync();
+
+            CollectionAssert.AreEquivalent(
+                new[] { "Nykyinen", "Entinen" },
+                mps.Select(m => m.EdustajantoimenTila.ToString()).ToArray());
+        }
 
         [TestMethod]
         public async Task Mp_DeserializesCoreIdentityFields()

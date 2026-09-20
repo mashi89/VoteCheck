@@ -9,6 +9,19 @@ namespace VoteCheck.Core
     // decorator and so VoteCheck.Api can inject either implementation — see design.md §3.
     public interface IEduskuntaClient
     {
+        // Members from the roster endpoint — which is **not** the sitting parliament, and
+        // cannot be made to be.
+        //
+        // It returns a fixed slice of 1000 records covering the whole history of the chamber,
+        // birth years back to the 1830s. Of those, only a few dozen are sitting members; the
+        // rest have left. There is no paging: every query parameter tried — perPage, page,
+        // maxResults, startFromIndex — is not rejected but silently returns **zero** records,
+        // which is a worse failure than an error because it looks like an empty roster.
+        //
+        // So this cannot answer "who is in parliament now". The mirror does not use it: the
+        // member table is built from the ballots inside each division, which name every member
+        // who voted and are therefore complete by construction. For detail about one member,
+        // GetMpAsync(henkilonumero) works properly.
         Task<IReadOnlyList<Mp>> GetMpsAsync(CancellationToken cancellationToken = default);
 
         Task<Mp?> GetMpAsync(int henkilonumero, CancellationToken cancellationToken = default);
