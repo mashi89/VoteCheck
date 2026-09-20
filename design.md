@@ -4,9 +4,11 @@
 
 > ⚠️ **Upstream API migration is already underway — target the new API now, not later.**
 > The legacy table API this project uses (`avoindata.eduskunta.fi/api/v1/tables/...`) is being
-> retired: `avoindata.eduskunta.fi` has been redirecting to the new service's open data since
-> **30 March 2026**, and the legacy service is scheduled for full **discontinuation at the end of
-> 2026** — about five months out as of this writing. Its replacement is live today at
+> retired: `avoindata.eduskunta.fi` is scheduled for **discontinuation at the end of 2026**.
+> Checked again on 2026-09-21 — it has *not* begun redirecting, whatever earlier drafts of this
+> file said: the table endpoints still answer `200` with live rows and there is no HTTP redirect
+> anywhere. The published shutdown stands; the urgency was real; the mechanism described here was
+> simply wrong. Its replacement is live today at
 > **`api.eduskunta.fi`**: a modern, documented, unauthenticated JSON API with a published
 > [OpenAPI 3.0 spec](https://api.eduskunta.fi/openapi.json). Full endpoint map in §3.1.
 >
@@ -55,7 +57,7 @@ Typical user questions the product should answer in a few taps:
    immutable and ideal for caching, but nothing exploits that.
 4. **Finnish-only column names and raw table semantics leak to the UI** (e.g. `SaliDBAanestys`
    column names shown directly in grids).
-5. **Built against the legacy API**, which is already being redirected away from and will be shut
+5. **Built against the legacy API**, which is scheduled for shutdown and will be shut
    down by end of 2026 (see banner above) — reason enough to target the replacement directly
    rather than invest further in the current shape.
 
@@ -434,7 +436,7 @@ and an MP's recent votes can be found on a phone in under three taps.
 
 | Risk | Mitigation |
 |------|------------|
-| **Legacy API shutdown (end of 2026, already redirecting since 30 Mar 2026)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency; **note `VoteCheckWeb`'s sync still ingests from the legacy API** until §7 step 4 lands — that is the single most time-sensitive item in the repo |
+| **Legacy API shutdown (end of 2026; it has not begun redirecting, contrary to an earlier note here)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency; **note `VoteCheckWeb`'s sync still ingests from the legacy API** until §7 step 4 lands — that is the single most time-sensitive item in the repo |
 | ~~No confirmed endpoint for "all votes by one MP"~~ — **resolved**: ballots are embedded in every vote payload (§3.1) | Recent-window per-MP history is a client-side filter. Still open at larger scale: *deep historical* per-MP queries would mean walking every past session, so a per-MP index becomes worthwhile if we go beyond recent votes |
 | **Payload size** — each vote carries ~199 ballots plus three breakdown sets (~75 KB per vote); `uusimmat-aanestykset` returned ~750 KB for 10 votes | Our API should project down to what each view needs rather than proxying upstream objects; cache parsed results, and avoid fetching full vote objects when only tallies are shown |
 | Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec. `CachingEduskuntaClient` now covers this: immutable data cached 12 h, volatile 10 min, and concurrent callers for one key share a single fetch |
@@ -489,9 +491,12 @@ In priority order; each step is independently landable.
    is 2,771 divisions, so `GetVotePageAsync` on plain `/search` is sufficient for the app and
    the dataset job stays unbuilt until something needs the full archive.
 
-   Two places where upstream's documentation and its behaviour disagree, found the hard way:
-   `Sort` is `{property, ascending}` rather than what the spec shows, and a `fields`
-   projection is accepted and then silently ignored. Also note `istuntovpvuosi` (2,771 for
+   Two claims once recorded here were wrong, and both are corrected in
+   `docs/eduskunta-api.md`. `Sort` is `{property, ascending}` — which is exactly what the spec
+   shows, so there was no discrepancy. And a `fields` projection is **not** ignored: it is
+   honoured, but it blanks excluded keys rather than removing them, so a check that counts keys
+   sees no difference and draws the wrong conclusion. Counting bytes instead, excluding
+   `aanestystapahtumat` takes one division from 76,819 bytes to 5,457. Also note `istuntovpvuosi` (2,771 for
    2023+) and an equivalent-looking date range (1,875) return materially different sets —
    the year filter is the one that matches what `SyncMinYear` has always meant.
 
@@ -513,8 +518,9 @@ In priority order; each step is independently landable.
    `KieliId` filter is gone and `LocalizedText` party abbreviations are flattened at the
    boundary.
    Acceptance: a fresh database backfills 2023+ unattended and resumes after restart without
-   duplicates or gaps. **This was the deadline-critical step** — the legacy API has been
-   redirecting since 30 Mar 2026 and shuts down at year end.
+   duplicates or gaps. **This was the deadline-critical step** — the legacy API shuts down at
+   the end of 2026. (An earlier note here said it had already begun redirecting; it had not.
+   See the banner at the top of this file.)
 
    **Done 2026-08-29**, verified against the live API rather than stubs: an empty database
    reached 205 divisions for vp-year 2026, 202 MPs and 40,795 ballots with zero orphaned
