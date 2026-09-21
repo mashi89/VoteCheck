@@ -11,9 +11,12 @@ namespace VoteCheck.Core.Tests
     //                                     (trimmed to 2 votes x 3 ballots for size)
     //   search-aanestys-trimmed.json      POST /search, category "aanestys",
     //                                     2023+ ascending (trimmed likewise)
+    //   kansanedustajat-list-trimmed.json GET /kansanedustajat (2 of 1000 records: one
+    //                                     sitting, one former, whole records kept)
     internal static class Fixtures
     {
         public static string Mp1109 => Load("kansanedustaja-1109.json");
+        public static string MpList => Load("kansanedustajat-list-trimmed.json");
         public static string Vote2026_60_1 => Load("aanestys-2026-60-1.json");
         public static string RecentVotes => Load("uusimmat-aanestykset-trimmed.json");
         public static string VoteSearch => Load("search-aanestys-trimmed.json");

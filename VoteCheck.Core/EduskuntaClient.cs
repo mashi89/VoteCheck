@@ -42,10 +42,21 @@ namespace VoteCheck.Core
                 _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
         }
 
+        // Read the remarks on IEduskuntaClient.GetMpsAsync before using this. The endpoint does
+        // not return the sitting parliament, and it cannot be made to.
         public async Task<IReadOnlyList<Mp>> GetMpsAsync(CancellationToken cancellationToken = default)
         {
-            var mps = await GetAsync<List<Mp>>("kansanedustajat", cancellationToken).ConfigureAwait(false);
-            return mps ?? new List<Mp>();
+            // An envelope, not a bare array — unlike every other list endpoint here. Asking for
+            // List<Mp> silently fails against the live service, which is how this went unnoticed
+            // for as long as it did: nothing in the product calls it, and there was no fixture.
+            var response = await GetAsync<MpListResponse>("kansanedustajat", cancellationToken)
+                .ConfigureAwait(false);
+            return response?.Kansanedustajat ?? new List<Mp>();
+        }
+
+        private sealed class MpListResponse
+        {
+            public List<Mp>? Kansanedustajat { get; set; }
         }
 
         public Task<Mp?> GetMpAsync(int henkilonumero, CancellationToken cancellationToken = default) =>
