@@ -28,6 +28,60 @@ namespace VoteCheck.Core.Tests
         }
 
         [TestMethod]
+        public async Task GetMatterAsync_EscapesTheSlashInsideTheIdentifier()
+        {
+            // The whole identifier is one path segment. A literal slash in "113/2026" would
+            // split it into two and 404 for the wrong reason — which is exactly what made this
+            // endpoint look as though it did not exist.
+            var handler = new StubHttpMessageHandler("{}");
+            var client = CreateClient(handler);
+
+            await client.GetMatterAsync("HE 113/2026 vp");
+
+            // Asserted on the slash rather than the whole string: .NET renders %20 back as a
+            // space when a Uri is turned into text, so an exact comparison would be testing
+            // that display quirk instead of the thing that matters.
+            StringAssert.StartsWith(
+                handler.RequestedUrl, "https://api.eduskunta.fi/api/v1/valtiopaivaasiat/HE" );
+            StringAssert.Contains( handler.RequestedUrl, "%2F2026" );
+            Assert.IsFalse( handler.RequestedUrl!.Contains( "113/2026" ),
+                "an unescaped slash would make the year a path segment of its own" );
+        }
+
+        [TestMethod]
+        public async Task GetMatterAsync_ReturnsNull_WhenNoSuchMatter()
+        {
+            var client = CreateClient(new StubHttpMessageHandler("", HttpStatusCode.NotFound));
+
+            Assert.IsNull(await client.GetMatterAsync("HE 99999/2026 vp"));
+        }
+
+        [TestMethod]
+        public async Task GetMatterAsync_ReturnsNull_WhenTheIdentifierIsNotOne()
+        {
+            // Upstream answers 400, not 404, for anything failing its identifier pattern —
+            // including a combined identifier like "LA 1, 18/2023 vp", which names two private
+            // members' bills at once and has no single matter. Those exist in the archive, so
+            // this has to be an answer rather than an exception: the caller records a miss only
+            // when it gets one, and a throw here would retry the same identifier for ever.
+            var client = CreateClient(new StubHttpMessageHandler(
+                "{\"message\":\"Parameter is not valid\",\"status\":400}",
+                HttpStatusCode.BadRequest));
+
+            Assert.IsNull(await client.GetMatterAsync("LA 1, 18/2023 vp"));
+        }
+
+        [TestMethod]
+        public async Task GetMatterAsync_DoesNotCallUpstreamForAnEmptyIdentifier()
+        {
+            var handler = new StubHttpMessageHandler("{}");
+            var client = CreateClient(handler);
+
+            Assert.IsNull(await client.GetMatterAsync("   "));
+            Assert.IsNull(handler.RequestedUrl);
+        }
+
+        [TestMethod]
         public async Task GetMpAsync_RequestsExpectedUrl()
         {
             var handler = new StubHttpMessageHandler("null");

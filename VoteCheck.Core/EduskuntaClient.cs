@@ -177,41 +177,37 @@ namespace VoteCheck.Core
             if (string.IsNullOrWhiteSpace(eduskuntatunnus))
                 return null;
 
-            // Free text rather than a filter: this category rejects an expression on
-            // eduskuntatunnus. The identifier is distinctive enough that one result comes back,
-            // but the match is confirmed below rather than trusted.
-            var request = new
-            {
-                category = "valtiopaivaasia",
-                maxResults = 1,
-                startFromIndex = 0,
-                query = eduskuntatunnus,
-            };
+            // The whole identifier is one path segment, so the slash inside "113/2026" has to be
+            // escaped. Left as a literal it becomes a path separator and the request 404s —
+            // which is what made this endpoint look as though it did not exist, and sent an
+            // earlier version of this method through the search index instead.
+            string path = "valtiopaivaasiat/" + Uri.EscapeDataString(eduskuntatunnus.Trim());
 
-            var response = await PostAsync<MatterSearchResponse>("search", request, cancellationToken)
+            using var response = await _httpClient
+                .GetAsync(path, cancellationToken)
                 .ConfigureAwait(false);
 
-            var matter = response?.Results?.FirstOrDefault()?.Valtiopaivaasia;
-            if (matter is null)
+            // Two different refusals, both of which mean "there is no one matter here" and
+            // neither of which is a failure worth retrying:
+            //
+            //   404  well-formed, but no such matter.
+            //   400  not an identifier at all. Upstream validates against
+            //        ^\p{L}+ \d+/\d{4}(/\d+(\.\d+)?)? (vp|VP|rd|RD)$, and a combined identifier
+            //        like "LA 1, 18/2023 vp" — two private members' bills taken together — does
+            //        not match it. Those appear in the archive and have no single matter page.
+            //
+            // Letting the 400 throw would leave the caller retrying such an identifier every
+            // sync cycle for ever, since it records a miss only when it gets an answer.
+            if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
                 return null;
 
-            // A free-text search can return a near miss — a matter that merely cites the one
-            // asked for. Returning that would attach the wrong subject to a division, which is
-            // worse than attaching none, so an identifier that does not match is discarded.
-            string? found = matter.Eduskuntatunnus?.Fi?.Trim();
-            return string.Equals(found, eduskuntatunnus.Trim(), StringComparison.OrdinalIgnoreCase)
-                ? matter
-                : null;
-        }
+            response.EnsureSuccessStatusCode();
 
-        private sealed class MatterSearchResponse
-        {
-            public List<MatterSearchHit>? Results { get; set; }
-        }
+            string json = await response.Content
+                .ReadAsStringAsync(cancellationToken)
+                .ConfigureAwait(false);
 
-        private sealed class MatterSearchHit
-        {
-            public Valtiopaivaasia? Valtiopaivaasia { get; set; }
+            return JsonConvert.DeserializeObject<Valtiopaivaasia>(json);
         }
 
         // Search returns category-tagged envelopes rather than bare objects.
