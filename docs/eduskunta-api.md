@@ -154,11 +154,20 @@ JSON, url-encoded**, as a string. `?q=alkoholilaki` does not return a bad reques
 `GET /valtiopaivaasiat/HE%20113%2F2026%20vp` returns the full matter record, and a nonexistent
 identifier gives `404 {"message":"No matches for given id HE 99999/2026 vp"}`.
 
-**This is worth knowing because `EduskuntaClient.GetMatterAsync` does not use it.** It fetches
-matters through `POST /search` with a free-text query instead, which is a rate-limited POST,
-returns a ranked guess rather than an exact match, and therefore needs the identifier comparison
-described below to be safe. The direct GET is exact, cheap, and outside the POST cap. If the
-matter-fetching pass is ever revisited, start here.
+**`EduskuntaClient.GetMatterAsync` uses this**, since #59. It fetched matters through
+`POST /search` with a free-text query until then — a rate-limited POST returning a ranked guess
+rather than an exact match — and the direct endpoint was missed because the obvious URL 404s:
+the identifier is one path segment, so the slash inside `113/2026` has to be escaped or it
+becomes a path separator and the request fails in a way that looks exactly like the endpoint
+not existing.
+
+**Upstream refuses two different ways, and both mean the same thing here.** A well-formed but
+unknown identifier gives the 404 above; something that is not an identifier at all gives a 400,
+because the path is validated against `^\p{L}+ \d+/\d{4}(/\d+(\.\d+)?)?(vp|VP|rd|RD)$`. A
+combined identifier such as `LA 1, 18/2023 vp` — two private members' bills taken together —
+fails that pattern, and those are in the archive. Both come back as null rather than throwing:
+letting the 400 propagate leaves the sync retrying such an identifier every cycle for ever,
+because it records a miss only when it gets an answer.
 
 ---
 
@@ -272,18 +281,18 @@ Both wrong keys fail with the same unhelpful message — `ANY_OF: no subschema o
 naming neither the offending key nor the fifteen alternatives. When a search 400s with that,
 the answer is always in `components.schemas.ExpressionType` in the spec.
 
-### Always compare the identifier you got back against the one you asked for
+### Never take a free-text hit as an exact match
 
-`GetMatterAsync` uses a free-text `query` for the matter lookup, and free text is ranked, not
-filtered: a search for one identifier can return a *different* matter that merely cites it.
-Nothing about the response says so — it is a 200 with a plausible record in it.
+Free text is ranked, not filtered: a search for one identifier can return a *different* matter
+that merely cites it, and nothing about the response says so — it is a 200 with a plausible
+record in it. Attaching the wrong subject keywords to a division is worse than attaching none,
+because it is wrong in a way nobody will notice and everybody will believe.
 
-So the returned `eduskuntatunnus` is compared against the requested one and a mismatch is
-discarded. This is the failure mode that justifies the check existing: attaching the wrong
-subject keywords to a division is worse than attaching none, because it is wrong in a way
-nobody will notice and everybody will believe.
-
-(The direct `GET /valtiopaivaasiat/{eduskuntatunnus}` has no such problem — it matches or 404s.)
+`GetMatterAsync` used to do exactly this and compared the returned `eduskuntatunnus` against the
+requested one to stay safe. Since #59 it uses the direct `GET /valtiopaivaasiat/{eduskuntatunnus}`
+above, which matches or 404s, so the comparison is no longer solving a problem the lookup
+created. The rule stands for anything else reached through `/search`: compare what came back
+against what you asked for, or use `stringValue` and let the API filter.
 
 ### Which categories exist
 

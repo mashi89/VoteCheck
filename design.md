@@ -1,29 +1,32 @@
 # VoteCheck — Design & Technical Roadmap
 
-*Last updated: 2026-08-29*
+*Last updated: 2026-09-21*
 
-> ⚠️ **Upstream API migration is already underway — target the new API now, not later.**
-> The legacy table API this project uses (`avoindata.eduskunta.fi/api/v1/tables/...`) is being
-> retired: `avoindata.eduskunta.fi` is scheduled for **discontinuation at the end of 2026**.
-> Checked again on 2026-09-21 — it has *not* begun redirecting, whatever earlier drafts of this
-> file said: the table endpoints still answer `200` with live rows and there is no HTTP redirect
-> anywhere. The published shutdown stands; the urgency was real; the mechanism described here was
-> simply wrong. Its replacement is live today at
-> **`api.eduskunta.fi`**: a modern, documented, unauthenticated JSON API with a published
-> [OpenAPI 3.0 spec](https://api.eduskunta.fi/openapi.json). Full endpoint map in §3.1.
+> **Upstream migration: done for the product, open only for the desktop remnant.**
+> `VoteCheckWeb` and `VoteCheck.Core` have read `api.eduskunta.fi` and nothing else since
+> 2026-08-29 (§7 step 4). What still reads the legacy table API
+> (`avoindata.eduskunta.fi/api/v1/tables/...`) is `VoteCollector` and the Avalonia GUI above it.
+> That API is scheduled for discontinuation at the **end of 2026**, which makes those two
+> projects a decision with a date on it rather than an open-ended tidy-up — see §9.
 >
-> **This changes the roadmap:** there is no longer a reason to build `VoteCheck.Core` against the
-> legacy table/`DataTable` shape and swap later — build directly against `api.eduskunta.fi` from
-> Step 1. Sections below have been updated accordingly.
+> Checked again on 2026-09-21: the legacy API has **not** begun redirecting, whatever earlier
+> drafts of this file said. The table endpoints still answer `200` with live rows and there is
+> no HTTP redirect anywhere. The published shutdown stands and the urgency was real; the
+> mechanism described here was simply invented.
+>
+> **How the new API actually behaves now lives in its own file**,
+> [`docs/eduskunta-api.md`](docs/eduskunta-api.md) — every claim there was checked against the
+> live service. Where it and §3.1 disagree, that file is right: it is maintained against
+> `curl`, and this one against intent.
 
 ## 1. Purpose
 
 VoteCheck lets anyone check what Finnish MPs (kansanedustajat) have been voting on, using the
-Finnish Parliament Open Data API — currently the legacy
-[avoindata.eduskunta.fi](https://avoindata.eduskunta.fi/) table API, migrating to the new
-[api.eduskunta.fi](https://api.eduskunta.fi/) (see banner above and §3.1). The long-term goal is
-an **easy-to-use activity checker for Finnish political representatives, usable from a browser
-and as a mobile-installable app** — not just a desktop program.
+Finnish Parliament Open Data API — [api.eduskunta.fi](https://api.eduskunta.fi/) (§3.1). The
+goal is an **easy-to-use activity checker for Finnish political representatives, usable from a
+browser and as a mobile-installable app** — not just a desktop program. The browser half of
+that has been live at [edustajavahti.fi](https://edustajavahti.fi) since 2026-09-04; the
+installable half has not been started (§9).
 
 Typical user questions the product should answer in a few taps:
 
@@ -34,32 +37,49 @@ Typical user questions the product should answer in a few taps:
 
 ## 2. Current State (as-is)
 
+*Rewritten 2026-09-21. What this section described — a desktop program and nothing else — has
+been the minority of the repository since the web product shipped.*
+
 ```
-┌────────────────────┐      ┌─────────────────────┐      ┌─────────────────────────┐
-│  WPFGUI (Avalonia) │ ───▶ │  VoteCollector      │ ───▶ │ avoindata.eduskunta.fi  │
-│  desktop XAML app  │      │  static class,      │      │ REST API (JSON tables)  │
-│  code-behind UI    │      │  DataTable results  │      │                         │
-└────────────────────┘      └─────────────────────┘      └─────────────────────────┘
+api.eduskunta.fi ──▶ VoteCheck.Core ──▶ VoteSyncService ──▶ votecheck.db ──▶ VoteCheckWeb ──▶ edustajavahti.fi
+ (JSON, no auth)      the single         (hosted inside      (SQLite +       Razor pages       (live since
+                      upstream boundary   VoteCheckWeb)       FTS5 mirror)    + /api/v1         2026-09-04)
+
+avoindata.eduskunta.fi ──▶ VoteCollector ──▶ WPFGUI (Avalonia)     ← legacy, on a dead clock
+ (legacy table API,         DataTable,       desktop XAML app
+  shuts down end of 2026)   static state
 ```
 
-| Component | Notes |
+| Component | State |
 |-----------|-------|
-| `VoteCollector` | Single static class `OpenDataRetriever` (~660 lines). Synchronous wrappers over `HttpClient`, returns `System.Data.DataTable`, shared mutable static state (`hasMore`, `baseUrl`, `finalTable`), party mapping hard-coded from `Parties.txt`. |
-| `WPFGUI` (`VoteCheckGUI`) | Avalonia 11 desktop app, logic in code-behind (`MainWindow.xaml.cs`), drill-down navigation vote → party distribution → individual MPs. |
-| `VoteCollectorTests` | MSTest tests; mock `HttpClient` injected via reflection. |
+| `VoteCheckWeb` | The product. Razor Pages (`/`, `/vote/{id}`, `/vote/{id}/{party}`, `/mps`, `/mp/{id}`, `/search`), a `/api/v1` JSON surface with Swagger, the sync service, `/health`, `/robots.txt` and `/sitemap.xml`. Deployed as a single container on one UpCloud server in Helsinki, behind Cloudflare. |
+| `VoteCheck.Core` | The single boundary to api.eduskunta.fi: typed models, `EduskuntaClient`, `CachingEduskuntaClient`, archive enumeration through `/search`, and the matter lookup. |
+| `votecheck.db` | SQLite + FTS5 mirror, 2023 onward (~2,800 divisions and their ~199 ballots each, plus the matters behind them). Disposable: gitignored, rebuildable, one writer. |
+| `VoteCheck.Core.Tests` / `VoteCheckWeb.Tests` | MSTest against committed fixtures and a temp database built by the real schema. |
+| `VoteCollector` + `WPFGUI` | Untouched since the migration. Static class, `DataTable`, synchronous `HttpClient`, reading an API that shuts down at the end of 2026. |
 
-### Constraints of the current design
+### What is still weak
 
-1. **Desktop-only reach.** Users must install .NET and run a desktop binary; there is no URL to share.
-2. **Data layer is not reusable as-is.** Static state and `DataTable` returns make it hard to host
-   behind a web server (no thread safety, no async, no typed contracts for JSON serialization).
-3. **Every query hits the upstream API live.** No caching layer; historical voting data is
-   immutable and ideal for caching, but nothing exploits that.
-4. **Finnish-only column names and raw table semantics leak to the UI** (e.g. `SaliDBAanestys`
-   column names shown directly in grids).
-5. **Built against the legacy API**, which is scheduled for shutdown and will be shut
-   down by end of 2026 (see banner above) — reason enough to target the replacement directly
-   rather than invest further in the current shape.
+1. **The mirror starts at 2023.** `SyncMinYear` is a parliamentary-year floor and `/search`
+   cannot page past 10,000 results, so the archive before 2023 — back to 2008, 15,500-odd
+   divisions in total — is simply not there. Any question about a member's career rather than
+   their current term is unanswerable today.
+2. **A division still does not say what voting *Jaa* meant.** The subject and its topic
+   keywords lead the page now, but the step from "the motion was carried 101–90" to "and that
+   means X happens" is the reader's to make. §5's selkokieli entry reaches the same defect from
+   the accessibility side; they are one piece of work.
+3. **The member page shows almost nothing about the member** ([#47](https://github.com/mashi89/VoteCheck/issues/47)).
+   Name, group, attendance, ballots. Not the constituency — which is how a visitor works out
+   whether this is *their* representative at all — nor committees, ministries, or the group
+   history our single `party` column flattens away.
+4. **Two breakdowns are downloaded on every division and never shown.**
+   `hallitusoppositioJakaumat` and `vaalipiiriJakaumat` arrive inside a payload the sync
+   already pays for. Government against opposition is, for many divisions, the single most
+   explanatory fact about them.
+5. **One instance, one writer.** SQLite on local block storage with the sync as sole writer is
+   deliberate (§7 step 7), but it means the deployment cannot scale horizontally and a restart
+   is visible.
+6. **The legacy projects have a deadline and no decision** (§9).
 
 ## 3. Target Architecture (to-be)
 
@@ -126,6 +146,29 @@ Endpoint map (all relative to the base URL):
 | Search | `POST /search`, `GET /search?q=`, `POST /search/count`, `POST /search/dataset` (async bulk export job) |
 | Reference data | `/reference-data/eduskuntaryhmat`, `/vaalipiirit`, `/sukupuolet`, `/valiokunnat`, `/asiatyypit`, `/valtiopaivat`, `/vaalikaudet`, `/kansanedustajat`, etc. |
 
+> **This section is a summary; [`docs/eduskunta-api.md`](docs/eduskunta-api.md) is the
+> reference.** Written 2026-09-21 against the live service, it covers the behaviour that costs
+> afternoons: the mandatory `User-Agent`, what `/kansanedustajat` actually returns, the
+> `/search` window, and the three corrections below. Four things recorded here or in this
+> project's history turned out to be wrong, so prefer the file that was checked with `curl`.
+
+Corrections since this section was first written, all confirmed live on 2026-09-21:
+
+- **The matter lookup is a direct `GET`, not a search.** `GET /valtiopaivaasiat/{eduskuntatunnus}`
+  is exact and outside the POST rate cap; `GetMatterAsync` used `/search` free text until
+  [#59](https://github.com/mashi89/VoteCheck/issues/59), because the obvious URL 404s until the
+  slash inside `113/2026` is escaped. It refuses two ways — 404 for an unknown identifier, 400
+  for one that is not an identifier at all, such as the combined `LA 1, 18/2023 vp` — and both
+  mean "there is no one matter here".
+- **`GET /kansanedustajat` is not the sitting parliament**, and it returns an envelope rather
+  than an array. It serves 1000 records from the all-time roster, most of them long dead, with
+  no paging. The mirror builds its member list from ballots instead, which is complete by
+  construction.
+- **A `fields` projection is honoured**, contrary to a note once recorded here. It blanks the
+  excluded keys rather than removing them, so a check that counts keys concludes it was
+  ignored. Excluding `aanestystapahtumat` takes a division from ~76 KB to ~5 KB — which is what
+  makes a metadata-only pass over the archive affordable (§9 step 6).
+
 Notable shape details that affect our design — **confirmed against real captured responses**
 (kept as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by the tests there):
 
@@ -160,23 +203,34 @@ Notable shape details that affect our design — **confirmed against real captur
 - The Speaker (`puhemies`) does not vote and is absent from `aanestystapahtumat` — presiding
   must not be counted as an absence when computing attendance.
 
-### Candidate API surface (v1) — our own API, backed by the above
+### Our own API surface — as delivered
 
-| Endpoint | Purpose | Backed by upstream |
-|----------|---------|---------------------|
-| `GET /api/mps` | Current MPs (name, party, constituency) | `GET /kansanedustajat` |
-| `GET /api/mps/{id}/votes?count=50` | An MP's recent votes with issue titles | `uusimmat-aanestykset` / session vote endpoints, filtering the embedded `aanestystapahtumat` by `henkilonumero`; titles from `kohta.otsikko` |
-| `GET /api/mps/{id}/activity` | Computed summary: attendance %, Jaa/Ei/Tyhjä/Poissa breakdown | derived from the above |
-| `GET /api/votes?date=yyyy-MM-dd` | Voting sessions by date prefix | `GET /taysistunnot/uusimmat-aanestykset` / session lookups |
-| `GET /api/votes/{id}` | One division with its tally | `GET /taysistunnot/aanestykset/{aanestystunnus}` |
-| `GET /api/votes/{id}/distribution` | Party, government/opposition and district breakdowns | the three `*Jakaumat` arrays on the same endpoint |
-| `GET /api/votes/{id}/ballots?party=kok` | Individual MP votes for a division | `aanestystapahtumat` on the same endpoint, filtered |
-| `GET /api/sessions/{id}/votes` | All divisions in one plenary session | `GET /taysistunnot/istunnon-aanestykset/{istuntotunnus}` |
+Served by `VoteCheckWeb` from the mirror, not by proxying upstream. The 2026-08-29 table of
+*candidate* endpoints has been replaced by what exists; the shapes moved as the mirror, rather
+than the upstream payload, became the thing being projected.
 
-All of the above are implemented and take `?lang=fi|sv|en`. Ballots are deliberately a separate
-call from `distribution`, so a client showing only the party split never pays for 199 rows.
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/v1/sessions?count=50` | Latest divisions, newest first |
+| `GET /api/v1/sessions/{id}` | One division with its party distribution |
+| `GET /api/v1/sessions/{id}/votes?party=kok` | Individual ballots, optionally one group |
+| `GET /api/v1/mps?name=` | Members, filterable by name |
+| `GET /api/v1/mps/{personNumber}?count=50` | A member with their recent ballots |
+| `GET /api/v1/mps/{personNumber}/activity` | Attendance and the Jaa/Ei/Tyhjä/Poissa rollup |
+| `GET /api/v1/search?query=` | Full-text search over titles, subjects and topic keywords |
 
-## 4. Roadmap — Next 3 Steps
+Two deliberate differences from the original sketch. `?lang` resolves `fi|sv` only: the vote
+endpoints upstream carry no English, so `lang=en` falls back to Finnish rather than serving
+blanks. And there is no `/votes?date=` — the front page answers "what happened lately" by
+chronological order over the mirror, which is both cheaper and what people actually ask for.
+
+Ballots remain a separate call from the distribution, so a client showing only the party split
+never pays for 199 rows.
+
+## 4. Roadmap — the first three steps (all delivered)
+
+*Kept as the record of how the product got here. All three closed out between 2026-08-29 and
+2026-09-04; §8 records what has shipped since, and **the live roadmap is §9**.*
 
 ### Step 1 — Build `VoteCheck.Core` directly against `api.eduskunta.fi` (foundation)
 
@@ -304,14 +358,24 @@ languages on every division.
 *Done when:* a public URL serves the SSR pages from a database synced via `VoteCheck.Core`,
 and an MP's recent votes can be found on a phone in under three taps.
 
-## 5. Later (beyond the next 3 steps)
+## 5. The long list
 
-- **Topic search:** the new API's `/search` (fuzzy, cross-entity: MPs, matters, docs, speeches,
-  votes) may cover this natively — evaluate before building a custom indexed store.
+*Everything wanted but not scheduled. Items promoted into the live roadmap are marked; the
+rest stay here until something makes them next.*
+
+- ~~**Topic search**~~ — **done 2026-09-18** ([#53](https://github.com/mashi89/VoteCheck/issues/53)),
+  and not the way this line expected. Upstream `/search` was not used: it is rate-capped, fuzzy
+  and ranks rather than filters. The mirror's own FTS5 index searches division titles and
+  subjects, and the matters' YSO subject keywords are written into that index as they arrive —
+  which is what makes searching *alkoholipolitiikka* find the divisions about it rather than
+  only those whose legal title happens to contain the word.
 - **Notifications:** "follow an MP" with web push when they vote (requires a scheduled fetcher
   and a persistence layer — first real database need).
-- **Charts:** party-line cohesion, MP attendance trends over an electoral term.
-- **Historical MP data:** extend beyond `SeatingOfParliament` (current term) to past terms.
+- **Charts:** party-line cohesion, MP attendance trends over an electoral term. The chamber
+  diagram (§8) is the first of these and sets the house style: draw the thing that happened,
+  in the shape it happened in, server-side and without JavaScript.
+- **Historical MP data:** extend beyond the current term to past ones — *promoted to §9 step 6*,
+  since the mirror's 2023 floor is what blocks it and the way past that floor is now known.
 - **Selkokieli (Finnish plain language) as an optional reading mode:** an accessibility
   feature that serves the product's purpose directly — a voting record nobody can read is not
   a check on power. The audience is people with reading or comprehension difficulties, language
@@ -348,8 +412,10 @@ and an MP's recent votes can be found on a phone in under three taps.
   - **Know the subject more broadly than the source text**, so you can judge what is essential.
     This is a data requirement, not just an editorial one: a division's `title` and `subject`
     are not enough to say what was actually decided. It needs the matter behind the vote —
-    `/valtiopaivaasiat` and `/asiakirjat`, neither modelled yet (§3.1), and both on the list of
-    shapes that must be captured live before being modelled (§6).
+    half of which has since arrived: `/valtiopaivaasiat` is modelled and the mirror holds each
+    division's matter, its type in plain Finnish, its subject terms and its outcome (§8).
+    `/asiakirjat`, the documents themselves, is still unmodelled, and the matter shape still
+    has no captured fixture behind it (§6).
   - **Make the reader an active agent.** The guidance warns against casting the reader as
     permanently passive or as an object of help, and prefers the imperative and the sinä-form
     for instructions. That suits this product exactly: the citizen checking a representative is
@@ -429,21 +495,27 @@ and an MP's recent votes can be found on a phone in under three taps.
   restatement is the same problem at a lower standard, and the no-content-gaps rule above is
   the same finding reached from the other direction. Writing it once, to the guidance, costs
   little more than writing it twice without.
-- **Retire or slim the desktop app** once the PWA reaches feature parity; Avalonia project can
-  remain as a thin shell over the same core.
+- **Retire or slim the desktop app** — *promoted to §9's dated decisions.* It is no longer a
+  "once the PWA reaches parity" question: the API it reads shuts down at the end of 2026
+  whatever else happens.
 
 ## 6. Risks & Open Questions
 
-| Risk | Mitigation |
-|------|------------|
-| **Legacy API shutdown (end of 2026; it has not begun redirecting, contrary to an earlier note here)** — resolved by targeting `api.eduskunta.fi` directly in Step 1 (see banner, §3.1) instead of the legacy table API | No further mitigation needed beyond following the updated Step 1 plan; keep `OpenDataRetriever` only as a short-lived fallback, not a long-term dependency; **note `VoteCheckWeb`'s sync still ingests from the legacy API** until §7 step 4 lands — that is the single most time-sensitive item in the repo |
-| ~~No confirmed endpoint for "all votes by one MP"~~ — **resolved**: ballots are embedded in every vote payload (§3.1) | Recent-window per-MP history is a client-side filter. Still open at larger scale: *deep historical* per-MP queries would mean walking every past session, so a per-MP index becomes worthwhile if we go beyond recent votes |
-| **Payload size** — each vote carries ~199 ballots plus three breakdown sets (~75 KB per vote); `uusimmat-aanestykset` returned ~750 KB for 10 votes | Our API should project down to what each view needs rather than proxying upstream objects; cache parsed results, and avoid fetching full vote objects when only tallies are shown |
-| Upstream API rate limits / availability | `/search*` is capped at 450 POST/3000s/IP per the spec. `CachingEduskuntaClient` now covers this: immutable data cached 12 h, volatile 10 min, and concurrent callers for one key share a single fetch |
-| **Remaining endpoints modeled from documentation alone would likely be wrong again** — two of the shapes derived that way (bilingual ballot fields, nested recent-votes array) turned out incorrect when checked | Capture a live response for each of `/valtiopaivaasiat`, `/asiakirjat`, `/search` and `/reference-data/*` before modeling them, and commit it as a fixture like the existing three |
-| Upstream schema changes | Real captured responses are committed as fixtures in `VoteCheck.Core.Tests/Fixtures/` and asserted by shape tests, so a breaking change surfaces as a test failure; refresh fixtures periodically since they're a point-in-time snapshot |
-| MP identity across terms (`henkilonumero` continuity, legacy `EdustajaId`/`EdustajaHenkiloNumero`) | Decide canonical ID (`henkilonumero`, per the new API) in Step 1 model design |
-| Hosting cost for a hobby project | Free tiers + output caching keep compute minimal; static PWA assets are nearly free to serve |
+*Revised 2026-09-21. Rows that were retired by the migration are gone rather than struck
+through; §7 and §8 hold the history of how each was closed.*
+
+| Risk | Where it stands |
+|------|-----------------|
+| **Legacy API shutdown, end of 2026** | Closed for the product: the sync has read `api.eduskunta.fi` since 2026-08-29 (§7 step 4). Still open for `VoteCollector` and `WPFGUI`, which have no replacement and a deadline — §9's dated decisions |
+| **Modelling an endpoint from documentation alone gets it wrong** — four such claims have now been wrong: bilingual ballot fields, the nested recent-votes array, the `/kansanedustajat` envelope, and `fields` being "silently ignored" | Partly mitigated. `docs/eduskunta-api.md` now records the checked behaviour, and fixtures cover the vote endpoints, the MP endpoints and a `/search` page. **Still missing a captured fixture for `/valtiopaivaasiat`**, which is modelled and in production — its tests assert against hand-built objects. Capture it before touching that model again (§9 step 4) |
+| **Mocked tests pass what live traffic rejects** — the mandatory `User-Agent` and `puhemies.henkilonumero: "-"` both got through a green suite | Nothing structural; the working rule is that anything touching an upstream shape gets one real request before it ships, and the response becomes a fixture |
+| **Payload size** — a division is ~76 KB, almost all of it ballots | The mirror pays it once per division rather than per view, and pages project down. A `fields` projection can cut a metadata pass to ~5 KB per division and is not used yet (§9 step 6) |
+| Upstream rate limits / availability | `/search*` is capped at 450 POST/3000 s/IP. The sync sleeps `SyncRequestDelayMs` between requests, the matter pass is bounded per cycle, and the pages never touch upstream at all — they read the mirror, so upstream being down is invisible to a visitor |
+| Upstream schema changes | Fixtures are asserted by shape tests, so a breaking change surfaces as a failure. They are a point-in-time snapshot and nothing refreshes them on a schedule; that is a known gap, not a solved problem |
+| **The mirror is the single point of failure** — one server, one SQLite file, one writer | Deliberate (§7 step 7) and cheap to rebuild: the database is a pure function of upstream plus `SyncMinYear`. A rebuild costs hours of backfill, not data |
+| **Presenting a vote wrongly is the failure this project cannot afford** | Nothing shown is inferred. The matter behind a division is fetched by exact identifier, which matches or 404s rather than returning the nearest plausible record; annulled divisions are excluded from tallies and attendance; a result is reported as "the majority voted Jaa" rather than as the bill passing, because a qualified majority is sometimes required. Generated summaries stay out of the record entirely (§5, selkokieli) |
+| Hosting cost for a hobby project | One Starter server in Helsinki, plus Cloudflare's free tier. Output caching keeps compute negligible |
+
 ## 7. Convergence Plan — `VoteCheckWeb` onto `VoteCheck.Core`
 
 *Written 2026-08-28, revised 2026-08-29 after Step 1 landed.* `VoteCheckWeb` (§4 Step 3) and
@@ -612,3 +684,208 @@ In priority order; each step is independently landable.
    Acceptance met: the 2023+ backfill imported 2,771 divisions unattended before any DNS record
    existed, and a shared `/vote/{id}` link opens publicly and unfurls with its tally. Still
    outstanding: confirmation that `edustajavahti.fi` is clear at PRH/EUIPO/ytj.fi.
+
+## 8. What shipped since the deployment
+
+*2026-09-04 to 2026-09-21. §7 ends with the site going live; this is the fortnight after it,
+recorded here because the roadmap in §9 starts from what these left standing.*
+
+**The division page answers the question first.** It used to open with upstream's procedural
+title — *"1. lakiehdotus 8 d §: mietintö JAA / Saku Nikkasen ehdotus (vl 1) EI"* — and print
+`Jaa 89 · Ei 77`, leaving the reader to know which side Jaa was and compare two numbers. The
+subject leads now, the result is stated in words behind a proportional bar, and the procedural
+title stays as the labelled *äänestysasettelu*. It says *"enemmistö äänesti Jaa"* rather than
+*"the bill passed"*: some questions need a qualified majority, so inferring passage from these
+counts would be wrong in exactly the cases that matter most.
+
+Jaa and Ei are no longer green and red. Through a protanopia simulation that pair sits at a
+perceptual distance of dE 20 — the two readings of every division looking alike — against
+dE 84 for blue and warm orange. The pair also differs in luminance, so it survives greyscale
+and print, and it drops the implication that Jaa is the good answer.
+
+**The division is drawn as the chamber it happened in.** One seat per member, coloured by the
+ballot cast, in the fan of concentric arcs the Eduskunta actually sits in — geometry measured
+from the published seating plan (eight rows of 16, 22, 26, 32, 30, 29, 26 and 18 seats, aisles
+at roughly 62°, 90° and 117°) rather than guessed from stylised graphics, which is what an
+earlier chevron version had done while its caption claimed otherwise. Seat *positions* are
+derived, not published: upstream says how members voted, not where they sit, and the caption
+says so on the page. Absent members are drawn hollow rather than given a fifth colour — a
+difference in shape as well as hue. The geometry is generated, so its truthfulness is asserted
+rather than eyeballed: every member seated exactly once, each group contiguous, nothing outside
+the viewBox, and 199 ballots treated as a full chamber because the Speaker does not vote.
+Its label placement is still wrong in two ways — [#50](https://github.com/mashi89/VoteCheck/issues/50).
+
+**The design system reaches the whole site.** The front page and search share one division row
+as a partial; the member profile shows the breakdown behind its attendance figure using the
+same bar a division uses; the member list names groups in full rather than as codes; navigation
+marks its section with `aria-current`; and the footer says where the data comes from and that
+the mirror can lag — a site asking people to check what their representative did has to be
+checkable itself.
+
+**A division now says what it was about, and links to the thing it decided**
+([#51](https://github.com/mashi89/VoteCheck/issues/51),
+[#53](https://github.com/mashi89/VoteCheck/issues/53),
+[#55](https://github.com/mashi89/VoteCheck/issues/55),
+[#59](https://github.com/mashi89/VoteCheck/issues/59)). Every division carries the identifier of
+the document it decides, and `VoteCheck.Core` had parsed it all along without anyone storing it.
+The mirror now has a `matter` table: the document type in plain Finnish, the identifier as a
+link to eduskunta.fi, the YSO subject terms as topics — *tulovero, kotitalousvähennys,
+matkakustannukset* rather than only the legal title — and the matter's own outcome, worded as
+the matter's, because a bill can lose an amendment vote and pass anyway. Those subject terms
+are in the FTS index too, which is what makes searching *alkoholipolitiikka* find the divisions
+about it. Four details that cost time are in `docs/eduskunta-api.md`: upstream returns the terms
+alphabetically while numbering them by importance, the index needed its own copy of the text
+because matters arrive after divisions do, an FTS5 table's shape is fixed at creation, and the
+matter lookup is a direct `GET` once the slash in the identifier is escaped.
+
+**The upstream API is written down** ([#57](https://github.com/mashi89/VoteCheck/issues/57),
+[#61](https://github.com/mashi89/VoteCheck/issues/61),
+[#60](https://github.com/mashi89/VoteCheck/issues/60)). `docs/eduskunta-api.md` records every
+behaviour that has cost an afternoon, each claim checked against the live service. Writing it
+found three wrong claims in this repository's own history — `sort`, the `fields` projection and
+the `valtiopaivaasia` expression key — and one wrong line of code: `GetMpsAsync` deserialized a
+bare array where the endpoint sends an envelope, so it had never once worked against the live
+service. It survived because nothing depends on it and its only test stubbed a shape the service
+does not send.
+
+**Compliance and convention**, both 2026-09-04: the CRA software bill of materials with a CI
+check that fails when a dependency moves without it (`sbom/`), and the branching convention in
+`CONTRIBUTING.md` — issues first, one topic per branch, and the issue number in the branch name.
+
+Two of the repository's original issues were answered by all of this rather than by any single
+change: [#13](https://github.com/mashi89/VoteCheck/issues/13) *"I want to see recent parliament
+votes"* is the front page, and [#12](https://github.com/mashi89/VoteCheck/issues/12) *"I want to
+see what my MP is doing recently"* is `/mp/{personNumber}`.
+
+## 9. Roadmap — the next three steps
+
+*Written 2026-09-21, from §2's "what is still weak" and the open issue list. The ordering is by
+how much each closes the gap between what the site shows and what a visitor came to find out —
+not by cost, though it happens that the first is also the cheapest.*
+
+### Step 4 — Say what the division decided
+
+*Goal: close the last step between "101–90" and "and so this is what happens now".*
+
+The page now says what the vote was about and how it went. What it still does not say is what
+voting Jaa *did*. A cell reading `Jaa` assumes the reader knows the motion and what supporting
+it meant — which §5's selkokieli guidance names as a *sisällöllinen aukko*, a content gap, and
+which is the defect the whole selkokieli entry converges on. This step is that work at its
+cheapest and most factual end, and nothing here invents a word of editorial text.
+
+- **Government against opposition.** `hallitusoppositioJakaumat` is in every division payload
+  the sync already downloads, pre-computed by upstream, and has never been shown. For a great
+  many divisions it is the single most explanatory fact about them — and, unlike the party
+  split, it is not something we could derive ourselves: it depends on which groups were in
+  government **on that date**, which would otherwise mean maintaining a history of Finnish
+  governments. Upstream states it per division, for free.
+- **By electoral district.** `vaalipiiriJakaumat`, likewise already in the payload. Secondary,
+  probably below the fold, but it is the one breakdown that answers "how did my region vote".
+- Both are distributions rather than scalars, so they do not fit as columns on `session`: this
+  is a small table beside it (`session_id`, the group name, and the four counts), filled at
+  import from the payload the sync already holds. The party split is computed from the stored
+  ballots instead, and stays that way — these two cannot be, which is the whole point.
+- Divisions already in the mirror were imported before that table existed and the cursor sits
+  past them, so nothing would ever go back for them. This needs the same one-time cursor rewind
+  the matter columns needed: cheap, since a re-walk updates only what it adds, but it has to be
+  remembered or the backfill silently covers new divisions only.
+- **What the ballot options were, in words.** `aanestysotsikko` states them
+  (*"mietintö JAA / ehdotus EI"*) in a register nobody reads. The honest version is a gloss
+  beside the tally saying which proposal Jaa supported, built from the structure of that string
+  and the matter's own record — never from a summary we generate.
+- **Capture a `/valtiopaivaasiat` fixture while in here.** It is modelled and in production, and
+  its tests assert against hand-built objects; it is the last endpoint on the §6 list without a
+  captured response behind it.
+
+*Done when:* someone who knows nothing of parliamentary procedure can read a division page and
+say what was decided, which side was which, and where their representative stood — without
+leaving the first screen.
+
+### Step 5 — Make the member page worth visiting ([#47](https://github.com/mashi89/VoteCheck/issues/47))
+
+*Goal: the page the product is named for should answer "is this my representative, and what do
+they do".*
+
+`/mp/{personNumber}` shows a name, a group, an attendance figure and a list of ballots. Missing
+is almost everything upstream publishes about a member, starting with the **constituency** —
+which is how a visitor works out whether this is their representative at all. Then committee
+memberships, current ministry (ministers vote differently and are absent more, so saying so
+explains a low attendance figure rather than leaving it to read as absenteeism), group and term
+history, interrupted terms and substitutions, and declared interests. Deliberately **not**
+email or telephone: they are in the feed, but republishing direct contact details on a page
+inviting judgement of a politician's record invites a pile-on. Link to eduskunta.fi instead.
+
+This is a sync and schema change before it is a page change:
+
+1. Model `GET /kansanedustajat/{henkilonumero}` in `VoteCheck.Core` — the single-member
+   endpoint, which works properly, unlike the roster endpoint it is easily confused with.
+2. Widen the `mp` table, and add a table beside it for the list-valued fields.
+3. Then the page.
+
+**Settle one thing during (1):** whether member detail can be fetched in bulk or needs one
+request per member. Roughly 200 GETs per refresh is affordable — GETs are not the capped verb —
+but it decides whether this is a cheap per-cycle pass or its own slow job. The roster endpoint
+is not an answer to it: 1000 all-time records, no paging, and only a few dozen sitting members.
+
+While in here, decide what to do about the single `party` column. A member who changed group
+mid-term is exactly the case it flattens away, and the group history is the field that fixes it.
+
+*Done when:* a visitor can tell from `/mp/{personNumber}` whether this is their representative,
+what they work on between divisions, and why their attendance reads as it does.
+
+### Step 6 — Open the archive before 2023
+
+*Goal: stop `SyncMinYear` being the thing that decides what the site knows.*
+
+The mirror holds 2023 onward. The archive goes back to 2008 and runs to some 15,500 divisions,
+so every question about a member's career rather than their current term is unanswerable today,
+and §5's "historical MP data" has been blocked on precisely this.
+
+`/search` cannot page past `startFromIndex + maxResults <= 10000`, which is why the floor exists.
+Two ways past it, and the cheap one should be tried first:
+
+- **Walk it a parliamentary year at a time.** The range expression already takes `from`/`to`, so
+  each year is its own query and each year's set is far under the cap. This needs no new
+  endpoint and no new machinery — a loop around the existing `GetVotePageAsync` and a cursor per
+  year rather than one global cursor.
+- **`POST /search/dataset`**, the async export job, if the per-year walk turns out to be blocked
+  by something. It returns a `jobId` to poll, requires both `category` and `sort`, and 429s when
+  too many jobs run at once — real complexity, worth avoiding if the loop works.
+
+Either way, **use the `fields` projection**. Excluding `aanestystapahtumat` takes a division from
+~76 KB to ~5 KB, so a pass that only needs tallies moves a fifteenth of the data. Nothing uses
+it today because it was recorded as "silently ignored", which was wrong (§3.1).
+
+One thing to decide before starting rather than after: the full archive is about 1.2 GB of
+SQLite, against a Starter server's disk and a mirror that is currently rebuilt from scratch when
+anything goes wrong. A full-archive backfill is hours of upstream traffic; check the disk and
+the rebuild story first.
+
+*Done when:* a member's whole career is answerable, and a backfill from 2008 completes unattended.
+
+### Decisions with a date on them
+
+Not steps, but they expire, which is why they are written down rather than left to be noticed.
+
+| By | Decision |
+|---|---|
+| **End of 2026** | **`VoteCollector` and `WPFGUI`.** They read `avoindata.eduskunta.fi`, which shuts down then, and nothing has touched them since the migration. Port or delete — and the case for deleting is strong: the web product supersedes both, and a desktop client for a dead API costs a test suite, an SBOM entry and a place in every architecture diagram. Whichever it is, it needs an issue and it should not be decided in December |
+| When the account leaves trial | **The UpCloud firewall layer** (§7 step 7). It absorbs volumetric floods before the network interface; `DOCKER-USER` filtering covers everything else. Note it is stateless, so outbound must stay open or the sync and certificate renewal fail quietly |
+| Open since 2026-09-04 | **Name clearance for `edustajavahti.fi`** at PRH, EUIPO and ytj.fi. The domain is registered and live; nobody has checked whether the name is clear |
+| No date, and that is the problem | **Fixture refresh.** Fixtures are a point-in-time snapshot and nothing refreshes them on a schedule, so a silent upstream change stays silent until something else breaks. Either pick an interval or accept the drift deliberately |
+
+### Known defects
+
+- [#50](https://github.com/mashi89/VoteCheck/issues/50) — the chamber drops a 23-member group's
+  label while keeping a one-member group's, because collisions are resolved in sweep order
+  rather than by group size; and a one-member group's label floats off on its own, stretching
+  the viewBox and shrinking the chamber.
+
+### Further out
+
+Unchanged from §5, and none of it is scheduled: the installable mobile client
+([#9](https://github.com/mashi89/VoteCheck/issues/9)) over the `/api/v1` the site already
+serves; "follow a representative" notifications, which need a scheduler and the first real
+write path; charts for party cohesion and attendance over a term; and selkokieli, which is the
+largest editorial commitment on the list and the one with a named external cost — Selkokeskus
+assesses the material, so the label cannot be self-applied.
