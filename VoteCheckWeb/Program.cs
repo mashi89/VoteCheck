@@ -120,7 +120,12 @@ api.MapGet( "/sessions", ( Queries q, int count = 50, string? lang = null ) =>
 
 api.MapGet( "/sessions/{id}", ( Queries q, string id, string? lang = null ) =>
     q.GetSession( id, lang ) is { } session
-        ? Results.Ok( new { session, parties = q.GetPartyDistribution( id ) } )
+        ? Results.Ok( new {
+            session,
+            parties = q.GetPartyDistribution( id ),
+            government = q.GetSplits( id, SplitKind.Government, lang ),
+            districts = q.GetSplits( id, SplitKind.District, lang ),
+        } )
         : Results.NotFound() );
 
 api.MapGet( "/sessions/{id}/votes", ( Queries q, string id, string? party ) =>
