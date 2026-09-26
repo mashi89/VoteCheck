@@ -389,6 +389,36 @@ h2 {
 }
 .tally-key li { display: flex; align-items: center; gap: var( --space-2 ); }
 .tally-key b { font-variant-numeric: tabular-nums; }
+/* What Jaa and Ei stood for. A two-row list with the word on the left in its own colour, so
+ * the page reads "Jaa — the committee's report" without a legend to decode. */
+.options {
+    margin-top: var( --space-5 );
+    padding-top: var( --space-4 );
+    border-top: 1px solid var( --rule );
+}
+.options-question { margin: 0 0 var( --space-2 ); font-size: var( --text-sm ); }
+.options-list { margin: 0; display: grid; gap: var( --space-2 ); }
+.option {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: var( --space-3 );
+    align-items: baseline;
+}
+.option dt { font-weight: 700; }
+.option dd { margin: 0; }
+.option .v-jaa { color: var( --jaa-text ); }
+.option .v-ei  { color: var( --ei-text ); }
+
+/* The government split sits inside the result panel, below the options, so it reads as part
+ * of what happened rather than as one more breakdown further down. */
+.split {
+    margin-top: var( --space-5 );
+    padding-top: var( --space-4 );
+    border-top: 1px solid var( --rule );
+}
+.split h3 { font-size: var( --text-base ); margin: 0; }
+.split .group:last-child { border-bottom: 0; }
+
 .swatch {
     width: .875rem;
     height: .875rem;

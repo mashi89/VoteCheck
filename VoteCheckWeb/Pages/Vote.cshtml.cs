@@ -19,6 +19,15 @@ public class VoteModel : PageModel {
 
     public string? Party { get; private set; }
 
+    // Government against opposition, and by electoral district, as upstream computed them.
+    // Empty for a division the one-time backfill has not reached yet.
+    public IReadOnlyList<Split> Government { get; private set; } = [];
+    public IReadOnlyList<Split> Districts { get; private set; } = [];
+
+    // What Jaa and Ei stood for, when the procedural title says so explicitly. Null leaves
+    // the title to be shown as it is.
+    public BallotOptions? Options { get; private set; }
+
     // What the division was about: the bill or report it decides a step of. Null until the
     // sync has fetched it, which is an ordinary state and not an error.
     public Matter? Matter { get; private set; }
@@ -35,6 +44,9 @@ public class VoteModel : PageModel {
 
         Party = party;
         Parties = _queries.GetPartyDistribution( id );
+        Government = _queries.GetSplits( id, SplitKind.Government );
+        Districts = _queries.GetSplits( id, SplitKind.District );
+        Options = BallotOptions.Parse( Session.Title );
         Matter = _queries.GetMatterForSession( id );
         DocumentId = Matter?.Id ?? _queries.GetDocumentId( id );
 

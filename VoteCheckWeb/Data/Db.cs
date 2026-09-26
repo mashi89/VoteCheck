@@ -106,6 +106,26 @@ public sealed class Db {
                 fetched_at TEXT NOT NULL
             );
 
+            -- Breakdowns of a division that upstream computes and we cannot: government
+            -- against opposition depends on which groups were in government on that date, and
+            -- the split by electoral district needs each member's district at the time. Both
+            -- arrive pre-computed in every division payload. The party split is not stored
+            -- here — it is derived from the ballots, which is the one breakdown we can check.
+            CREATE TABLE IF NOT EXISTS session_split (
+                session_id TEXT NOT NULL REFERENCES session(id),
+                kind       TEXT NOT NULL,          -- 'government' | 'district'
+                name       TEXT NOT NULL,          -- "Hallitusryhmät", "Helsingin vaalipiiri"
+                name_sv    TEXT NOT NULL DEFAULT '',
+                -- Upstream's own order, which for districts is the official one (Helsinki
+                -- first, Lapland last) and for government puts the government first.
+                ordinal    INTEGER NOT NULL,
+                yes        INTEGER NOT NULL,
+                no         INTEGER NOT NULL,
+                blank      INTEGER NOT NULL,
+                absent     INTEGER NOT NULL,
+                PRIMARY KEY ( session_id, kind, name )
+            ) WITHOUT ROWID;
+
             CREATE TABLE IF NOT EXISTS sync_state (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL

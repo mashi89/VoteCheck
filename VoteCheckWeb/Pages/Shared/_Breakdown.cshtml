@@ -1,0 +1,47 @@
+@using System.Globalization
+@model Breakdown
+
+@* One list of rows, each a name, a bar and its counts. The group split, the government split
+   and the district split all read the same way, so they are drawn by the same markup.
+
+   Bars are scaled against the largest row, not stretched to a common width. A group of 17
+   drawn the same length as a group of 51 would overstate its weight in the chamber, which is
+   the one thing these rows exist to convey. *@
+
+<ol class="groups">
+@foreach ( var row in Model.Rows ) {
+    var total = row.Total;
+    string Width( int n ) =>
+        ( total == 0 ? 0 : 100.0 * n / total ).ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
+    var share = ( 100.0 * total / Model.Largest ).ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
+    <li class="group">
+        <span class="group-name">
+            @if ( row.Href != null ) {
+                <a href="@row.Href" title="@row.Tooltip">@row.Name</a>
+            } else {
+                <span title="@row.Tooltip">@row.Name</span>
+            }
+            <span class="group-size">@total</span>
+        </span>
+        <span class="group-bar" aria-hidden="true">
+            <span class="group-bar-fill" style="width:@share">
+                @if ( row.Yes > 0 ) { <span class="seg seg-jaa" style="width:@Width( row.Yes )"></span> }
+                @if ( row.No > 0 ) { <span class="seg seg-ei" style="width:@Width( row.No )"></span> }
+                @if ( row.Blank > 0 ) { <span class="seg seg-neutral" style="width:@Width( row.Blank )"></span> }
+                @if ( row.Absent > 0 ) { <span class="seg seg-absent" style="width:@Width( row.Absent )"></span> }
+            </span>
+        </span>
+        @* Zero counts are omitted: a row reading "0 · 0 · 0" is noise, and the bar already
+           shows that the row voted one way. *@
+        <span class="group-counts muted">
+            @if ( row.Yes > 0 ) { <span class="vote-Jaa">@row.Yes Jaa</span> }
+            @if ( row.Yes > 0 && ( row.No > 0 || row.Blank > 0 || row.Absent > 0 ) ) { <span class="sep">·</span> }
+            @if ( row.No > 0 ) { <span class="vote-Ei">@row.No Ei</span> }
+            @if ( row.No > 0 && ( row.Blank > 0 || row.Absent > 0 ) ) { <span class="sep">·</span> }
+            @if ( row.Blank > 0 ) { <span>@row.Blank tyhjää</span> }
+            @if ( row.Blank > 0 && row.Absent > 0 ) { <span class="sep">·</span> }
+            @if ( row.Absent > 0 ) { <span>@row.Absent poissa</span> }
+        </span>
+    </li>
+}
+</ol>

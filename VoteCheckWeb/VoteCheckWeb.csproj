@@ -13,6 +13,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The import is tested against a real schema without standing up the hosted service. -->
+    <InternalsVisibleTo Include="VoteCheckWeb.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VoteCheck.Core\VoteCheck.Core.csproj" />
   </ItemGroup>
 

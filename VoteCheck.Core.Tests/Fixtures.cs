@@ -13,6 +13,8 @@ namespace VoteCheck.Core.Tests
     //                                     2023+ ascending (trimmed likewise)
     //   kansanedustajat-list-trimmed.json GET /kansanedustajat (2 of 1000 records: one
     //                                     sitting, one former, whole records kept)
+    //   valtiopaivaasia-he-32-2026.json   GET /valtiopaivaasiat/HE%2032%2F2026%20vp — the
+    //                                     matter aanestys-2026-60-1 decides a step of
     internal static class Fixtures
     {
         public static string Mp1109 => Load("kansanedustaja-1109.json");
@@ -20,6 +22,7 @@ namespace VoteCheck.Core.Tests
         public static string Vote2026_60_1 => Load("aanestys-2026-60-1.json");
         public static string RecentVotes => Load("uusimmat-aanestykset-trimmed.json");
         public static string VoteSearch => Load("search-aanestys-trimmed.json");
+        public static string MatterHe32_2026 => Load("valtiopaivaasia-he-32-2026.json");
 
         private static string Load(string fileName) =>
             File.ReadAllText(Path.Combine("Fixtures", fileName));

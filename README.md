@@ -47,7 +47,7 @@ upstream, so it is fast and cannot be knocked over by api.eduskunta.fi having a 
 | Endpoint | Returns |
 |---|---|
 | `GET /api/v1/sessions?count=50` | Latest divisions |
-| `GET /api/v1/sessions/{id}` | One division with its party distribution |
+| `GET /api/v1/sessions/{id}` | One division with its party, government/opposition and electoral-district breakdowns |
 | `GET /api/v1/sessions/{id}/votes?party=kok` | Individual ballots, optionally one group |
 | `GET /api/v1/mps?name=` | Members, filterable by name |
 | `GET /api/v1/mps/{personNumber}?count=50` | A member with their recent ballots |
