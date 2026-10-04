@@ -76,7 +76,7 @@ Do **not** run two instances. The sync is the single writer to one SQLite file.
 ## Phase C — Provision
 
 ```
-ssh root@<server-ip>
+ssh root@SERVER_IP          # the IPv4 address from Phase B
 git clone https://github.com/mashi89/VoteCheck.git
 cd VoteCheck
 bash deploy/setup.sh
@@ -87,17 +87,30 @@ security upgrades, container log caps, and a swapfile when RAM < 2 GB.
 
 ## Phase D — Deploy (still invisible to the internet)
 
-Put the API token from Phase A beside the compose files, then bring the stack up with the
-Cloudflare overlay:
+Write `.env` beside the compose files. This one line asks for the Let's Encrypt contact
+email and the API token from Phase A, and writes both with the domain. Paste it **on its
+own** and answer the prompts. Anything pasted after it would be read as the answers, and
+that is how `chmod 600 .env` once became the token.
 
 ```
-printf 'CLOUDFLARE_API_TOKEN=%s\n' '<token>' > .env
-chmod 600 .env
-DOMAIN=edustajavahti.fi ACME_EMAIL=<your-email> \
-  docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
+read -rp 'ACME email: ' email && read -rsp 'Cloudflare token: ' token && echo && (umask 077; printf 'DOMAIN=edustajavahti.fi\nACME_EMAIL=%s\nCLOUDFLARE_API_TOKEN=%s\n' "$email" "$token" > .env) && unset email token
 ```
 
-`.env` is gitignored; the token exists only in Cloudflare and in this file. The overlay
+Then bring the stack up with the Cloudflare overlay:
+
+```
+docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
+```
+
+Compose reads `DOMAIN`, `ACME_EMAIL` and the token from `.env` for every command, so
+`up`, `logs` and `ps` all work as written. Without them in `.env`, even `logs` refuses
+to run. The prompt keeps the token out of shell history and off the screen. Check the
+file without printing the secret: `awk -F= '{print $1, length($2)}' .env` should list
+the three names, with a token length of 40 or more. A short value is a placeholder or a
+mis-pasted line.
+
+`.env` is gitignored and created mode 600; the token exists only in Cloudflare and in
+this file. The overlay
 builds Caddy with the `caddy-dns/cloudflare` module and issues the certificate via
 **DNS-01** — Caddy writes a TXT record through the API, so the certificate arrives even
 though nothing can reach the server yet. Watch it succeed:
@@ -182,7 +195,7 @@ public IP is delivered over loopback, which every layer here allows, so the chec
 no matter how exposed the origin is:
 
 ```
-curl -sI --max-time 5 http://<server-ip>/     # must time out (exit 28)
+curl -sI --max-time 5 http://SERVER_IP/ || echo "no answer: good"   # must time out
 ```
 
 ## Phase G — Verify
@@ -191,7 +204,7 @@ curl -sI --max-time 5 http://<server-ip>/     # must time out (exit 28)
 curl -sI https://edustajavahti.fi/health                      # 200
 curl -s  https://edustajavahti.fi/robots.txt | grep Sitemap   # must say https://edustajavahti.fi/...
 curl -sI https://edustajavahti.fi/ | grep -i '^server'        # cloudflare
-curl -sI --max-time 5 http://<server-ip>/ ; echo "exit $?"    # must time out, not answer
+curl -sI --max-time 5 http://SERVER_IP/ || echo "no answer: good"   # must time out, not answer
 ```
 
 - Sitemap saying `http://` → `VoteCheck__BehindProxy` is not taking effect and every
@@ -219,8 +232,7 @@ this is the thing that makes that true.
 
 ```
 cd ~/VoteCheck && git pull
-DOMAIN=edustajavahti.fi ACME_EMAIL=<your-email> \
-  docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
+docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
 ```
 
 The mirror lives on a named volume and survives rebuilds. Schema changes are the
