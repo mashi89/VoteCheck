@@ -157,16 +157,57 @@ Re-run it when Cloudflare updates its ranges.
 **2. UpCloud firewall (control panel → the server → Firewall)** — an outer layer, and
 **not available on a trial account**; it needs a verified/paid one. It sits *before* the
 network interface, so flood traffic aimed at the raw IP is dropped upstream and never
-consumes the server's bandwidth, which nothing on the host can do. Rules:
+consumes the server's bandwidth, which nothing on the host can do.
 
-- Accept TCP 80 and 443 **only from [Cloudflare's published ranges](https://www.cloudflare.com/ips/)**
-  (IPv4 and IPv6).
-- Accept TCP 22 from your own IP(s) if static, otherwise from anywhere (key-only auth is
-  the real gate).
-- Default inbound: **drop**.
-- **Leave outbound fully open.** UpCloud's firewall is *stateless*: an outbound-blocking
-  rule set silently kills the sync's requests to api.eduskunta.fi and Caddy's certificate
-  renewals — both failures that surface weeks later.
+UpCloud's firewall is **stateless**, and that shapes the inbound rules as much as the
+outbound ones. It does not know that a packet is the reply to a connection the server
+opened, so replies are inbound traffic like any other: a rule set of "22, plus 443 from
+Cloudflare, drop the rest" keeps the site serving perfectly while the sync to
+api.eduskunta.fi, Caddy's DNS-01 renewals, the Cloudflare range refresh, apt and NTP all
+stop — failures that surface weeks later. Outbound stays **Accept all** (UpCloud's own
+SMTP block can stay); a blocked outbound rule fails the same way.
+
+Three things about the control panel that the rules below are written around:
+
+- **A rule with an empty source covers IPv4 only.** Every "any source" rule needs a twin
+  with source `::/0`. There is no ICMPv6 protocol: an ICMP rule with an IPv6 source is one.
+- **Tick *Auto-add DNS rules*.** It accepts replies from UpCloud's resolvers, which the
+  server uses.
+- **The target port does not take a range**, so the reply rules cannot be confined to the
+  ephemeral ports (32768–60999). Rules 4 and 5 make up for it: without them, a packet
+  carrying source port 443 would reach the origin's 443 from anywhere and skip Cloudflare.
+
+Inbound, in this order — first match wins:
+
+| # | Action | Protocol | Source address | Source port | Target port | For |
+|---|---|---|---|---|---|---|
+| 1 | Accept | TCP | any | — | 22 | SSH — first, so nothing below can lock you out. From your own IP(s) if static; key-only auth is the real gate. |
+| 2 | Accept | ICMP | any | — | — | Path-MTU discovery; without it some connections stall silently. Its `::/0` twin is ICMPv6, which IPv6 does not work without. |
+| 3 | Accept | TCP | each [Cloudflare range](https://www.cloudflare.com/ips/), one rule per range, IPv4 and IPv6 | — | 443 | Visitors. Only 443: under Full (strict) and Always Use HTTPS, Cloudflare never connects to 80. |
+| 4 | **Drop** | TCP | any | — | 443 | Everything else aimed at 443 — must come before the reply rules |
+| 5 | **Drop** | TCP | any | — | 80 | The same for 80 |
+| 6 | Accept | TCP | any | 443 | — | Replies: the sync, Let's Encrypt, the Cloudflare API, image pulls |
+| 7 | Accept | TCP | any | 80 | — | Replies from apt — Ubuntu's mirrors are plain HTTP |
+| 8 | Accept | UDP | any | 123 | — | NTP replies |
+| 9 | Accept | TCP | any | 4460 | — | NTS key exchange — chrony on Ubuntu 26.04 prefers Ubuntu's NTS servers, and falls back to plain NTP without this |
+| — | Drop | | | | | Default rule |
+
+"Any" means two rules, the empty-source one and its `::/0` twin. Rules 6–9 let replies
+through to every port, which is harmless: 22 is open regardless, nothing else listens, and
+the host's `DOCKER-USER` and `ufw` rules still apply behind it.
+
+Build the rules while the firewall is still **Disabled**, then enable it and check both
+directions: the direct-IP probe below must still time out, and the server must still
+reach what it depends on —
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' https://api.eduskunta.fi/                      # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://api.cloudflare.com/client/v4/ips      # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://acme-v02.api.letsencrypt.org/directory # 200
+apt-get update && chronyc sources
+```
+
+The UpCloud web console still reaches the server if SSH ever stops answering.
 
 Deploying with only step 1 is reasonable: it is what stops anyone bypassing the proxy to
 reach the app. What step 2 adds is volumetric-flood absorption on the raw IP, and that
@@ -254,6 +295,6 @@ recreating it re-issues against Let's Encrypt rate limits.
 | `403` in sync logs | Upstream rejects requests without a User-Agent; `VoteCheck.Core` sets one, so something is stripping it in transit |
 | `ufw status` lists Cloudflare ranges but the origin still answers on its raw IP | Docker's iptables rules run before ufw's INPUT chain, so published ports ignore it — re-run `cloudflare-firewall.sh`, which filters in `DOCKER-USER`, and re-check from another machine |
 | Site unreachable after firewall work | Cloudflare's ranges changed, or the proxy was turned off while the lockdown was active — `cloudflare-firewall.sh --open` over SSH, then fix the UpCloud rules |
-| Sync stopped, cert renewals failing, no other symptoms | Outbound blocked at the stateless UpCloud firewall — reopen outbound |
+| Sync stopped, cert renewals failing, no other symptoms | The stateless UpCloud firewall is dropping replies — check the reply rules (source port 443/80, both IPv4 and `::/0`) sit after the drops and before the default, and that outbound is Accept all |
 | Logs show Cloudflare IPs, not visitors | The Cloudflare overlay is not in use, so `trusted_proxies` is unset |
 | Sync stops with "window exhausted" | `SyncMinYear` reaches further back than upstream will page (10,000 results); raise it |
