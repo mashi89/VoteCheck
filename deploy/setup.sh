@@ -112,15 +112,26 @@ else
 fi
 
 log "Done"
+# Keep this in step with deploy/README.md. Anyone who reads only the last screen of
+# output follows these lines, so they must not create a DNS record before the origin
+# is firewalled, nor deploy without the overlay that makes that order possible.
 cat <<'NEXT'
-Next:
-  1. Point an A record at this server's IPv4 address (and AAAA at its IPv6).
-  2. Clone the repo here, then from its root:
+Next — deploy/README.md, Phase D onwards. Create NO DNS record yet.
 
-       DOMAIN=your.domain [email protected] \
-         docker compose -f docker-compose.prod.yml up -d --build
+  1. From the repo root, store the Cloudflare token (run this line on its own,
+     then paste the token at the prompt):
 
-  3. Watch the first backfill:  docker compose -f docker-compose.prod.yml logs -f votecheck
+       read -rsp 'Cloudflare token: ' t && printf 'CLOUDFLARE_API_TOKEN=%s\n' "$t" > .env && unset t; echo
+       chmod 600 .env
 
-See deploy/README.md for detail.
+  2. Deploy with the Cloudflare overlay, filling in the real domain and email:
+
+       DOMAIN=your.domain ACME_EMAIL=you@example.com \
+         docker compose -f docker-compose.prod.yml -f docker-compose.cloudflare.yml up -d --build
+
+  3. Lock the origin to Cloudflare:  bash deploy/cloudflare-firewall.sh
+     and check from ANOTHER machine that http://<this-ip>/ times out.
+
+  4. Only then create the A/AAAA records in Cloudflare, proxied (orange cloud).
+     Never a DNS-only record, not even briefly.
 NEXT
