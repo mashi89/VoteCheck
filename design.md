@@ -1,6 +1,6 @@
 # VoteCheck — Design & Technical Roadmap
 
-*Last updated: 2026-09-21*
+*Last updated: 2026-10-19*
 
 > **Upstream migration: done for the product, open only for the desktop remnant.**
 > `VoteCheckWeb` and `VoteCheck.Core` have read `api.eduskunta.fi` and nothing else since
@@ -763,7 +763,11 @@ see what my MP is doing recently"* is `/mp/{personNumber}`.
 how much each closes the gap between what the site shows and what a visitor came to find out —
 not by cost, though it happens that the first is also the cheapest.*
 
-### Step 4 — Say what the division decided
+### Step 4 — Say what the division decided ([#67](https://github.com/mashi89/VoteCheck/issues/67))
+
+*In review as [#71](https://github.com/mashi89/VoteCheck/pull/71): the government/opposition and
+district splits, and the Jaa/Ei gloss for divisions whose title names both options. The rest of
+the* done when *stays open after it.*
 
 *Goal: close the last step between "101–90" and "and so this is what happens now".*
 
@@ -869,8 +873,8 @@ Not steps, but they expire, which is why they are written down rather than left 
 
 | By | Decision |
 |---|---|
-| **End of 2026** | **`VoteCollector` and `WPFGUI`.** They read `avoindata.eduskunta.fi`, which shuts down then, and nothing has touched them since the migration. Port or delete — and the case for deleting is strong: the web product supersedes both, and a desktop client for a dead API costs a test suite, an SBOM entry and a place in every architecture diagram. Whichever it is, it needs an issue and it should not be decided in December |
-| When the account leaves trial | **The UpCloud firewall layer** (§7 step 7). It absorbs volumetric floods before the network interface; `DOCKER-USER` filtering covers everything else. Note it is stateless, so outbound must stay open or the sync and certificate renewal fail quietly |
+| **End of 2026** | **`VoteCollector` and `WPFGUI`.** They read `avoindata.eduskunta.fi`, which shuts down then, and nothing has touched them since the migration. Port or delete — and the case for deleting is strong: the web product supersedes both, and a desktop client for a dead API costs a test suite, an SBOM entry and a place in every architecture diagram. Tracked in [#68](https://github.com/mashi89/VoteCheck/issues/68); it should not be decided in December |
+| When the account leaves trial | **The UpCloud firewall layer** (§7 step 7). It absorbs volumetric floods before the network interface; `DOCKER-USER` filtering covers everything else. Note it is stateless: outbound must stay open **and** inbound needs rules admitting the replies to the server's own connections, or the sync, certificate renewal, apt and NTP fail quietly while the site keeps serving ([#72](https://github.com/mashi89/VoteCheck/issues/72), fixed in `deploy/README.md` Phase F by [#75](https://github.com/mashi89/VoteCheck/pull/75)) |
 | Open since 2026-09-04 | **Name clearance for `edustajavahti.fi`** at PRH, EUIPO and ytj.fi. The domain is registered and live; nobody has checked whether the name is clear |
 | No date, and that is the problem | **Fixture refresh.** Fixtures are a point-in-time snapshot and nothing refreshes them on a schedule, so a silent upstream change stays silent until something else breaks. Either pick an interval or accept the drift deliberately |
 
@@ -880,6 +884,13 @@ Not steps, but they expire, which is why they are written down rather than left 
   label while keeping a one-member group's, because collisions are resolved in sweep order
   rather than by group size; and a one-member group's label floats off on its own, stretching
   the viewBox and shrinking the chamber.
+- The deployment runbook, found during the rebuild, each with a fix in review:
+  [#72](https://github.com/mashi89/VoteCheck/issues/72) the UpCloud rules drop the server's own
+  return traffic ([#75](https://github.com/mashi89/VoteCheck/pull/75));
+  [#73](https://github.com/mashi89/VoteCheck/issues/73) `setup.sh`'s closing steps contradict
+  the runbook's DNS order ([#74](https://github.com/mashi89/VoteCheck/pull/74));
+  [#76](https://github.com/mashi89/VoteCheck/issues/76) its placeholder commands break when
+  pasted ([#77](https://github.com/mashi89/VoteCheck/pull/77)).
 
 ### Further out
 

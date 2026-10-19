@@ -183,6 +183,7 @@ and what is still missing.
 | [`design.md`](design.md) | Why the product is shaped this way, what has shipped, and what is next |
 | [`docs/eduskunta-api.md`](docs/eduskunta-api.md) | How api.eduskunta.fi actually behaves — every claim checked against the live service |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Issues first, one topic per branch, and the branch naming convention |
+| [`AGENTS.md`](AGENTS.md) | The same rules condensed for coding agents, plus the deployment pitfalls (`CLAUDE.md` only imports it) |
 | [`deploy/README.md`](deploy/README.md) | The runbook for edustajavahti.fi |
 | [`sbom/README.md`](sbom/README.md) | The CRA bill of materials and how it is kept true |
 | [`tools/README.md`](tools/README.md) | The committed sample database and how to rebuild it |
