@@ -77,10 +77,10 @@ no number — this is required only when there is something to cite.
 
 Branches are short-lived. A branch that cannot be merged this week is usually two topics.
 
-### Claude Code sessions
+### Coding-agent sessions
 
-A session started from the Claude Code UI is placed on a generated branch named
-`claude/<words>`. Work does not go there. That name is not a category and describes nothing,
+A session started from a coding agent's UI is often placed on a generated branch, such as
+Claude Code's `claude/<words>`. Work does not go there. That name is not a category and describes nothing,
 and six months later it is indistinguishable from every other session in the branch list.
 
 Create a branch under the convention above and use it from the first commit:
@@ -89,4 +89,5 @@ Create a branch under the convention above and use it from the first commit:
 git checkout -B feature/42-mp-topic-search origin/master
 ```
 
-The generated branch is then simply never used, and can be deleted.
+The generated branch is then simply never used, and can be deleted. The agent-facing version
+of these rules is [`AGENTS.md`](AGENTS.md).
