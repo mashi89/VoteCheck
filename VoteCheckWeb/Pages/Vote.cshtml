@@ -98,6 +98,37 @@
         <li><span class="swatch swatch-absent"></span> Poissa <b>@s.Absent</b></li>
     </ul>
 
+    @* What a Jaa and an Ei were votes for. Without this the tally answers "how many" and
+       leaves "for what" to a reader who knows the procedure. Shown only when the title says
+       which side is which in so many words — see BallotOptions. *@
+    @if ( Model.Options is { } options ) {
+        <div class="options">
+            @if ( options.Question != null ) {
+                <p class="options-question muted">Äänestettiin: @options.Question</p>
+            }
+            <dl class="options-list">
+                <div class="option">
+                    <dt><span class="v-jaa">Jaa</span></dt>
+                    <dd>@options.Yes</dd>
+                </div>
+                <div class="option">
+                    <dt><span class="v-ei">Ei</span></dt>
+                    <dd>@options.No</dd>
+                </div>
+            </dl>
+        </div>
+    }
+
+    @* Upstream states who was in government on the day; we could not work it out without
+       keeping a history of Finnish governments. For many divisions it is the single most
+       explanatory fact about them, so it sits on the first screen with the result. *@
+    @if ( Model.Government.Count > 0 ) {
+        <section class="split" aria-labelledby="hallitus">
+            <h3 id="hallitus">Hallitus ja oppositio</h3>
+            <partial name="Shared/_Breakdown" model="Breakdown.Of( Model.Government )" />
+        </section>
+    }
+
     @{
         var chamber = Chamber.Arrange( Model.AllVotes );
     }
@@ -186,7 +217,9 @@
     </section>
 }
 
-@if ( hasSubject ) {
+@* The procedural wording, as upstream states it, when it could not be read into the options
+   above. Shown as a quotation so it is clear these are not our words. *@
+@if ( hasSubject && Model.Options == null ) {
     <p class="asettelu">
         <span class="label">Äänestysasettelu</span>
         <q>@s.Title</q>
@@ -194,47 +227,21 @@
 }
 
 @{
-    // Bars are scaled against the largest group, not stretched to a common width. A group of
-    // 17 drawn the same length as a group of 51 would overstate its weight in the chamber,
-    // which is the one thing these rows exist to convey.
-    var largestGroup = Model.Parties.Count == 0
-        ? 1
-        : Model.Parties.Max( g => g.Yes + g.No + g.Blank + g.Absent );
+    var groups = new Breakdown( Model.Parties
+        .Select( p => new BreakdownRow( Party.Name( p.Party ), p.Yes, p.No, p.Blank, p.Absent,
+                                        Href: $"/vote/{s.Id}/{p.Party}",
+                                        Tooltip: Party.FormalName( p.Party ) ) )
+        .ToList() );
 }
 <h2>Eduskuntaryhmittäin</h2>
-<ol class="groups">
-@foreach ( var p in Model.Parties ) {
-    var total = p.Yes + p.No + p.Blank + p.Absent;
-    string GroupWidth( int n ) =>
-        ( total == 0 ? 0 : 100.0 * n / total ).ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
-    var share = ( 100.0 * total / largestGroup ).ToString( "0.###", CultureInfo.InvariantCulture ) + "%";
-    <li class="group">
-        <span class="group-name">
-            <a href="/vote/@s.Id/@p.Party" title="@Party.FormalName( p.Party )">@Party.Name( p.Party )</a>
-            <span class="group-size">@total</span>
-        </span>
-        <span class="group-bar" aria-hidden="true">
-            <span class="group-bar-fill" style="width:@share">
-                @if ( p.Yes > 0 ) { <span class="seg seg-jaa" style="width:@GroupWidth( p.Yes )"></span> }
-                @if ( p.No > 0 ) { <span class="seg seg-ei" style="width:@GroupWidth( p.No )"></span> }
-                @if ( p.Blank > 0 ) { <span class="seg seg-neutral" style="width:@GroupWidth( p.Blank )"></span> }
-                @if ( p.Absent > 0 ) { <span class="seg seg-absent" style="width:@GroupWidth( p.Absent )"></span> }
-            </span>
-        </span>
-        @* Zero counts are omitted: a row reading "0 · 0 · 0" is noise, and the bar already
-           shows that the group voted one way. *@
-        <span class="group-counts muted">
-            @if ( p.Yes > 0 ) { <span class="vote-Jaa">@p.Yes Jaa</span> }
-            @if ( p.Yes > 0 && ( p.No > 0 || p.Blank > 0 || p.Absent > 0 ) ) { <span class="sep">·</span> }
-            @if ( p.No > 0 ) { <span class="vote-Ei">@p.No Ei</span> }
-            @if ( p.No > 0 && ( p.Blank > 0 || p.Absent > 0 ) ) { <span class="sep">·</span> }
-            @if ( p.Blank > 0 ) { <span>@p.Blank tyhjää</span> }
-            @if ( p.Blank > 0 && p.Absent > 0 ) { <span class="sep">·</span> }
-            @if ( p.Absent > 0 ) { <span>@p.Absent poissa</span> }
-        </span>
-    </li>
+<partial name="Shared/_Breakdown" model="groups" />
+
+@* The one breakdown that answers "how did my region vote". Below the groups, because the
+   groups are how the chamber actually divides. *@
+@if ( Model.Districts.Count > 0 ) {
+    <h2>Vaalipiireittäin</h2>
+    <partial name="Shared/_Breakdown" model="Breakdown.Of( Model.Districts )" />
 }
-</ol>
 
 @if ( Model.Votes.Count > 0 ) {
     <h2>Edustajien äänet</h2>

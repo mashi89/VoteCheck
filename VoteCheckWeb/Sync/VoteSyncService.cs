@@ -60,15 +60,13 @@ public sealed class VoteSyncService : BackgroundService {
     private async Task SyncAsync( CancellationToken ct ) {
         using var conn = _db.Open();
 
-        // Rows imported before the document columns existed carry no matter, and the cursor
+        // Rows imported before a column or table existed carry nothing in it, and the cursor
         // sits past them, so nothing would ever go back for them. Rewinding once is cheap —
         // the archive re-walks 50 divisions to a request, so a few dozen calls — and the
-        // import updates only the document on a row it already has.
-        if ( GetState( conn, "doc_backfill" ) == null ) {
-            SetState( conn, "vote_cursor", "0" );
-            SetState( conn, "doc_backfill", DateTimeOffset.UtcNow.ToString( "o" ) );
-            _log.LogInformation( "Rewinding once to record which matter each division decides" );
-        }
+        // import writes only what it adds on a row it already has. Each rewind is recorded
+        // under its own key, so adding the next one does not repeat the ones before it.
+        RewindOnce( conn, "doc_backfill", "record which matter each division decides" );
+        RewindOnce( conn, "split_backfill", "record the government and district breakdowns" );
 
         var cursor = int.TryParse( GetState( conn, "vote_cursor" ), out var stored ) ? stored : 0;
         var imported = 0;
@@ -200,7 +198,7 @@ public sealed class VoteSyncService : BackgroundService {
 
     // One page, one transaction: a crash mid-page leaves the cursor where it was, and the
     // page is re-imported harmlessly because every write is an upsert.
-    private static int ImportPage( SqliteConnection conn, VotePage page ) {
+    internal static int ImportPage( SqliteConnection conn, VotePage page ) {
         using var tx = conn.BeginTransaction();
         var count = 0;
 
@@ -245,6 +243,9 @@ public sealed class VoteSyncService : BackgroundService {
                 ( "$docId", vote.Kohta?.Asiakirjat?.PaaasiakirjaEduskuntatunnus?.Fi?.Trim() ?? "" ),
                 ( "$docType", vote.Kohta?.Asiakirjat?.PaaasiakirjaAsiatyyppi?.Trim() ?? "" ) );
 
+            ImportSplits( conn, tx, vote.Id, SplitKind.Government, vote.HallitusoppositioJakaumat );
+            ImportSplits( conn, tx, vote.Id, SplitKind.District, vote.VaalipiiriJakaumat );
+
             foreach ( var ballot in vote.Aanestystapahtumat ) {
                 var party = ballot.Edkryhmalyhenne?.Fi?.Trim() ?? "";
                 var choice = VoteValue.Normalize( ballot.Kayttaytyminen?.Fi );
@@ -274,6 +275,49 @@ public sealed class VoteSyncService : BackgroundService {
 
         tx.Commit();
         return count;
+    }
+
+    private void RewindOnce( SqliteConnection conn, string key, string reason ) {
+        if ( GetState( conn, key ) != null ) return;
+        SetState( conn, "vote_cursor", "0" );
+        SetState( conn, key, DateTimeOffset.UtcNow.ToString( "o" ) );
+        _log.LogInformation( "Rewinding once to {Reason}", reason );
+    }
+
+    private static void ImportSplits(
+        SqliteConnection conn, SqliteTransaction tx, string sessionId, string kind,
+        IReadOnlyList<Aanestysjakauma> splits ) {
+
+        for ( var i = 0; i < splits.Count; i++ ) {
+            var split = splits[ i ];
+            var name = split.Nimi?.Fi?.Trim();
+            if ( string.IsNullOrEmpty( name ) ) continue;
+
+            // An upsert rather than INSERT OR IGNORE, unlike the ballots: the rewind that
+            // backfills this table walks rows that are already here, and it is the counts it
+            // has come for.
+            Exec( conn, tx, """
+                INSERT INTO session_split ( session_id, kind, name, name_sv, ordinal,
+                                            yes, no, blank, absent )
+                VALUES ( $sid, $kind, $name, $nameSv, $ordinal, $yes, $no, $blank, $absent )
+                ON CONFLICT ( session_id, kind, name ) DO UPDATE SET
+                    name_sv = excluded.name_sv,
+                    ordinal = excluded.ordinal,
+                    yes     = excluded.yes,
+                    no      = excluded.no,
+                    blank   = excluded.blank,
+                    absent  = excluded.absent
+                """,
+                ( "$sid", sessionId ),
+                ( "$kind", kind ),
+                ( "$name", name ),
+                ( "$nameSv", split.Nimi?.Sv?.Trim() ?? "" ),
+                ( "$ordinal", i ),
+                ( "$yes", split.Jaa ),
+                ( "$no", split.Ei ),
+                ( "$blank", split.Tyhjia ),
+                ( "$absent", split.Poissa ) );
+        }
     }
 
     private static string Left( string? value, int length ) =>

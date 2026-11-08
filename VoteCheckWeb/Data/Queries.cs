@@ -54,6 +54,18 @@ public sealed record Matter(
 
 public sealed record PartyDistribution( string Party, int Yes, int No, int Blank, int Absent );
 
+// One row of a breakdown upstream computes for a division: the government or the
+// opposition, or one electoral district.
+public sealed record Split( string Name, int Yes, int No, int Blank, int Absent ) {
+    public int Total => Yes + No + Blank + Absent;
+}
+
+// The values of session_split.kind.
+public static class SplitKind {
+    public const string Government = "government";
+    public const string District = "district";
+}
+
 public sealed record IndividualVote( int PersonNumber, string FirstName, string LastName, string Party, string Vote );
 
 public sealed record MpProfile( MpSummary Mp, int TotalVotes, int Present, IReadOnlyList<MpVote> LatestVotes );
@@ -190,6 +202,29 @@ public sealed class Queries {
         using var r = cmd.ExecuteReader();
         while ( r.Read() )
             result.Add( new PartyDistribution( r.GetString( 0 ), r.GetInt32( 1 ), r.GetInt32( 2 ), r.GetInt32( 3 ), r.GetInt32( 4 ) ) );
+        return result;
+    }
+
+    // A breakdown upstream computed for this division, in upstream's order. Empty when the
+    // division predates the table and the backfill has not reached it yet — an ordinary state
+    // for a while after deployment, so the page must render without one.
+    public IReadOnlyList<Split> GetSplits( string sessionId, string kind, string? lang = null ) {
+        using var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT CASE WHEN $sv = 1 AND name_sv <> '' THEN name_sv ELSE name END,
+                   yes, no, blank, absent
+            FROM session_split
+            WHERE session_id = $id AND kind = $kind
+            ORDER BY ordinal
+            """;
+        cmd.Parameters.AddWithValue( "$id", sessionId );
+        cmd.Parameters.AddWithValue( "$kind", kind );
+        cmd.Parameters.AddWithValue( "$sv", IsSwedish( lang ) ? 1 : 0 );
+        var result = new List<Split>();
+        using var r = cmd.ExecuteReader();
+        while ( r.Read() )
+            result.Add( new Split( r.GetString( 0 ), r.GetInt32( 1 ), r.GetInt32( 2 ), r.GetInt32( 3 ), r.GetInt32( 4 ) ) );
         return result;
     }
 

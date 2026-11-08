@@ -443,6 +443,48 @@ namespace VoteCheck.Core.Tests
             Assert.AreEqual(22, vote.VaalipiiriJakaumat[0].Yhteensa);
         }
 
+        // ── valtiopaivaasiat ──────────────────────────────────────────────────
+
+        [TestMethod]
+        public async Task Matter_DeserializesWhatTheSyncStores()
+        {
+            // Until this fixture, every matter test asserted against a hand-built object, so a
+            // renamed or reshaped field upstream would have passed them all. These are the
+            // fields StoreMatter writes into the mirror.
+            var matter = await ClientReturning(Fixtures.MatterHe32_2026).GetMatterAsync("HE 32/2026 vp");
+
+            Assert.IsNotNull(matter);
+            Assert.AreEqual("HE 32/2026 vp", matter!.Eduskuntatunnus?.Fi);
+            Assert.AreEqual("Hallituksen esitys", matter.Asiakirjatyyppinimi?.Fi);
+            Assert.AreEqual("Hyväksytty muutettuna", matter.Kokonaispaatosnimi?.Fi);
+            Assert.AreEqual("Käsitelty", matter.Tila?.Fi);
+            StringAssert.StartsWith(matter.Nimeke?.Fi, "Hallituksen esitys eduskunnalle laeiksi eläinten");
+            Assert.AreEqual("https://www.eduskunta.fi/valtiopaivaasiat/HE+32/2026",
+                matter.PublicUrl()?.ToString());
+        }
+
+        [TestMethod]
+        public async Task Matter_KeywordsArriveUnorderedAndAreSortedByTheirNumbering()
+        {
+            // The live response lists subject terms alphabetically, not in their numbered order,
+            // which is the case Keywords() exists for — checked here against the real thing
+            // rather than a list arranged to exercise it. "eläinten hyvinvointi" is number 1
+            // and arrives third.
+            var matter = await ClientReturning(Fixtures.MatterHe32_2026).GetMatterAsync("HE 32/2026 vp");
+
+            var raw = matter!.Asiasanat!.Fi;
+            Assert.IsTrue(raw.Count > 1);
+            CollectionAssert.AreNotEqual(
+                raw.OrderBy(a => a.AsiasanaJarjestys).Select(a => a.Aiheteksti).ToList(),
+                raw.Select(a => a.Aiheteksti).ToList(),
+                "the fixture no longer exercises reordering");
+
+            var keywords = matter.Keywords();
+            Assert.AreEqual(raw.Count, keywords.Count);
+            Assert.AreEqual("eläinten hyvinvointi", keywords[0]);
+            Assert.AreEqual("sika", keywords[1]);
+        }
+
         // ── uusimmat-aanestykset (nested array) ───────────────────────────────
 
         [TestMethod]
