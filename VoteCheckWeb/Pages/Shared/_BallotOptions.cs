@@ -50,8 +50,8 @@ public sealed record BallotOptions( string? Question, string Yes, string No ) {
         }
         if ( !match.Success ) return null;
 
-        var yes = Side( match.Groups[ "yes" ].Value );
-        var no = Side( InnerNo.Replace( match.Groups[ "no" ].Value, "" ) );
+        var yes = Label( match.Groups[ "yes" ].Value );
+        var no = Label( InnerNo.Replace( match.Groups[ "no" ].Value, "" ) );
 
         // "Lakiehdotuksen julistaminen kiireelliseksi: JAA / EI" states a question and no
         // options — Jaa is for, Ei against. Reading it as a Jaa option ending in a colon and
@@ -67,7 +67,9 @@ public sealed record BallotOptions( string? Question, string Yes, string No ) {
         return new BallotOptions( string.IsNullOrEmpty( question ) ? null : question, yes, no );
     }
 
-    private static string Side( string text ) {
+    // One side's name as a reader should see it. Shared with the options read from the minutes,
+    // which name the sides the same way ("Mietintö", "Lauri Lylyn ehdotus (vl 1)").
+    public static string Label( string text ) {
         var side = text.Trim();
 
         // A bare "mietintö" in a plenary vote is always the report of the committee that

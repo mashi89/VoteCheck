@@ -765,9 +765,13 @@ not by cost, though it happens that the first is also the cheapest.*
 
 ### Step 4 — Say what the division decided ([#67](https://github.com/mashi89/VoteCheck/issues/67))
 
-*In review as [#71](https://github.com/mashi89/VoteCheck/pull/71): the government/opposition and
-district splits, and the Jaa/Ei gloss for divisions whose title names both options. The rest of
-the* done when *stays open after it.*
+*Partly shipped. [#71](https://github.com/mashi89/VoteCheck/pull/71) added the government/opposition
+and district splits and a Jaa/Ei gloss read from the title. That gloss named the options without
+saying what they were — "Pia Lohikosken lausumaehdotus" — so the* done when *still failed. The
+session minutes now supply the setup, the outcome and, where the minutes state it, the proposal's
+own text (about two thirds of divisions; see `docs/eduskunta-api.md`). Still to come, under
+[#67](https://github.com/mashi89/VoteCheck/issues/67): the committee's side and dissenting-opinion
+proposals from the committee report, and proposals made in minutes attachments.*
 
 *Goal: close the last step between "101–90" and "and so this is what happens now".*
 

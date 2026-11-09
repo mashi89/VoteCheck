@@ -1,0 +1,32 @@
+@model MinutesOption?
+
+@* The text behind one side of a vote, as the session's minutes state it. Nothing renders when
+   the minutes did not state one — the committee's side, or a proposal made in an attachment.
+
+   A long proposal is folded so the result panel stays a first screen: the opening is shown,
+   and the whole text is one tap away on the same page. The opening is cut at a word and marked
+   as cut, because a quotation that ends mid-sentence without saying so reads as the whole. *@
+
+@{
+    const int Fold = 220;
+    var text = Model?.Text ?? "";
+}
+@if ( text.Length > 0 ) {
+    <div class="option-text">
+        @if ( Model!.Context.Length > 0 ) {
+            <span class="option-context muted">@Model.Context</span>
+        }
+        @if ( text.Length <= Fold ) {
+            <p>@text</p>
+        } else {
+            var cut = text.LastIndexOf( ' ', Fold );
+            <details>
+                <summary>
+                    <span class="option-preview">@text[..( cut > 0 ? cut : Fold )]…</span>
+                    <span class="option-more">Näytä koko teksti</span>
+                </summary>
+                <p>@text</p>
+            </details>
+        }
+    </div>
+}

@@ -15,6 +15,15 @@ namespace VoteCheck.Core.Tests
     //                                     sitting, one former, whole records kept)
     //   valtiopaivaasia-he-32-2026.json   GET /valtiopaivaasiat/HE%2032%2F2026%20vp — the
     //                                     matter aanestys-2026-60-1 decides a step of
+    //   poytakirja-ptk-108-2026.xml       GET /asiakirjat/edktunnus/EDK-2026-AK-63386/xml —
+    //                                     the full minutes of session 108/2026: proposals
+    //                                     described in the debate, and accept/reject votes
+    //   poytakirja-ptk-39-2024.xml        GET /asiakirjat/edktunnus/EDK-2024-AK-15838/xml —
+    //                                     a supplementary budget with a numbered proposal list
+    //   poytakirja-ptk-76-2023-trimmed.xml GET /asiakirjat/edktunnus/EDK-2023-AK-48473/xml —
+    //                                     the 2024 budget's final session, trimmed to its first
+    //                                     four items: the closing confidence vote and two
+    //                                     chapters (MuuAsiakohta), each numbered from 1
     internal static class Fixtures
     {
         public static string Mp1109 => Load("kansanedustaja-1109.json");
@@ -23,6 +32,9 @@ namespace VoteCheck.Core.Tests
         public static string RecentVotes => Load("uusimmat-aanestykset-trimmed.json");
         public static string VoteSearch => Load("search-aanestys-trimmed.json");
         public static string MatterHe32_2026 => Load("valtiopaivaasia-he-32-2026.json");
+        public static string MinutesPtk108_2026 => Load("poytakirja-ptk-108-2026.xml");
+        public static string MinutesPtk39_2024 => Load("poytakirja-ptk-39-2024.xml");
+        public static string MinutesPtk76_2023Trimmed => Load("poytakirja-ptk-76-2023-trimmed.xml");
 
         private static string Load(string fileName) =>
             File.ReadAllText(Path.Combine("Fixtures", fileName));

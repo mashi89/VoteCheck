@@ -99,23 +99,45 @@
     </ul>
 
     @* What a Jaa and an Ei were votes for. Without this the tally answers "how many" and
-       leaves "for what" to a reader who knows the procedure. Shown only when the title says
-       which side is which in so many words — see BallotOptions. *@
-    @if ( Model.Options is { } options ) {
+       leaves "for what" to a reader who knows the procedure. The minutes are preferred: they
+       mark both sides on every vote and state the proposal's text beside it. Without them,
+       only a title that says which side is which in so many words is read — see
+       BallotOptions. *@
+    @{
+        var minutes = Model.Minutes;
+        var question = Model.Options?.Question;
+        string? yesLabel = minutes?.Yes is { } y ? BallotOptions.Label( y.Label ) : Model.Options?.Yes;
+        string? noLabel = minutes?.No is { } n ? BallotOptions.Label( n.Label ) : Model.Options?.No;
+        var outcome = minutes?.Outcome ?? "";
+    }
+    @if ( yesLabel != null && noLabel != null ) {
         <div class="options">
-            @if ( options.Question != null ) {
-                <p class="options-question muted">Äänestettiin: @options.Question</p>
+            @if ( question != null ) {
+                <p class="options-question muted">Äänestettiin: @question</p>
             }
             <dl class="options-list">
                 <div class="option">
                     <dt><span class="v-jaa">Jaa</span></dt>
-                    <dd>@options.Yes</dd>
+                    <dd>
+                        @yesLabel
+                        <partial name="Shared/_OptionText" model="minutes?.Yes" />
+                    </dd>
                 </div>
                 <div class="option">
                     <dt><span class="v-ei">Ei</span></dt>
-                    <dd>@options.No</dd>
+                    <dd>
+                        @noLabel
+                        <partial name="Shared/_OptionText" model="minutes?.No" />
+                    </dd>
                 </div>
             </dl>
+            @if ( outcome.Length > 0 ) {
+                @* Quoted from the minutes, so it is clear these are the parliament's words and not
+                   a summary of ours. *@
+                <p class="options-outcome">
+                    <span class="muted">Pöytäkirjan mukaan:</span> <q>@outcome</q>
+                </p>
+            }
         </div>
     }
 
@@ -218,12 +240,19 @@
 }
 
 @* The procedural wording, as upstream states it, when it could not be read into the options
-   above. Shown as a quotation so it is clear these are not our words. *@
-@if ( hasSubject && Model.Options == null ) {
+   above. Shown as a quotation so it is clear these are not our words. The minutes' setup is
+   preferred: it says "jaa" and "ei" where the title only has a slash. *@
+@if ( hasSubject && ( yesLabel == null || noLabel == null ) ) {
     <p class="asettelu">
         <span class="label">Äänestysasettelu</span>
-        <q>@s.Title</q>
+        <q>@( string.IsNullOrEmpty( minutes?.Setup ) ? s.Title : minutes.Setup )</q>
     </p>
+    @if ( outcome.Length > 0 ) {
+        <p class="asettelu">
+            <span class="label">Pöytäkirjan mukaan</span>
+            <q>@outcome</q>
+        </p>
+    }
 }
 
 @{

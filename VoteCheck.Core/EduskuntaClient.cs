@@ -221,6 +221,68 @@ namespace VoteCheck.Core
             return JsonConvert.DeserializeObject<Valtiopaivaasia>(json);
         }
 
+        public async Task<Poytakirja?> GetSessionMinutesAsync(
+            int vpYear, int sessionNumber, CancellationToken cancellationToken = default)
+        {
+            // The type name, not just the identifier: "PTK 108/2026 vp" is also the identifier
+            // of every per-matter item of that session, and those leave out the annual budget's
+            // per-chapter votes. Only the document typed "Pöytäkirja" holds them all.
+            var request = new
+            {
+                category = "asiakirja",
+                maxResults = 1,
+                startFromIndex = 0,
+                // The document's text runs to hundreds of kilobytes and the search only has to
+                // say which document it is.
+                fields = new { operation = "exclude", list = new[] { "fullText" } },
+                expression = new
+                {
+                    and = new object[]
+                    {
+                        new { property = "asiakirjatyyppinimi", stringValue = "Pöytäkirja" },
+                        new { property = "eduskuntatunnus", stringValue = $"PTK {sessionNumber}/{vpYear} vp" },
+                    },
+                },
+            };
+
+            var response = await PostAsync<DocumentSearchResponse>("search", request, cancellationToken)
+                .ConfigureAwait(false);
+
+            string? edktunnus = response?.Results?
+                .Select(hit => hit?.Asiakirja?.Edktunnus)
+                .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+            if (edktunnus is null)
+                return null;
+
+            // Answered with a redirect to the document store, which HttpClient follows.
+            using var xml = await _httpClient
+                .GetAsync($"asiakirjat/edktunnus/{Uri.EscapeDataString(edktunnus)}/xml", cancellationToken)
+                .ConfigureAwait(false);
+
+            if (xml.StatusCode == HttpStatusCode.NotFound)
+                return null;
+
+            xml.EnsureSuccessStatusCode();
+
+            string body = await xml.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return Poytakirja.Parse(edktunnus, body);
+        }
+
+        private sealed class DocumentSearchResponse
+        {
+            public List<DocumentSearchHit>? Results { get; set; }
+        }
+
+        private sealed class DocumentSearchHit
+        {
+            public DocumentMetadata? Asiakirja { get; set; }
+        }
+
+        private sealed class DocumentMetadata
+        {
+            public string? Edktunnus { get; set; }
+        }
+
         // Search returns category-tagged envelopes rather than bare objects.
         private sealed class VoteSearchResponse
         {

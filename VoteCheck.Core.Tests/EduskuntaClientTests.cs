@@ -52,6 +52,24 @@ namespace VoteCheck.Core.Tests
         }
 
         [TestMethod]
+        public async Task GetSessionMinutesAsync_SearchesForTheFullMinutesByTypeAndIdentifier()
+        {
+            // The identifier alone also matches every per-matter item of the session, and those
+            // leave out the annual budget's per-chapter votes. The type is what picks the one
+            // document that has them all.
+            var handler = new StubHttpMessageHandler("{\"results\":[]}");
+            var client = CreateClient(handler);
+
+            var minutes = await client.GetSessionMinutesAsync(2026, 108);
+
+            Assert.IsNull(minutes, "no hit means not published yet");
+            Assert.AreEqual("https://api.eduskunta.fi/api/v1/search", handler.RequestedUrl);
+            StringAssert.Contains(handler.RequestBody, "\"category\":\"asiakirja\"");
+            StringAssert.Contains(handler.RequestBody, "\"stringValue\":\"Pöytäkirja\"");
+            StringAssert.Contains(handler.RequestBody, "\"stringValue\":\"PTK 108/2026 vp\"");
+        }
+
+        [TestMethod]
         public async Task GetMatterAsync_ReturnsNull_WhenNoSuchMatter()
         {
             var client = CreateClient(new StubHttpMessageHandler("", HttpStatusCode.NotFound));

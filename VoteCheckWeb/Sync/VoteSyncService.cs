@@ -29,6 +29,15 @@ public sealed class VoteSyncService : BackgroundService {
     // filled in over a few cycles rather than in one burst against upstream's rate cap.
     private const int MatterBatch = 60;
 
+    // Sessions whose minutes are read per cycle. Each costs one search — the capped verb,
+    // shared with the vote paging — and one document fetch, so the ~150 sessions of the 2023+
+    // window fill in over a couple of hours rather than in one burst.
+    private const int MinutesBatch = 20;
+
+    // How long to wait before asking again for minutes that were not published yet. They
+    // usually appear within hours of the session; a few never do.
+    private static readonly TimeSpan MinutesRetry = TimeSpan.FromHours( 6 );
+
     public VoteSyncService( Db db, IEduskuntaClient api, IConfiguration config, ILogger<VoteSyncService> log ) {
         _db = db;
         _api = api;
@@ -110,6 +119,108 @@ public sealed class VoteSyncService : BackgroundService {
         }
 
         await SyncMattersAsync( conn, ct );
+        await SyncMinutesAsync( conn, ct );
+    }
+
+    // Read each session's minutes for what the sides of its votes stood for. Context, like the
+    // matters: nothing here may abort the cycle, and a session that fails is asked again next
+    // time. Newest sessions first, because those are the divisions people are reading.
+    private async Task SyncMinutesAsync( SqliteConnection conn, CancellationToken ct ) {
+        var pending = new List<(int Year, int Session)>();
+        using ( var cmd = conn.CreateCommand() ) {
+            cmd.CommandText = """
+                SELECT s.vp_year, s.session_number
+                FROM ( SELECT DISTINCT vp_year, session_number FROM session ) s
+                LEFT JOIN sitting_minutes m
+                    ON m.vp_year = s.vp_year AND m.session_number = s.session_number
+                WHERE m.vp_year IS NULL OR ( m.document = '' AND m.checked_at < $retryBefore )
+                ORDER BY s.vp_year DESC, s.session_number DESC
+                LIMIT $limit
+                """;
+            cmd.Parameters.AddWithValue( "$retryBefore", ( DateTimeOffset.UtcNow - MinutesRetry ).ToString( "o" ) );
+            cmd.Parameters.AddWithValue( "$limit", MinutesBatch );
+            using var r = cmd.ExecuteReader();
+            while ( r.Read() ) pending.Add( ( r.GetInt32( 0 ), r.GetInt32( 1 ) ) );
+        }
+
+        if ( pending.Count == 0 ) return;
+
+        var read = 0;
+        foreach ( var (year, session) in pending ) {
+            if ( ct.IsCancellationRequested ) break;
+
+            try {
+                var minutes = await _api.GetSessionMinutesAsync( year, session, ct );
+                if ( StoreMinutes( conn, year, session, minutes ) > 0 ) read++;
+            } catch ( Exception ex ) when ( ex is not OperationCanceledException ) {
+                _log.LogWarning( ex, "Could not read minutes of session {Session}/{Year}; will retry next cycle",
+                    session, year );
+            }
+
+            await Task.Delay( _requestDelay, ct );
+        }
+
+        if ( read > 0 )
+            _log.LogInformation( "Read the minutes of {Count} sessions", read );
+    }
+
+    // Stores what one session's minutes say about its votes, and records that the session has
+    // been asked about. Returns the number of divisions it wrote.
+    internal static int StoreMinutes( SqliteConnection conn, int year, int session, Poytakirja? minutes ) {
+        using var tx = conn.BeginTransaction();
+        var written = 0;
+
+        foreach ( var vote in minutes?.Aanestykset ?? [] ) {
+            // Only divisions the mirror holds. The minutes record every vote of the session,
+            // and a vote the mirror lacks has nowhere to be shown.
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+                INSERT INTO session_minutes ( session_id, setup, outcome,
+                                              yes_label, yes_context, yes_text,
+                                              no_label, no_context, no_text )
+                SELECT $sid, $setup, $outcome, $yesLabel, $yesContext, $yesText,
+                       $noLabel, $noContext, $noText
+                WHERE EXISTS ( SELECT 1 FROM session WHERE id = $sid )
+                ON CONFLICT ( session_id ) DO UPDATE SET
+                    setup       = excluded.setup,
+                    outcome     = excluded.outcome,
+                    yes_label   = excluded.yes_label,
+                    yes_context = excluded.yes_context,
+                    yes_text    = excluded.yes_text,
+                    no_label    = excluded.no_label,
+                    no_context  = excluded.no_context,
+                    no_text     = excluded.no_text
+                """;
+            cmd.Parameters.AddWithValue( "$sid", vote.AanestysTunnus );
+            cmd.Parameters.AddWithValue( "$setup", vote.Asettelu );
+            cmd.Parameters.AddWithValue( "$outcome", vote.Tulos );
+            cmd.Parameters.AddWithValue( "$yesLabel", vote.Jaa?.Nimi ?? "" );
+            cmd.Parameters.AddWithValue( "$yesContext", vote.Jaa?.Kohta ?? "" );
+            cmd.Parameters.AddWithValue( "$yesText", vote.Jaa?.Teksti ?? "" );
+            cmd.Parameters.AddWithValue( "$noLabel", vote.Ei?.Nimi ?? "" );
+            cmd.Parameters.AddWithValue( "$noContext", vote.Ei?.Kohta ?? "" );
+            cmd.Parameters.AddWithValue( "$noText", vote.Ei?.Teksti ?? "" );
+            written += cmd.ExecuteNonQuery();
+        }
+
+        // A document that yielded no votes is recorded as not found, so it is asked for again
+        // rather than marked as read for ever: an unreadable or half-published document is
+        // something upstream may still fix.
+        Exec( conn, tx, """
+            INSERT INTO sitting_minutes ( vp_year, session_number, document, checked_at )
+            VALUES ( $year, $session, $document, $at )
+            ON CONFLICT ( vp_year, session_number ) DO UPDATE SET
+                document   = excluded.document,
+                checked_at = excluded.checked_at
+            """,
+            ( "$year", year ),
+            ( "$session", session ),
+            ( "$document", written > 0 ? minutes!.Edktunnus : "" ),
+            ( "$at", DateTimeOffset.UtcNow.ToString( "o" ) ) );
+
+        tx.Commit();
+        return written;
     }
 
     // Fetch the matters the divisions point at — what a bill is about, in words a reader

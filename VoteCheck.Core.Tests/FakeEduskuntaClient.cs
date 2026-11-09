@@ -96,6 +96,18 @@ namespace VoteCheck.Core.Tests
             return new VotePage { Votes = Votes, TotalCount = Votes.Count, StartIndex = startFromIndex };
         }
 
+        public int MinutesCalls { get; private set; }
+
+        public Poytakirja? Minutes { get; set; }
+
+        public async Task<Poytakirja?> GetSessionMinutesAsync(
+            int vpYear, int sessionNumber, CancellationToken cancellationToken = default)
+        {
+            MinutesCalls++;
+            await WaitForGateAsync().ConfigureAwait(false);
+            return Minutes;
+        }
+
         private Task WaitForGateAsync() => Gate?.Task ?? Task.CompletedTask;
     }
 }

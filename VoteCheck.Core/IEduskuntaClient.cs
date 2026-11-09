@@ -69,5 +69,17 @@ namespace VoteCheck.Core
         // "no such thing" is an ordinary answer here and the caller records it as one.
         Task<Valtiopaivaasia?> GetMatterAsync(
             string eduskuntatunnus, CancellationToken cancellationToken = default);
+
+        // A plenary session's minutes, read for what each vote's options were — "PTK 108/2026 vp"
+        // for vpYear 2026, session 108. See Poytakirja.
+        //
+        // Null when the minutes are not published yet, which is the ordinary state for a few
+        // hours after a session and not an error: the caller should ask again later.
+        //
+        // Costs one search (the capped verb) and one document fetch. Finding the document takes
+        // a search because the by-identifier lookup returns at most ten documents per
+        // identifier, cannot page, and usually leaves the full minutes out.
+        Task<Poytakirja?> GetSessionMinutesAsync(
+            int vpYear, int sessionNumber, CancellationToken cancellationToken = default);
     }
 }
