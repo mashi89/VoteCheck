@@ -61,6 +61,12 @@ namespace VoteCheck.Core
             int vpYear, int sessionNumber, CancellationToken cancellationToken = default) =>
             _inner.GetSessionMinutesAsync(vpYear, sessionNumber, cancellationToken);
 
+        // Not cached either: read by the sync alongside the minutes, and a budget report runs
+        // to megabytes.
+        public Task<Mietinto?> GetCommitteeReportAsync(
+            string matterId, string reportId, CancellationToken cancellationToken = default) =>
+            _inner.GetCommitteeReportAsync(matterId, reportId, cancellationToken);
+
         // A matter's keywords and title are settled long before anyone reads them here, and
         // roughly three divisions share each one, so this is the same win as a completed vote:
         // a page showing several divisions of one bill fetches it once.

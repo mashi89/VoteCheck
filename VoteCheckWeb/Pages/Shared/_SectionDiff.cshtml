@@ -1,0 +1,30 @@
+@model IReadOnlyList<WordDiff.Hunk>
+
+@* How the Ei side's wording of a section differs from the committee's, passage by passage.
+   Struck words are the committee's that Ei would have removed; marked words are the ones it
+   would have put in. Screen readers are told which is which in words, since the styling is
+   not announced. *@
+
+@if ( Model.Count > 0 ) {
+    <div class="option-diff">
+        <p class="option-diff-title muted">Ero valiokunnan sanamuotoon</p>
+        @foreach ( var hunk in Model ) {
+            <p>
+                @if ( hunk.CutBefore ) { @:…
+                }
+                @foreach ( var segment in hunk.Segments ) {
+                    if ( segment.Kind == WordDiff.Kind.Removed ) {
+                        <del><span class="visually-hidden">poistettaisiin: </span>@segment.Text</del>
+                    } else if ( segment.Kind == WordDiff.Kind.Added ) {
+                        <ins><span class="visually-hidden">lisättäisiin: </span>@segment.Text</ins>
+                    } else {
+                        @segment.Text
+                    }
+                    @:
+                }
+                @if ( hunk.CutAfter ) { @:…
+                }
+            </p>
+        }
+    </div>
+}

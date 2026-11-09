@@ -769,9 +769,10 @@ not by cost, though it happens that the first is also the cheapest.*
 and district splits and a Jaa/Ei gloss read from the title. That gloss named the options without
 saying what they were — "Pia Lohikosken lausumaehdotus" — so the* done when *still failed. The
 session minutes now supply the setup, the outcome and, where the minutes state it, the proposal's
-own text (about two thirds of divisions; see `docs/eduskunta-api.md`). Still to come, under
-[#67](https://github.com/mashi89/VoteCheck/issues/67): the committee's side and dissenting-opinion
-proposals from the committee report, and proposals made in minutes attachments.*
+own text; the committee report supplies the committee's statements and sections and those of its
+dissenting opinions (about three quarters of divisions in all; see `docs/eduskunta-api.md`).
+Still to come, under [#67](https://github.com/mashi89/VoteCheck/issues/67): proposals made in
+minutes attachments.*
 
 *Goal: close the last step between "101–90" and "and so this is what happens now".*
 

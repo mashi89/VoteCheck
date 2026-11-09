@@ -202,9 +202,51 @@ Four things that each looked like missing data:
 - **`GET /asiakirjat/edktunnus/{id}/xml` answers 302** to the document store. Follow it.
 
 Minutes appear a few hours after the session; a handful of sessions have none at all
-(2024/65, for one). A proposal made in an attachment (`Pöytäkirjan liite 6A`) or as a
-dissenting opinion (`vastalauseen 3 mukaiset … lausumaehdotusta`) is only referred to here; its
-text lives in that document or in the committee report.
+(2024/65, for one). A proposal made in an attachment (`Pöytäkirjan liite 6A`) is only referred
+to here, and its text lives in that attachment.
+
+Two ways the minutes' sentences go wrong for a reader that splits on the obvious markers, both
+seen in the archive:
+
+- A sentence can end in a dash rather than a capital: `…vastalauseen 1 mukaisena. — Selonteko
+  ruotsiksi.`
+- Two members' proposals share one sentence, joined by `, ja edustaja X on …` — or by
+  `ja edustaja X on …` with **no comma**. Read as one clause, the first member gets the second
+  member's dissent (session 63/2026 attributed Mehtälä's dissent-2 statements to dissent 4 this
+  way, caught only by comparing with the division titles' `(vl 2)`). `Poytakirja` refuses any
+  clause with more than one `kannattamana` in it.
+
+### Committee reports — the texts the minutes refer to
+
+`Mietinnön lausumaehdotus 1`, `Tiina Elo on … tehnyt vastalauseen 1 mukaiset neljä
+lausumaehdotusta` and a section vote under `1. lakiehdotus` / `24 §` all point into the
+committee report the item names (`KohtaAsiakirja` typed `Valiokunnan mietintö`).
+**`EduskuntaClient.GetCommitteeReportAsync` reads it** (#67), and `Mietinto` holds:
+
+- the committee's statements: `LausumaKannanotto`, numbered by `LausumaKannanottoNro` (`"1."`);
+- its sections: `Saados` (law number in `LakiehdotusNumeroKooste`) → `Pykala`;
+- each dissenting opinion, `JasenMielipideOsa`, titled `Vastalause 1` (or plain `Vastalause` when
+  there is one): statements as `1.\tEduskunta edellyttää…` paragraphs under
+  `SuppeaLausumaKannanottoOsa`, sections under `SuppeaSaadosOsa`.
+
+A member's `ehdotus 2` after `tehnyt vastalauseen 1 mukaiset neljä lausumaehdotusta` is dissent
+1's statement 2. Checked against the 79 divisions whose title names the dissent (`(vl 1)`): all
+agree once clauses are split correctly.
+
+Things that cost time:
+
+- **Finding the report.** `GET /asiakirjat/eduskuntatunnus/HaVM%201%2F2026%20vp` is a fuzzy
+  search: it returns HaVM 1 of 1992, 2004, 2015 and so on, ten at most. The matter
+  (`GET /valtiopaivaasiat/{id}`) lists its documents in `kasittelynAsiakirjat.fi`, a list of
+  lists, each with its exact `eduskuntatunnus` and `edktunnus`. Two GETs, no search.
+- **A dissent's section may lack `identifiointiTunnus`**, which the committee's always carry.
+  Key sections by their heading, `PykalaTunnusKooste` (`"24 §"`), instead.
+- **Changes are marked inside the text.** A dissent's section reads `alle <PoistoTeksti>18
+  </PoistoTeksti><MuutosTeksti>20</MuutosTeksti>-vuotiaan`: the struck words are what it
+  removes from the committee's wording, the others what it puts in. Taking the element's whole
+  text gives `alle 18 20-vuotiaan`, a wording nobody proposed. Leave `PoistoTeksti` out.
+- **A dissent can delete a section** (`1. lakiehdotuksen 26 § poistetaan`), and then has no
+  wording of it. The vote's Ei side keeps the minutes' sentence.
 
 ---
 

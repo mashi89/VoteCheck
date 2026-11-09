@@ -108,6 +108,15 @@ namespace VoteCheck.Core.Tests
             return Minutes;
         }
 
+        public Mietinto? Report { get; set; }
+
+        public async Task<Mietinto?> GetCommitteeReportAsync(
+            string matterId, string reportId, CancellationToken cancellationToken = default)
+        {
+            await WaitForGateAsync().ConfigureAwait(false);
+            return Report;
+        }
+
         private Task WaitForGateAsync() => Gate?.Task ?? Task.CompletedTask;
     }
 }

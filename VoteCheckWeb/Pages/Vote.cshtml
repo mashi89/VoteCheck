@@ -109,6 +109,13 @@
         string? yesLabel = minutes?.Yes is { } y ? BallotOptions.Label( y.Label ) : Model.Options?.Yes;
         string? noLabel = minutes?.No is { } n ? BallotOptions.Label( n.Label ) : Model.Options?.No;
         var outcome = minutes?.Outcome ?? "";
+
+        // A section vote with both wordings in hand: the committee's against the one Ei would
+        // have adopted. Their difference is what the vote was about, so it is shown first.
+        var sectionDiff = minutes?.Yes is { Text.Length: > 0 } ys && minutes.No is { Text.Length: > 0 } ns
+                          && ys.Context.Contains( '§' ) && ns.Context.Contains( '§' )
+            ? WordDiff.Hunks( ys.Text, ns.Text )
+            : [];
     }
     @if ( yesLabel != null && noLabel != null ) {
         <div class="options">
@@ -127,6 +134,7 @@
                     <dt><span class="v-ei">Ei</span></dt>
                     <dd>
                         @noLabel
+                        <partial name="Shared/_SectionDiff" model="sectionDiff" />
                         <partial name="Shared/_OptionText" model="minutes?.No" />
                     </dd>
                 </div>

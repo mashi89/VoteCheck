@@ -76,6 +76,7 @@ public sealed class VoteSyncService : BackgroundService {
         // under its own key, so adding the next one does not repeat the ones before it.
         RewindOnce( conn, "doc_backfill", "record which matter each division decides" );
         RewindOnce( conn, "split_backfill", "record the government and district breakdowns" );
+        RereadMinutesOnce( conn, "minutes_reports", "read the committee reports they refer to" );
 
         var cursor = int.TryParse( GetState( conn, "vote_cursor" ), out var stored ) ? stored : 0;
         var imported = 0;
@@ -146,11 +147,16 @@ public sealed class VoteSyncService : BackgroundService {
         if ( pending.Count == 0 ) return;
 
         var read = 0;
+        // Reports by matter and identifier, for this cycle. A session's votes on one bill all
+        // refer to the same report, and so do the sessions of its first and second reading.
+        var reports = new Dictionary<string, Mietinto?>();
         foreach ( var (year, session) in pending ) {
             if ( ct.IsCancellationRequested ) break;
 
             try {
                 var minutes = await _api.GetSessionMinutesAsync( year, session, ct );
+                if ( minutes != null )
+                    await ResolveFromReportsAsync( conn, minutes, reports, ct );
                 if ( StoreMinutes( conn, year, session, minutes ) > 0 ) read++;
             } catch ( Exception ex ) when ( ex is not OperationCanceledException ) {
                 _log.LogWarning( ex, "Could not read minutes of session {Session}/{Year}; will retry next cycle",
@@ -162,6 +168,44 @@ public sealed class VoteSyncService : BackgroundService {
 
         if ( read > 0 )
             _log.LogInformation( "Read the minutes of {Count} sessions", read );
+    }
+
+    // Fills in the texts the minutes only refer to — the committee's statements and sections,
+    // and the dissenting opinions' — from the report each vote's item was decided on.
+    //
+    // A report that cannot be fetched throws, so the session is not recorded as read and is
+    // asked for again next cycle; storing it without the texts would keep them out for good.
+    // A matter that does not list the report is an answer, and the votes keep what the minutes
+    // themselves said.
+    private async Task ResolveFromReportsAsync(
+        SqliteConnection conn, Poytakirja minutes, Dictionary<string, Mietinto?> reports, CancellationToken ct ) {
+
+        foreach ( var vote in minutes.Aanestykset ) {
+            if ( vote.Mietinto.Length == 0 || ( vote.Jaa?.Viite == null && vote.Ei?.Viite == null ) )
+                continue;
+
+            var matter = DocumentOf( conn, vote.AanestysTunnus );
+            if ( matter == null ) continue;
+
+            var key = $"{matter}\n{vote.Mietinto}";
+            if ( !reports.TryGetValue( key, out var report ) ) {
+                report = await _api.GetCommitteeReportAsync( matter, vote.Mietinto, ct );
+                reports[ key ] = report;
+                await Task.Delay( _requestDelay, ct );
+            }
+            if ( report == null ) continue;
+
+            if ( vote.Jaa != null ) report.Resolve( vote.Jaa );
+            if ( vote.Ei != null ) report.Resolve( vote.Ei );
+        }
+    }
+
+    // The matter a division decides a step of, which is where its committee report is listed.
+    private static string? DocumentOf( SqliteConnection conn, string sessionId ) {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT doc_id FROM session WHERE id = $id AND doc_id <> ''";
+        cmd.Parameters.AddWithValue( "$id", sessionId );
+        return cmd.ExecuteScalar() as string;
     }
 
     // Stores what one session's minutes say about its votes, and records that the session has
@@ -393,6 +437,19 @@ public sealed class VoteSyncService : BackgroundService {
         SetState( conn, "vote_cursor", "0" );
         SetState( conn, key, DateTimeOffset.UtcNow.ToString( "o" ) );
         _log.LogInformation( "Rewinding once to {Reason}", reason );
+    }
+
+    // The minutes counterpart of RewindOnce: forget which sessions' minutes have been read, so
+    // the next cycles read them all again with whatever the reading has learnt since. The rows
+    // already stored stay and are replaced as each session is read; nothing goes blank.
+    private void RereadMinutesOnce( SqliteConnection conn, string key, string reason ) {
+        if ( GetState( conn, key ) != null ) return;
+        using ( var cmd = conn.CreateCommand() ) {
+            cmd.CommandText = "DELETE FROM sitting_minutes";
+            cmd.ExecuteNonQuery();
+        }
+        SetState( conn, key, DateTimeOffset.UtcNow.ToString( "o" ) );
+        _log.LogInformation( "Reading the minutes again to {Reason}", reason );
     }
 
     private static void ImportSplits(

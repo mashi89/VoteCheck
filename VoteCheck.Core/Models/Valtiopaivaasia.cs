@@ -35,6 +35,18 @@ namespace VoteCheck.Core.Models
         // of this record that actually tells a reader what the matter is about.
         public Asiasanat? Asiasanat { get; set; }
 
+        // The documents produced while the matter was handled — the committee report among them —
+        // with the edktunnus each is fetched by. The only exact way from a report's identifier
+        // to its document: looking the identifier up directly is a fuzzy search across years.
+        public KasittelynAsiakirjat? KasittelynAsiakirjat { get; set; }
+
+        // The Finnish document with exactly this identifier, e.g. "HaVM 28/2025 vp".
+        public AsiakirjaViite? Asiakirja(string eduskuntatunnus) =>
+            (KasittelynAsiakirjat?.Fi ?? new List<List<AsiakirjaViite>>())
+                .SelectMany(group => group ?? new List<AsiakirjaViite>())
+                .FirstOrDefault(d => string.Equals(d?.Eduskuntatunnus?.Trim(), eduskuntatunnus.Trim(), StringComparison.Ordinal)
+                                     && !string.IsNullOrWhiteSpace(d?.Edktunnus));
+
         // Keywords in reading order, Finnish. Upstream numbers them rather than returning them
         // sorted, and the numbering is what decides which are the headline subjects.
         public IReadOnlyList<string> Keywords( ) =>
@@ -76,6 +88,19 @@ namespace VoteCheck.Core.Models
 
             return new Uri($"https://www.eduskunta.fi/valtiopaivaasiat/{type}+{number}/{year}");
         }
+    }
+
+    // Grouped by handling step upstream, hence the list of lists.
+    public sealed class KasittelynAsiakirjat
+    {
+        public List<List<AsiakirjaViite>> Fi { get; set; } = new();
+    }
+
+    public sealed class AsiakirjaViite
+    {
+        public string? Eduskuntatunnus { get; set; }
+        public string? Edktunnus { get; set; }
+        public string? Asiakirjatyyppinimi { get; set; }
     }
 
     public sealed class Asiasanat
