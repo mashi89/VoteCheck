@@ -28,6 +28,12 @@ public class VoteModel : PageModel {
     // the title to be shown as it is.
     public BallotOptions? Options { get; private set; }
 
+    // What the session's minutes say: each side in the parliament's own words, with the
+    // proposal's text when the minutes state it, and what was decided. Preferred over Options
+    // when present, because the minutes mark Jaa and Ei explicitly on every vote. Null until
+    // the sync has read them.
+    public SessionMinutes? Minutes { get; private set; }
+
     // What the division was about: the bill or report it decides a step of. Null until the
     // sync has fetched it, which is an ordinary state and not an error.
     public Matter? Matter { get; private set; }
@@ -47,6 +53,7 @@ public class VoteModel : PageModel {
         Government = _queries.GetSplits( id, SplitKind.Government );
         Districts = _queries.GetSplits( id, SplitKind.District );
         Options = BallotOptions.Parse( Session.Title );
+        Minutes = _queries.GetMinutes( id );
         Matter = _queries.GetMatterForSession( id );
         DocumentId = Matter?.Id ?? _queries.GetDocumentId( id );
 

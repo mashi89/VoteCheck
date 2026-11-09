@@ -126,6 +126,36 @@ public sealed class Db {
                 PRIMARY KEY ( session_id, kind, name )
             ) WITHOUT ROWID;
 
+            -- What each side of a division stood for, as the session's minutes state it. The
+            -- division payload names the options only as a procedural title ("mietintö / 2");
+            -- the minutes say "Mietintö ”jaa”, Hanna Sarkkisen ehdotus 2 ”ei”", what was
+            -- decided, and in the same item the text of the proposal. Every column is upstream's
+            -- wording; an empty text means the minutes did not state it, never that it is short.
+            CREATE TABLE IF NOT EXISTS session_minutes (
+                session_id  TEXT PRIMARY KEY REFERENCES session(id),
+                setup       TEXT NOT NULL,            -- "Mietintö ”jaa”, … ”ei”." verbatim
+                outcome     TEXT NOT NULL DEFAULT '', -- "Eduskunta hyväksyi mietinnön."
+                -- Empty labels mean the setup did not mark both sides in so many words.
+                yes_label   TEXT NOT NULL DEFAULT '',
+                yes_context TEXT NOT NULL DEFAULT '', -- budget item, e.g. "30.20.20"
+                yes_text    TEXT NOT NULL DEFAULT '',
+                no_label    TEXT NOT NULL DEFAULT '',
+                no_context  TEXT NOT NULL DEFAULT '',
+                no_text     TEXT NOT NULL DEFAULT ''
+            ) WITHOUT ROWID;
+
+            -- Which sessions' minutes have been read. One row per plenary session, because the
+            -- minutes are one document per session. An empty document means the minutes were
+            -- not published when last asked — the usual state for a few hours after a session
+            -- — and checked_at says when to ask again.
+            CREATE TABLE IF NOT EXISTS sitting_minutes (
+                vp_year        INTEGER NOT NULL,
+                session_number INTEGER NOT NULL,
+                document       TEXT NOT NULL DEFAULT '', -- edktunnus, "EDK-2026-AK-63386"
+                checked_at     TEXT NOT NULL,
+                PRIMARY KEY ( vp_year, session_number )
+            ) WITHOUT ROWID;
+
             CREATE TABLE IF NOT EXISTS sync_state (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL

@@ -60,6 +60,15 @@ public sealed record Split( string Name, int Yes, int No, int Blank, int Absent 
     public int Total => Yes + No + Blank + Absent;
 }
 
+// What one side of a division stood for, as the session's minutes put it. Context is a budget
+// item ("30.20.20") when the minutes give one; Text is the proposal itself, or empty when the
+// minutes do not state it — which is not the same as it being short.
+public sealed record MinutesOption( string Label, string Context, string Text );
+
+// A division as its session's minutes record it. Yes and No are null when the setup did not
+// mark both sides in so many words; Setup is then the only thing to show.
+public sealed record SessionMinutes( string Setup, string Outcome, MinutesOption? Yes, MinutesOption? No );
+
 // The values of session_split.kind.
 public static class SplitKind {
     public const string Government = "government";
@@ -226,6 +235,33 @@ public sealed class Queries {
         while ( r.Read() )
             result.Add( new Split( r.GetString( 0 ), r.GetInt32( 1 ), r.GetInt32( 2 ), r.GetInt32( 3 ), r.GetInt32( 4 ) ) );
         return result;
+    }
+
+    // What the minutes say about this division, or null until the sync has read them — which
+    // for a recent division is hours, and for the archive is the first few cycles after the
+    // table appeared.
+    public SessionMinutes? GetMinutes( string sessionId ) {
+        using var conn = _db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT setup, outcome, yes_label, yes_context, yes_text, no_label, no_context, no_text
+            FROM session_minutes WHERE session_id = $id
+            """;
+        cmd.Parameters.AddWithValue( "$id", sessionId );
+
+        using var r = cmd.ExecuteReader();
+        if ( !r.Read() ) return null;
+
+        MinutesOption? Option( int at ) =>
+            r.GetString( at ).Length == 0
+                ? null
+                : new MinutesOption( r.GetString( at ), r.GetString( at + 1 ), r.GetString( at + 2 ) );
+
+        var yes = Option( 2 );
+        var no = Option( 5 );
+        return new SessionMinutes( r.GetString( 0 ), r.GetString( 1 ),
+            yes != null && no != null ? yes : null,
+            yes != null && no != null ? no : null );
     }
 
     public IReadOnlyList<IndividualVote> GetIndividualVotes( string sessionId, string? party = null ) {

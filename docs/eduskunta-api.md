@@ -169,6 +169,43 @@ fails that pattern, and those are in the archive. Both come back as null rather 
 letting the 400 propagate leaves the sync retrying such an identifier every cycle for ever,
 because it records a miss only when it gets an answer.
 
+### Session minutes — what each side of a vote stood for
+
+A division payload names its options only as `aanestysotsikko` (`"28.89.31, mietintö / 47"`).
+The session's minutes say the rest, and **`EduskuntaClient.GetSessionMinutesAsync` reads them**
+(#67):
+
+- the setup, with both sides marked: `Mietintö ”jaa”, Hanna Sarkkisen ehdotus 2 ”ei”.`
+- the outcome, right after the result: `Eduskunta hyväksyi mietinnön.`
+- in the same item, the proposals: numbered (`2. Hanna Sarkkinen (vas) Minja Koskelan (vas)
+  kannattamana 30.20.20: Lausumaehdotus: ”…”`, the budget's form) or described
+  (`…on … kannattamana ehdottanut, että lakiehdotus hylätään.`).
+
+Every vote is an `AanestysKappaleKooste` holding an `AanestysViite` whose attributes give
+`valtiopaivavuosiNroTeksti`, `kokousNroTeksti` and `aanestysNroTeksti`, so it joins to a division
+exactly. The attributes are **namespaced**: look them up by local name. Across the 2023+ mirror,
+2,794 of 2,804 divisions were found this way.
+
+Four things that each looked like missing data:
+
+- **Use the full session document, typed `Pöytäkirja`.** `PTK 108/2026 vp` is also the identifier
+  of each per-matter item of that session (`Pöytäkirjan asiakohta`), and those items leave out the
+  annual budget's per-chapter votes — two thirds of the archive. Read item by item, only a
+  quarter of divisions matched.
+- **`GET /asiakirjat/eduskuntatunnus/{id}` returns at most ten documents and cannot page.** A
+  session has more than ten, and the full minutes are usually not among those returned. Find
+  the document with `POST /search` instead: category `asiakirja`, expression
+  `and: [asiakirjatyyppinimi = "Pöytäkirja", eduskuntatunnus = "PTK 108/2026 vp"]`.
+- **The budget's chapters are `MuuAsiakohta`, not `Asiakohta`**, and each numbers its proposals
+  from 1. "Ehdotus 2" means something different in each chapter, so a number is read only within
+  its own item.
+- **`GET /asiakirjat/edktunnus/{id}/xml` answers 302** to the document store. Follow it.
+
+Minutes appear a few hours after the session; a handful of sessions have none at all
+(2024/65, for one). A proposal made in an attachment (`Pöytäkirjan liite 6A`) or as a
+dissenting opinion (`vastalauseen 3 mukaiset … lausumaehdotusta`) is only referred to here; its
+text lives in that document or in the committee report.
+
 ---
 
 ## `/search`: the quirks that cost time
@@ -436,6 +473,12 @@ curl -s -A "$UA" -H 'Content-Type: application/json' -d \
 # ...and the direct GET, which needs no search at all.
 curl -s -o /dev/null -w '%{http_code}\n' -A "$UA" "$B/valtiopaivaasiat/HE%20113%2F2026%20vp"
 curl -s -o /dev/null -w '%{http_code}\n' -A "$UA" "$B/valtiopaivaasiat/HE%2099999%2F2026%20vp"
+
+# A session's full minutes: find the document, then count its votes. Expect 5 for 108/2026.
+ID=$(curl -s -A "$UA" -H 'Content-Type: application/json' -d \
+  '{"category":"asiakirja","maxResults":1,"fields":{"operation":"exclude","list":["fullText"]},"expression":{"and":[{"property":"asiakirjatyyppinimi","stringValue":"Pöytäkirja"},{"property":"eduskuntatunnus","stringValue":"PTK 108/2026 vp"}]}}' \
+  "$B/search" | python3 -c 'import sys,json; print(json.load(sys.stdin)["results"][0]["id"])')
+curl -sL -A "$UA" "$B/asiakirjat/edktunnus/$ID/xml" | grep -o 'aanestysNroTeksti="[0-9]*"' | wc -l
 
 # The two divisions with no Speaker recorded.
 curl -s -A "$UA" -H 'Content-Type: application/json' -d \

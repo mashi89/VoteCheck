@@ -408,6 +408,23 @@ h2 {
 .option dd { margin: 0; }
 .option .v-jaa { color: var( --jaa-text ); }
 .option .v-ei  { color: var( --ei-text ); }
+/* The proposal's own text under its name, set off by a rule on the left so it reads as a
+ * quotation from the minutes rather than as more of the label. */
+.option-text {
+    margin-top: var( --space-1 );
+    padding-left: var( --space-3 );
+    border-left: 2px solid var( --rule );
+    font-size: var( --text-sm );
+}
+.option-text p { margin: 0; }
+.option-context { display: block; font-variant-numeric: tabular-nums; }
+.option-text summary { cursor: pointer; list-style: none; }
+.option-text summary::-webkit-details-marker { display: none; }
+.option-more { display: block; margin-top: var( --space-1 ); color: var( --jaa-text ); text-decoration: underline; }
+/* Opened, the full text replaces the preview rather than repeating it. */
+.option-text details[open] summary { display: none; }
+.options-outcome { margin: var( --space-3 ) 0 0; }
+.options-outcome q { font-style: normal; font-weight: 600; }
 
 /* The government split sits inside the result panel, below the options, so it reads as part
  * of what happened rather than as one more breakdown further down. */

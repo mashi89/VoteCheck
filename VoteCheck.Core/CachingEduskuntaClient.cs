@@ -55,6 +55,12 @@ namespace VoteCheck.Core
             CancellationToken cancellationToken = default) =>
             _inner.GetVotePageAsync(fromVpYear, startFromIndex, maxResults, cancellationToken);
 
+        // Not cached, for the same reason as the vote pages: the sync reads each session's
+        // minutes once and stores what it needs, and a document can run to a megabyte.
+        public Task<Poytakirja?> GetSessionMinutesAsync(
+            int vpYear, int sessionNumber, CancellationToken cancellationToken = default) =>
+            _inner.GetSessionMinutesAsync(vpYear, sessionNumber, cancellationToken);
+
         // A matter's keywords and title are settled long before anyone reads them here, and
         // roughly three divisions share each one, so this is the same win as a completed vote:
         // a page showing several divisions of one bill fetches it once.
