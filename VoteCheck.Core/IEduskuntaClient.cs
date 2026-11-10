@@ -81,5 +81,15 @@ namespace VoteCheck.Core
         // identifier, cannot page, and usually leaves the full minutes out.
         Task<Poytakirja?> GetSessionMinutesAsync(
             int vpYear, int sessionNumber, CancellationToken cancellationToken = default);
+
+        // A committee report, "HaVM 28/2025 vp", found through the matter it was written on,
+        // "HE 16/2025 vp". See Mietinto.
+        //
+        // Through the matter because that is the only exact route: the matter lists its
+        // documents with their edktunnus, while looking a report's identifier up directly is a
+        // fuzzy search that returns other years' reports of the same number. Two GETs; null when
+        // the matter does not list the report.
+        Task<Mietinto?> GetCommitteeReportAsync(
+            string matterId, string reportId, CancellationToken cancellationToken = default);
     }
 }

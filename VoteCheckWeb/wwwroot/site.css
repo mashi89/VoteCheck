@@ -423,6 +423,19 @@ h2 {
 .option-more { display: block; margin-top: var( --space-1 ); color: var( --jaa-text ); text-decoration: underline; }
 /* Opened, the full text replaces the preview rather than repeating it. */
 .option-text details[open] summary { display: none; }
+/* The changed passages of a section, Ei's wording against the committee's. Removals struck in
+ * Jaa's colour and additions underlined in Ei's, so the change reads in the same colours as the
+ * two sides it is between. */
+.option-diff { margin-top: var( --space-1 ); font-size: var( --text-sm ); }
+.option-diff p { margin: 0 0 var( --space-1 ); }
+.option-diff-title { margin-bottom: var( --space-1 ); }
+.option-diff del { color: var( --jaa-text ); text-decoration-thickness: 1px; }
+.option-diff ins {
+    color: var( --ei-text );
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
 .options-outcome { margin: var( --space-3 ) 0 0; }
 .options-outcome q { font-style: normal; font-weight: 600; }
 

@@ -254,18 +254,34 @@ namespace VoteCheck.Core
             if (edktunnus is null)
                 return null;
 
-            // Answered with a redirect to the document store, which HttpClient follows.
-            using var xml = await _httpClient
+            string? body = await GetDocumentXmlAsync(edktunnus, cancellationToken).ConfigureAwait(false);
+            return body is null ? null : Poytakirja.Parse(edktunnus, body);
+        }
+
+        public async Task<Mietinto?> GetCommitteeReportAsync(
+            string matterId, string reportId, CancellationToken cancellationToken = default)
+        {
+            var matter = await GetMatterAsync(matterId, cancellationToken).ConfigureAwait(false);
+            var document = matter?.Asiakirja(reportId);
+            if (document?.Edktunnus is null)
+                return null;
+
+            string? xml = await GetDocumentXmlAsync(document.Edktunnus, cancellationToken).ConfigureAwait(false);
+            return xml is null ? null : Mietinto.Parse(xml);
+        }
+
+        // Answered with a redirect to the document store, which HttpClient follows.
+        private async Task<string?> GetDocumentXmlAsync(string edktunnus, CancellationToken cancellationToken)
+        {
+            using var response = await _httpClient
                 .GetAsync($"asiakirjat/edktunnus/{Uri.EscapeDataString(edktunnus)}/xml", cancellationToken)
                 .ConfigureAwait(false);
 
-            if (xml.StatusCode == HttpStatusCode.NotFound)
+            if (response.StatusCode == HttpStatusCode.NotFound)
                 return null;
 
-            xml.EnsureSuccessStatusCode();
-
-            string body = await xml.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return Poytakirja.Parse(edktunnus, body);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private sealed class DocumentSearchResponse
